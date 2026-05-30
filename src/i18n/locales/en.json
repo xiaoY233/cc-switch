@@ -2689,6 +2689,8 @@
     "address": "Address",
     "defaultName": "Remote Server",
     "saved": "Remote server saved",
+    "saving": "Saving",
+    "saveFailed": "Failed to save remote server",
     "deleted": "Remote server deleted",
     "dialog": {
       "title": "Remote Server",
@@ -2709,6 +2711,10 @@
       "sshAgent": "SSH Agent",
       "keyFile": "Key file",
       "password": "Password"
+    },
+    "errors": {
+      "tauriUnavailable": "The browser preview is not connected to the desktop backend. Test saving and remote operations in the Tauri app window.",
+      "unknown": "Unknown error"
     },
     "health": {
       "title": "Health Check",

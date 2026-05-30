@@ -2635,6 +2635,8 @@
     "address": "位址",
     "defaultName": "遠端伺服器",
     "saved": "遠端伺服器已儲存",
+    "saving": "儲存中",
+    "saveFailed": "儲存遠端伺服器失敗",
     "deleted": "遠端伺服器已刪除",
     "dialog": {
       "title": "遠端伺服器",
@@ -2655,6 +2657,10 @@
       "sshAgent": "SSH Agent",
       "keyFile": "金鑰檔案",
       "password": "密碼"
+    },
+    "errors": {
+      "tauriUnavailable": "目前瀏覽器預覽未連接桌面端後端，請在 Tauri 應用程式視窗中測試儲存與遠端操作。",
+      "unknown": "未知錯誤"
     },
     "health": {
       "title": "健康檢查",

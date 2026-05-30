@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { KeyRound, LockKeyhole, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { extractErrorMessage } from "@/utils/errorUtils";
 import type {
   RemoteAuthMethod,
   RemoteConnectionSecret,
@@ -76,6 +78,7 @@ export function RemoteHostDialog({
   const [authMode, setAuthMode] = useState<RemoteAuthMode>("sshAgent");
   const [keyPath, setKeyPath] = useState("~/.ssh/id_ed25519");
   const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -90,6 +93,7 @@ export function RemoteHostDialog({
       authMethod?.type === "keyFile" ? authMethod.path : "~/.ssh/id_ed25519",
     );
     setPassword(initialSecret?.password ?? "");
+    setSaving(false);
   }, [open, initialProfile, initialSecret]);
 
   const buildAuthMethod = (): RemoteAuthMethod => {
@@ -102,30 +106,46 @@ export function RemoteHostDialog({
     return { type: "sshAgent" };
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (saving) return;
     const now = Date.now();
     const authMethod = buildAuthMethod();
-    void Promise.resolve(
-      onSave(
+    setSaving(true);
+    try {
+      await Promise.resolve(
+        onSave(
+          {
+            id: initialProfile?.id ?? `remote-${now}`,
+            name:
+              name.trim() ||
+              host.trim() ||
+              t("remote.defaultName", { defaultValue: "远程服务器" }),
+            host: host.trim(),
+            port: Number(port) || 22,
+            username: username.trim(),
+            authMethod,
+            helperPath: helperPath.trim() || DEFAULT_HELPER_PATH,
+            createdAt: initialProfile?.createdAt ?? now,
+            updatedAt: now,
+          },
+          authMethod.type === "password" && password ? { password } : undefined,
+        ),
+      );
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(
+        t("remote.saveFailed", { defaultValue: "保存远程服务器失败" }),
         {
-          id: initialProfile?.id ?? `remote-${now}`,
-          name:
-            name.trim() ||
-            host.trim() ||
-            t("remote.defaultName", { defaultValue: "远程服务器" }),
-          host: host.trim(),
-          port: Number(port) || 22,
-          username: username.trim(),
-          authMethod,
-          helperPath: helperPath.trim() || DEFAULT_HELPER_PATH,
-          createdAt: initialProfile?.createdAt ?? now,
-          updatedAt: now,
+          description: formatSaveError(error, t),
         },
-        authMethod.type === "password" && password ? { password } : undefined,
-      ),
-    ).then(() => onOpenChange(false));
+      );
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const formDisabled = saving;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -153,6 +173,7 @@ export function RemoteHostDialog({
                   id="remote-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  disabled={formDisabled}
                 />
               </Field>
               <Field
@@ -165,6 +186,7 @@ export function RemoteHostDialog({
                   onChange={(e) => setHost(e.target.value)}
                   placeholder="10.0.0.10"
                   required
+                  disabled={formDisabled}
                 />
               </Field>
               <Field
@@ -177,6 +199,7 @@ export function RemoteHostDialog({
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="deploy"
                   required
+                  disabled={formDisabled}
                 />
               </Field>
               <Field
@@ -189,6 +212,7 @@ export function RemoteHostDialog({
                   onChange={(e) => setPort(e.target.value)}
                   inputMode="numeric"
                   required
+                  disabled={formDisabled}
                 />
               </Field>
             </div>
@@ -203,6 +227,7 @@ export function RemoteHostDialog({
                 id="remote-helper-path"
                 value={helperPath}
                 onChange={(e) => setHelperPath(e.target.value)}
+                disabled={formDisabled}
               />
             </Field>
 
@@ -221,8 +246,9 @@ export function RemoteHostDialog({
                       key={option.type}
                       type="button"
                       onClick={() => setAuthMode(option.type)}
+                      disabled={formDisabled}
                       className={cn(
-                        "flex h-10 items-center justify-center gap-2 rounded-lg border text-sm transition-colors",
+                        "flex h-10 items-center justify-center gap-2 rounded-lg border text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
                         active
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-border bg-card text-muted-foreground hover:bg-accent/50 hover:text-foreground",
@@ -250,6 +276,7 @@ export function RemoteHostDialog({
                   value={keyPath}
                   onChange={(e) => setKeyPath(e.target.value)}
                   required
+                  disabled={formDisabled}
                 />
               </Field>
             )}
@@ -272,6 +299,7 @@ export function RemoteHostDialog({
                       : undefined
                   }
                   required={!initialSecret?.password}
+                  disabled={formDisabled}
                 />
               </Field>
             )}
@@ -282,17 +310,38 @@ export function RemoteHostDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={formDisabled}
             >
               {t("common.cancel", { defaultValue: "取消" })}
             </Button>
-            <Button type="submit">
-              {t("common.save", { defaultValue: "保存" })}
+            <Button type="submit" disabled={formDisabled}>
+              {saving
+                ? t("remote.saving", { defaultValue: "保存中" })
+                : t("common.save", { defaultValue: "保存" })}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   );
+}
+
+function formatSaveError(
+  error: unknown,
+  t: (key: string, options?: any) => string,
+) {
+  const message = extractErrorMessage(error);
+  if (
+    message.includes("reading 'invoke'") ||
+    message.includes("__TAURI_INTERNALS__") ||
+    message.includes("__TAURI__")
+  ) {
+    return t("remote.errors.tauriUnavailable", {
+      defaultValue:
+        "当前浏览器预览没有连接桌面端后端，请在 Tauri 应用窗口中测试保存和远程操作。",
+    });
+  }
+  return message || t("remote.errors.unknown", { defaultValue: "未知错误" });
 }
 
 function Field({

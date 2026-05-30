@@ -2689,6 +2689,8 @@
     "address": "地址",
     "defaultName": "远程服务器",
     "saved": "远程服务器已保存",
+    "saving": "保存中",
+    "saveFailed": "保存远程服务器失败",
     "deleted": "远程服务器已删除",
     "dialog": {
       "title": "远程服务器",
@@ -2709,6 +2711,10 @@
       "sshAgent": "SSH Agent",
       "keyFile": "密钥文件",
       "password": "密码"
+    },
+    "errors": {
+      "tauriUnavailable": "当前浏览器预览没有连接桌面端后端，请在 Tauri 应用窗口中测试保存和远程操作。",
+      "unknown": "未知错误"
     },
     "health": {
       "title": "健康检查",

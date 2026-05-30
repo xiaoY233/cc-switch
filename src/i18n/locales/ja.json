@@ -2689,6 +2689,8 @@
     "address": "アドレス",
     "defaultName": "リモートサーバー",
     "saved": "リモートサーバーを保存しました",
+    "saving": "保存中",
+    "saveFailed": "リモートサーバーの保存に失敗しました",
     "deleted": "リモートサーバーを削除しました",
     "dialog": {
       "title": "リモートサーバー",
@@ -2709,6 +2711,10 @@
       "sshAgent": "SSH Agent",
       "keyFile": "キーファイル",
       "password": "パスワード"
+    },
+    "errors": {
+      "tauriUnavailable": "現在のブラウザプレビューはデスクトップバックエンドに接続されていません。保存とリモート操作は Tauri アプリウィンドウでテストしてください。",
+      "unknown": "不明なエラー"
     },
     "health": {
       "title": "ヘルスチェック",

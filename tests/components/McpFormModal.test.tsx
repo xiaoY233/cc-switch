@@ -16,6 +16,7 @@ const upsertMock = vi.hoisted(() => {
   fn.mockResolvedValue(undefined);
   return fn;
 });
+const useUpsertMcpServerMock = vi.hoisted(() => vi.fn());
 
 vi.mock("sonner", () => ({
   toast: {
@@ -133,9 +134,12 @@ vi.mock("@/hooks/useMcp", async () => {
     await vi.importActual<typeof import("@/hooks/useMcp")>("@/hooks/useMcp");
   return {
     ...actual,
-    useUpsertMcpServer: () => ({
-      mutateAsync: (...args: unknown[]) => upsertMock(...args),
-    }),
+    useUpsertMcpServer: (...args: unknown[]) => {
+      useUpsertMcpServerMock(...args);
+      return {
+        mutateAsync: (...args: unknown[]) => upsertMock(...args),
+      };
+    },
   };
 });
 
@@ -144,6 +148,7 @@ describe("McpFormModal", () => {
     toastErrorMock.mockClear();
     toastSuccessMock.mockClear();
     upsertMock.mockClear();
+    useUpsertMcpServerMock.mockClear();
   });
 
   const renderForm = (
@@ -250,6 +255,46 @@ describe("McpFormModal", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledWith();
     expect(toastErrorMock).not.toHaveBeenCalled();
+  });
+
+  it("远程目标下提交时使用远程 target 创建 upsert mutation", async () => {
+    const remoteTarget = {
+      type: "remote",
+      profile: {
+        id: "remote-1",
+        name: "Remote 1",
+        host: "192.168.1.20",
+        port: 22,
+        username: "root",
+        authMethod: { type: "password" },
+        helperPath: "~/.local/bin/cc-switch-remote-helper",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      secret: { password: "secret" },
+    } as const;
+    renderForm({ target: remoteTarget });
+
+    fireEvent.change(screen.getByPlaceholderText("mcp.form.titlePlaceholder"), {
+      target: { value: "remote-mcp" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("mcp.form.jsonPlaceholder"), {
+      target: { value: '{"type":"stdio","command":"remote-run"}' },
+    });
+
+    fireEvent.click(screen.getByText("common.add"));
+
+    await waitFor(() => expect(upsertMock).toHaveBeenCalledTimes(1));
+    expect(useUpsertMcpServerMock).toHaveBeenCalledWith(remoteTarget);
+    expect(upsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "remote-mcp",
+        server: {
+          type: "stdio",
+          command: "remote-run",
+        },
+      }),
+    );
   });
 
   it("缺少配置命令时阻止提交并提示错误", async () => {
