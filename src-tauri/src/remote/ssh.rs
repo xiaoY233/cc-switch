@@ -25,7 +25,8 @@ pub fn build_ssh_args(profile: &RemoteHostProfile, helper_args: &[String]) -> Ve
 }
 
 fn shell_quote(value: &str) -> String {
-    if value
+    if !value.is_empty()
+        && value
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || "-_./:".contains(c))
     {

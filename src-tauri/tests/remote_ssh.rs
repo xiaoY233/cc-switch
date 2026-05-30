@@ -26,3 +26,16 @@ fn ssh_args_include_port_identity_and_json_command() {
     assert!(args.contains(&"alice@example.com".to_string()));
     assert!(args.last().expect("remote command").contains("--json"));
 }
+
+#[test]
+fn ssh_command_preserves_empty_and_space_helper_args() {
+    let args = build_ssh_args(
+        &profile(),
+        &["".to_string(), "two words".to_string(), "status".to_string()],
+    );
+
+    assert_eq!(
+        args.last().expect("remote command"),
+        "~/.local/bin/cc-switch --json '' 'two words' status"
+    );
+}
