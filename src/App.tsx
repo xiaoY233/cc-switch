@@ -84,13 +84,6 @@ import { AgentsPanel } from "@/components/agents/AgentsPanel";
 import { UniversalProviderPanel } from "@/components/universal";
 import { McpIcon } from "@/components/BrandIcons";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { SessionManagerPage } from "@/components/sessions/SessionManagerPage";
 import {
   useDisableCurrentOmo,
@@ -103,6 +96,7 @@ import AgentsDefaultsPanel from "@/components/openclaw/AgentsDefaultsPanel";
 import OpenClawHealthBanner from "@/components/openclaw/OpenClawHealthBanner";
 import HermesMemoryPanel from "@/components/hermes/HermesMemoryPanel";
 import { RemoteServersPage } from "@/components/remote/RemoteServersPage";
+import { ManagementTargetSwitcher } from "@/components/remote/ManagementTargetSwitcher";
 
 type View =
   | "providers"
@@ -1294,39 +1288,13 @@ function App() {
                 >
                   <Settings className="w-4 h-4" />
                 </Button>
-                <Select
-                  value={activeTargetKey}
-                  onValueChange={setActiveTargetKey}
-                >
-                  <SelectTrigger
-                    className="h-8 w-[190px] rounded-lg bg-card/70 px-2 text-xs shadow-sm hover:bg-muted/50"
-                    title={t("remote.targetSelector", {
-                      defaultValue: "管理目标",
-                    })}
-                    style={{ WebkitAppRegion: "no-drag" } as any}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent align="start" className="bg-card shadow-lg">
-                    <SelectItem value="local">
-                      <span className="inline-flex items-center gap-2">
-                        <LayoutDashboard className="h-3.5 w-3.5 text-muted-foreground" />
-                        {t("remote.localTarget", { defaultValue: "本地" })}
-                      </span>
-                    </SelectItem>
-                    {remoteProfiles.map((profile) => (
-                      <SelectItem
-                        key={profile.id}
-                        value={`remote:${profile.id}`}
-                      >
-                        <span className="inline-flex min-w-0 items-center gap-2">
-                          <Server className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="truncate">{profile.name}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ManagementTargetSwitcher
+                  profiles={remoteProfiles}
+                  activeTargetKey={activeTargetKey}
+                  onTargetChange={setActiveTargetKey}
+                  onManageServers={() => setCurrentView("remoteServers")}
+                  style={{ WebkitAppRegion: "no-drag" } as any}
+                />
                 <Button
                   variant="ghost"
                   size="icon"
