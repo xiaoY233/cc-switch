@@ -2730,6 +2730,7 @@
       "installSuccess": "远程 Helper 已安装",
       "installFailed": "安装远程 Helper 失败: {{error}}",
       "check": "检查",
+      "helperVersion": "Helper 版本",
       "platform": "平台",
       "capabilities": "能力",
       "missingCapabilities": "缺少能力"

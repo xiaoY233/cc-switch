@@ -2676,6 +2676,7 @@
       "installSuccess": "遠端 Helper 已安裝",
       "installFailed": "安裝遠端 Helper 失敗: {{error}}",
       "check": "檢查",
+      "helperVersion": "Helper 版本",
       "platform": "平台",
       "capabilities": "能力",
       "missingCapabilities": "缺少能力"

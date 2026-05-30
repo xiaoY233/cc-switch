@@ -89,4 +89,25 @@ describe("RemoteHealthPanel", () => {
     });
     expect(screen.queryByText("缺少能力")).not.toBeInTheDocument();
   });
+
+  it("keeps the configured helper path visible after a health check", async () => {
+    checkHealthMock.mockResolvedValueOnce({
+      reachable: true,
+      helperInstalled: true,
+      helperVersion: "3.16.0",
+      platform: "linux",
+      capabilities: ["providers"],
+    });
+
+    render(<RemoteHealthPanel profile={profile} />);
+
+    expect(screen.getByText(profile.helperPath)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "检查" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("3.16.0")).toBeInTheDocument();
+    });
+    expect(screen.getByText(profile.helperPath)).toBeInTheDocument();
+  });
 });

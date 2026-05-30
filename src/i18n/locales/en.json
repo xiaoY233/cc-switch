@@ -2730,6 +2730,7 @@
       "installSuccess": "Remote helper installed",
       "installFailed": "Failed to install remote helper: {{error}}",
       "check": "Check",
+      "helperVersion": "Helper Version",
       "platform": "Platform",
       "capabilities": "Capabilities",
       "missingCapabilities": "Missing capabilities"

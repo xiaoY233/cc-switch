@@ -156,14 +156,20 @@ export function RemoteHealthPanel({
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-0 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-0 sm:grid-cols-4">
         <Metric
           label={t("remote.fields.host", { defaultValue: "主机" })}
           value={profile?.host ?? "-"}
         />
         <Metric
           label={t("remote.fields.helperPath", { defaultValue: "Helper 路径" })}
-          value={health?.helperVersion ?? profile?.helperPath ?? "-"}
+          value={profile?.helperPath ?? "-"}
+        />
+        <Metric
+          label={t("remote.health.helperVersion", {
+            defaultValue: "Helper 版本",
+          })}
+          value={health?.helperVersion ?? "-"}
         />
         <Metric
           label={t("remote.health.platform", { defaultValue: "平台" })}

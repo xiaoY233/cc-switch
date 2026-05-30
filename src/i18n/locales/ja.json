@@ -2730,6 +2730,7 @@
       "installSuccess": "リモート Helper をインストールしました",
       "installFailed": "リモート Helper のインストールに失敗しました: {{error}}",
       "check": "確認",
+      "helperVersion": "Helper バージョン",
       "platform": "プラットフォーム",
       "capabilities": "機能",
       "missingCapabilities": "不足している機能"
