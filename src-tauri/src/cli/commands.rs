@@ -1,4 +1,7 @@
+use crate::{AppState, AppType, Database, ProviderService};
 use serde::Serialize;
+use serde_json::Value;
+use std::sync::Arc;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,5 +22,91 @@ pub fn status_payload() -> StatusPayload {
             "skills".to_string(),
             "import-export".to_string(),
         ],
+    }
+}
+
+pub fn list_providers(app: AppType) -> Result<serde_json::Value, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    let providers = ProviderService::list(&state, app).map_err(|e| e.to_string())?;
+    let mut value = serde_json::to_value(providers).map_err(|e| e.to_string())?;
+    redact_secret_values(&mut value);
+    Ok(value)
+}
+
+fn redact_secret_values(value: &mut Value) {
+    match value {
+        Value::Object(map) => {
+            for (key, child) in map.iter_mut() {
+                if is_secret_key(key) {
+                    *child = Value::String("[redacted]".to_string());
+                } else {
+                    redact_secret_values(child);
+                }
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                redact_secret_values(item);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn is_secret_key(key: &str) -> bool {
+    let normalized = key.to_ascii_lowercase();
+    normalized == "key"
+        || normalized.contains("api_key")
+        || normalized.contains("apikey")
+        || normalized.contains("token")
+        || normalized.contains("secret")
+        || normalized.contains("password")
+        || normalized.contains("credential")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn provider_output_redacts_nested_secret_values() {
+        let mut value = json!({
+            "provider": {
+                "settingsConfig": {
+                    "env": {
+                        "ANTHROPIC_AUTH_TOKEN": "sk-secret",
+                        "ANTHROPIC_BASE_URL": "https://example.com",
+                        "OPENAI_API_KEY": "sk-openai"
+                    }
+                },
+                "meta": {
+                    "usage_script": {
+                        "accessToken": "user-token",
+                        "baseUrl": "https://usage.example.com"
+                    }
+                }
+            }
+        });
+
+        redact_secret_values(&mut value);
+
+        assert_eq!(
+            value["provider"]["settingsConfig"]["env"]["ANTHROPIC_AUTH_TOKEN"],
+            "[redacted]"
+        );
+        assert_eq!(
+            value["provider"]["settingsConfig"]["env"]["OPENAI_API_KEY"],
+            "[redacted]"
+        );
+        assert_eq!(
+            value["provider"]["meta"]["usage_script"]["accessToken"],
+            "[redacted]"
+        );
+        assert_eq!(
+            value["provider"]["settingsConfig"]["env"]["ANTHROPIC_BASE_URL"],
+            "https://example.com"
+        );
     }
 }

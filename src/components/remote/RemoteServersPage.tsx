@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RemoteHealthPanel } from "./RemoteHealthPanel";
 import { RemoteHostDialog } from "./RemoteHostDialog";
+import { RemoteProvidersPanel } from "./RemoteProvidersPanel";
 
 export function RemoteServersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -17,6 +18,7 @@ export function RemoteServersPage() {
         </Button>
       </header>
       <RemoteHealthPanel />
+      <RemoteProvidersPanel />
       <div className="flex flex-1 items-center justify-center p-6">
         <div className="rounded-md border px-6 py-5 text-center">
           <p className="text-sm font-medium">No remote server selected</p>
