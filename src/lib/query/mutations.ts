@@ -1,7 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { providersApi, sessionsApi, settingsApi, type AppId } from "@/lib/api";
+import {
+  providersApi,
+  sessionsApi,
+  settingsApi,
+  type AppId,
+  type ManagementTarget,
+} from "@/lib/api";
 import type { DeleteSessionOptions } from "@/lib/api/sessions";
 import type { SwitchResult } from "@/lib/api/providers";
 import type { Provider, SessionMeta, Settings } from "@/types";
@@ -10,7 +16,19 @@ import { generateUUID } from "@/utils/uuid";
 import { openclawKeys } from "@/hooks/useOpenClaw";
 import { invalidateHermesProviderCaches } from "@/hooks/useHermes";
 
-export const useAddProviderMutation = (appId: AppId) => {
+const targetKey = (target: ManagementTarget) =>
+  target.type === "remote" ? `remote:${target.profile.id}` : "local";
+
+const providerQueryKey = (appId: AppId, target: ManagementTarget) => [
+  "providers",
+  appId,
+  targetKey(target),
+];
+
+export const useAddProviderMutation = (
+  appId: AppId,
+  target: ManagementTarget = { type: "local" },
+) => {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
@@ -49,11 +67,13 @@ export const useAddProviderMutation = (appId: AppId) => {
       };
       delete (newProvider as any).providerKey;
 
-      await providersApi.add(newProvider, appId, addToLive);
+      await providersApi.add(newProvider, appId, addToLive, target);
       return newProvider;
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["providers", appId] });
+      await queryClient.invalidateQueries({
+        queryKey: providerQueryKey(appId, target),
+      });
 
       if (appId === "opencode") {
         await queryClient.invalidateQueries({
@@ -80,13 +100,15 @@ export const useAddProviderMutation = (appId: AppId) => {
         await invalidateHermesProviderCaches(queryClient);
       }
 
-      try {
-        await providersApi.updateTrayMenu();
-      } catch (trayError) {
-        console.error(
-          "Failed to update tray menu after adding provider",
-          trayError,
-        );
+      if (target.type === "local") {
+        try {
+          await providersApi.updateTrayMenu();
+        } catch (trayError) {
+          console.error(
+            "Failed to update tray menu after adding provider",
+            trayError,
+          );
+        }
       }
 
       toast.success(
@@ -110,7 +132,10 @@ export const useAddProviderMutation = (appId: AppId) => {
   });
 };
 
-export const useUpdateProviderMutation = (appId: AppId) => {
+export const useUpdateProviderMutation = (
+  appId: AppId,
+  target: ManagementTarget = { type: "local" },
+) => {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
@@ -122,11 +147,13 @@ export const useUpdateProviderMutation = (appId: AppId) => {
       provider: Provider;
       originalId?: string;
     }) => {
-      await providersApi.update(provider, appId, originalId);
+      await providersApi.update(provider, appId, originalId, target);
       return provider;
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["providers", appId] });
+      await queryClient.invalidateQueries({
+        queryKey: providerQueryKey(appId, target),
+      });
       if (appId === "openclaw") {
         await queryClient.invalidateQueries({
           queryKey: openclawKeys.health,
@@ -156,16 +183,21 @@ export const useUpdateProviderMutation = (appId: AppId) => {
   });
 };
 
-export const useDeleteProviderMutation = (appId: AppId) => {
+export const useDeleteProviderMutation = (
+  appId: AppId,
+  target: ManagementTarget = { type: "local" },
+) => {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
   return useMutation({
     mutationFn: async (providerId: string) => {
-      await providersApi.delete(providerId, appId);
+      await providersApi.delete(providerId, appId, target);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["providers", appId] });
+      await queryClient.invalidateQueries({
+        queryKey: providerQueryKey(appId, target),
+      });
 
       if (appId === "opencode") {
         await queryClient.invalidateQueries({
@@ -192,13 +224,15 @@ export const useDeleteProviderMutation = (appId: AppId) => {
         await invalidateHermesProviderCaches(queryClient);
       }
 
-      try {
-        await providersApi.updateTrayMenu();
-      } catch (trayError) {
-        console.error(
-          "Failed to update tray menu after deleting provider",
-          trayError,
-        );
+      if (target.type === "local") {
+        try {
+          await providersApi.updateTrayMenu();
+        } catch (trayError) {
+          console.error(
+            "Failed to update tray menu after deleting provider",
+            trayError,
+          );
+        }
       }
 
       toast.success(
@@ -222,16 +256,21 @@ export const useDeleteProviderMutation = (appId: AppId) => {
   });
 };
 
-export const useSwitchProviderMutation = (appId: AppId) => {
+export const useSwitchProviderMutation = (
+  appId: AppId,
+  target: ManagementTarget = { type: "local" },
+) => {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
   return useMutation({
     mutationFn: async (providerId: string): Promise<SwitchResult> => {
-      return await providersApi.switch(providerId, appId);
+      return await providersApi.switch(providerId, appId, target);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["providers", appId] });
+      await queryClient.invalidateQueries({
+        queryKey: providerQueryKey(appId, target),
+      });
       if (appId === "claude-desktop") {
         await queryClient.invalidateQueries({ queryKey: ["proxyStatus"] });
         await queryClient.invalidateQueries({
@@ -266,13 +305,15 @@ export const useSwitchProviderMutation = (appId: AppId) => {
         await invalidateHermesProviderCaches(queryClient);
       }
 
-      try {
-        await providersApi.updateTrayMenu();
-      } catch (trayError) {
-        console.error(
-          "Failed to update tray menu after switching provider",
-          trayError,
-        );
+      if (target.type === "local") {
+        try {
+          await providersApi.updateTrayMenu();
+        } catch (trayError) {
+          console.error(
+            "Failed to update tray menu after switching provider",
+            trayError,
+          );
+        }
       }
     },
     onError: (error: Error) => {

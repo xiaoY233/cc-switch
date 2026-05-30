@@ -18,7 +18,13 @@ export * as authApi from "./auth";
 export * as copilotApi from "./copilot";
 export type { ProviderSwitchEvent } from "./providers";
 export type { Prompt } from "./prompts";
-export type { RemoteAuthMethod, RemoteHostProfile } from "./remote";
+export type {
+  ManagementTarget,
+  RemoteAuthMethod,
+  RemoteConnectionSecret,
+  RemoteHealth,
+  RemoteHostProfile,
+} from "./remote";
 export type {
   CopilotDeviceCodeResponse,
   CopilotAuthStatus,

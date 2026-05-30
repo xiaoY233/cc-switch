@@ -6,6 +6,7 @@ import type {
   UniversalProvidersMap,
 } from "@/types";
 import type { AppId } from "./types";
+import { remoteApi, type ManagementTarget } from "./remote";
 
 export interface ProviderSortUpdate {
   id: string;
@@ -47,11 +48,27 @@ export interface ClaudeDesktopDefaultRoute {
 }
 
 export const providersApi = {
-  async getAll(appId: AppId): Promise<Record<string, Provider>> {
+  async getAll(
+    appId: AppId,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<Record<string, Provider>> {
+    if (target.type === "remote") {
+      return await remoteApi.getProviders(target.profile, appId, target.secret);
+    }
     return await invoke("get_providers", { app: appId });
   },
 
-  async getCurrent(appId: AppId): Promise<string> {
+  async getCurrent(
+    appId: AppId,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<string> {
+    if (target.type === "remote") {
+      return await remoteApi.getCurrentProvider(
+        target.profile,
+        appId,
+        target.secret,
+      );
+    }
     return await invoke("get_current_provider", { app: appId });
   },
 
@@ -59,7 +76,17 @@ export const providersApi = {
     provider: Provider,
     appId: AppId,
     addToLive?: boolean,
+    target: ManagementTarget = { type: "local" },
   ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.addProvider(
+        target.profile,
+        appId,
+        provider,
+        addToLive,
+        target.secret,
+      );
+    }
     return await invoke("add_provider", { provider, app: appId, addToLive });
   },
 
@@ -67,7 +94,17 @@ export const providersApi = {
     provider: Provider,
     appId: AppId,
     originalId?: string,
+    target: ManagementTarget = { type: "local" },
   ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.updateProvider(
+        target.profile,
+        appId,
+        provider,
+        originalId,
+        target.secret,
+      );
+    }
     return await invoke("update_provider", {
       provider,
       app: appId,
@@ -75,7 +112,19 @@ export const providersApi = {
     });
   },
 
-  async delete(id: string, appId: AppId): Promise<boolean> {
+  async delete(
+    id: string,
+    appId: AppId,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.deleteProvider(
+        target.profile,
+        appId,
+        id,
+        target.secret,
+      );
+    }
     return await invoke("delete_provider", { id, app: appId });
   },
 
@@ -87,7 +136,19 @@ export const providersApi = {
     return await invoke("remove_provider_from_live_config", { id, app: appId });
   },
 
-  async switch(id: string, appId: AppId): Promise<SwitchResult> {
+  async switch(
+    id: string,
+    appId: AppId,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<SwitchResult> {
+    if (target.type === "remote") {
+      return await remoteApi.switchProvider(
+        target.profile,
+        appId,
+        id,
+        target.secret,
+      );
+    }
     return await invoke("switch_provider", { id, app: appId });
   },
 

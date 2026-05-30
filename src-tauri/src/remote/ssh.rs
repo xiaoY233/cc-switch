@@ -1,9 +1,17 @@
-use crate::remote::types::{RemoteAuthMethod, RemoteHostProfile};
+use crate::error::AppError;
+use crate::remote::types::{
+    RemoteAuthMethod, RemoteCommandError, RemoteCommandResponse, RemoteConnectionSecret,
+    RemoteHostProfile,
+};
+use serde::de::DeserializeOwned;
+use std::process::Command;
 
 pub fn build_ssh_args(profile: &RemoteHostProfile, helper_args: &[String]) -> Vec<String> {
     let mut args = vec![
         "-p".to_string(),
         profile.port.to_string(),
+        "-o".to_string(),
+        "ConnectTimeout=10".to_string(),
         "-o".to_string(),
         match &profile.auth_method {
             RemoteAuthMethod::Password => "BatchMode=no".to_string(),
@@ -35,6 +43,103 @@ pub fn build_ssh_args(profile: &RemoteHostProfile, helper_args: &[String]) -> Ve
     command.extend(helper_args.iter().map(|arg| shell_quote(arg)));
     args.push(command.join(" "));
     args
+}
+
+pub fn run_helper_json<T: DeserializeOwned>(
+    profile: &RemoteHostProfile,
+    helper_args: &[String],
+    secret: Option<&RemoteConnectionSecret>,
+) -> Result<T, AppError> {
+    let mut command = Command::new("ssh");
+    command.args(build_ssh_args(profile, helper_args));
+
+    let _askpass = configure_password_auth(profile, secret, &mut command)?;
+    let output = command
+        .output()
+        .map_err(|e| AppError::Message(format!("Failed to execute ssh: {e}")))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(AppError::Message(if stderr.is_empty() {
+            format!("Remote ssh command failed with status {}", output.status)
+        } else {
+            stderr
+        }));
+    }
+
+    let stdout = String::from_utf8(output.stdout)
+        .map_err(|e| AppError::Message(format!("Remote helper returned invalid UTF-8: {e}")))?;
+    let envelope: RemoteCommandResponse<T> = serde_json::from_str(stdout.trim())
+        .map_err(|e| AppError::Message(format!("Remote helper returned invalid JSON: {e}")))?;
+
+    if envelope.ok {
+        envelope
+            .data
+            .ok_or_else(|| AppError::Message("Remote helper returned ok without data".to_string()))
+    } else {
+        let RemoteCommandError { code, message } = envelope.error.unwrap_or(RemoteCommandError {
+            code: "remote_error".to_string(),
+            message: "Remote helper command failed".to_string(),
+        });
+        Err(AppError::Message(format!("{code}: {message}")))
+    }
+}
+
+#[cfg(unix)]
+fn configure_password_auth(
+    profile: &RemoteHostProfile,
+    secret: Option<&RemoteConnectionSecret>,
+    command: &mut Command,
+) -> Result<Option<tempfile::NamedTempFile>, AppError> {
+    use std::io::Write;
+    use std::os::unix::fs::PermissionsExt;
+
+    if !matches!(profile.auth_method, RemoteAuthMethod::Password) {
+        return Ok(None);
+    }
+
+    let password = secret
+        .and_then(|secret| secret.password.as_deref())
+        .filter(|password| !password.is_empty())
+        .ok_or_else(|| AppError::Message("Remote SSH password is required".to_string()))?;
+
+    let mut askpass = tempfile::Builder::new()
+        .prefix("cc-switch-ssh-askpass-")
+        .tempfile()
+        .map_err(|e| AppError::Message(format!("Failed to create ssh askpass helper: {e}")))?;
+    askpass
+        .write_all(b"#!/bin/sh\nprintf '%s' \"$CC_SWITCH_REMOTE_SSH_PASSWORD\"\n")
+        .map_err(|e| AppError::Message(format!("Failed to write ssh askpass helper: {e}")))?;
+    let mut perms = askpass
+        .as_file()
+        .metadata()
+        .map_err(|e| AppError::Message(format!("Failed to inspect ssh askpass helper: {e}")))?
+        .permissions();
+    perms.set_mode(0o700);
+    askpass
+        .as_file()
+        .set_permissions(perms)
+        .map_err(|e| AppError::Message(format!("Failed to secure ssh askpass helper: {e}")))?;
+
+    command.env("SSH_ASKPASS", askpass.path());
+    command.env("SSH_ASKPASS_REQUIRE", "force");
+    command.env("DISPLAY", "cc-switch");
+    command.env("CC_SWITCH_REMOTE_SSH_PASSWORD", password);
+    Ok(Some(askpass))
+}
+
+#[cfg(not(unix))]
+fn configure_password_auth(
+    profile: &RemoteHostProfile,
+    _secret: Option<&RemoteConnectionSecret>,
+    _command: &mut Command,
+) -> Result<Option<()>, AppError> {
+    if matches!(profile.auth_method, RemoteAuthMethod::Password) {
+        return Err(AppError::Message(
+            "Remote SSH password auth is only supported on Unix desktops".to_string(),
+        ));
+    }
+    Ok(None)
 }
 
 fn shell_quote_helper_path(value: &str) -> String {

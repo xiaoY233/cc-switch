@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { KeyRound, LockKeyhole, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,18 +14,38 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { RemoteAuthMethod, RemoteHostProfile } from "@/lib/api";
+import type {
+  RemoteAuthMethod,
+  RemoteConnectionSecret,
+  RemoteHostProfile,
+} from "@/lib/api";
 
 type RemoteAuthMode = RemoteAuthMethod["type"];
 
 const AUTH_OPTIONS: Array<{
   type: RemoteAuthMode;
-  label: string;
+  labelKey: string;
+  defaultLabel: string;
   icon: LucideIcon;
 }> = [
-  { type: "sshAgent", label: "Agent", icon: ShieldCheck },
-  { type: "keyFile", label: "Key file", icon: KeyRound },
-  { type: "password", label: "Password", icon: LockKeyhole },
+  {
+    type: "sshAgent",
+    labelKey: "remote.auth.sshAgent",
+    defaultLabel: "SSH Agent",
+    icon: ShieldCheck,
+  },
+  {
+    type: "keyFile",
+    labelKey: "remote.auth.keyFile",
+    defaultLabel: "密钥文件",
+    icon: KeyRound,
+  },
+  {
+    type: "password",
+    labelKey: "remote.auth.password",
+    defaultLabel: "密码",
+    icon: LockKeyhole,
+  },
 ];
 
 export function RemoteHostDialog({
@@ -34,9 +55,13 @@ export function RemoteHostDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (profile: RemoteHostProfile) => void;
+  onSave: (
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ) => Promise<void> | void;
 }) {
-  const [name, setName] = useState("Development server");
+  const { t } = useTranslation();
+  const [name, setName] = useState("");
   const [host, setHost] = useState("");
   const [port, setPort] = useState("22");
   const [username, setUsername] = useState("");
@@ -47,7 +72,7 @@ export function RemoteHostDialog({
 
   useEffect(() => {
     if (!open) return;
-    setName("Development server");
+    setName("");
     setHost("");
     setPort("22");
     setUsername("");
@@ -70,18 +95,25 @@ export function RemoteHostDialog({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const now = Date.now();
-    onSave({
-      id: `remote-${now}`,
-      name: name.trim() || host.trim() || "Remote server",
-      host: host.trim(),
-      port: Number(port) || 22,
-      username: username.trim(),
-      authMethod: buildAuthMethod(),
-      helperPath: helperPath.trim() || "~/.local/bin/cc-switch",
-      createdAt: now,
-      updatedAt: now,
-    });
-    onOpenChange(false);
+    void Promise.resolve(
+      onSave(
+        {
+          id: `remote-${now}`,
+          name:
+            name.trim() ||
+            host.trim() ||
+            t("remote.defaultName", { defaultValue: "远程服务器" }),
+          host: host.trim(),
+          port: Number(port) || 22,
+          username: username.trim(),
+          authMethod: buildAuthMethod(),
+          helperPath: helperPath.trim() || "~/.local/bin/cc-switch",
+          createdAt: now,
+          updatedAt: now,
+        },
+        authMode === "password" ? { password } : undefined,
+      ),
+    ).then(() => onOpenChange(false));
   };
 
   return (
@@ -89,15 +121,17 @@ export function RemoteHostDialog({
       <DialogContent className="max-w-xl">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Remote server</DialogTitle>
+            <DialogTitle>
+              {t("remote.dialog.title", { defaultValue: "远程服务器" })}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="grid gap-5 px-6 py-5">
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Name">
+              <Field label={t("remote.fields.name", { defaultValue: "名称" })}>
                 <Input value={name} onChange={(e) => setName(e.target.value)} />
               </Field>
-              <Field label="Host">
+              <Field label={t("remote.fields.host", { defaultValue: "主机" })}>
                 <Input
                   value={host}
                   onChange={(e) => setHost(e.target.value)}
@@ -105,7 +139,9 @@ export function RemoteHostDialog({
                   required
                 />
               </Field>
-              <Field label="Username">
+              <Field
+                label={t("remote.fields.username", { defaultValue: "用户名" })}
+              >
                 <Input
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -113,7 +149,7 @@ export function RemoteHostDialog({
                   required
                 />
               </Field>
-              <Field label="Port">
+              <Field label={t("remote.fields.port", { defaultValue: "端口" })}>
                 <Input
                   value={port}
                   onChange={(e) => setPort(e.target.value)}
@@ -123,7 +159,11 @@ export function RemoteHostDialog({
               </Field>
             </div>
 
-            <Field label="Helper path">
+            <Field
+              label={t("remote.fields.helperPath", {
+                defaultValue: "Helper 路径",
+              })}
+            >
               <Input
                 value={helperPath}
                 onChange={(e) => setHelperPath(e.target.value)}
@@ -131,7 +171,11 @@ export function RemoteHostDialog({
             </Field>
 
             <div className="grid gap-2">
-              <Label>Authentication</Label>
+              <Label>
+                {t("remote.fields.authentication", {
+                  defaultValue: "认证方式",
+                })}
+              </Label>
               <div className="grid grid-cols-3 gap-2">
                 {AUTH_OPTIONS.map((option) => {
                   const Icon = option.icon;
@@ -149,7 +193,9 @@ export function RemoteHostDialog({
                       )}
                     >
                       <Icon className="h-4 w-4" />
-                      {option.label}
+                      {t(option.labelKey, {
+                        defaultValue: option.defaultLabel,
+                      })}
                     </button>
                   );
                 })}
@@ -157,7 +203,11 @@ export function RemoteHostDialog({
             </div>
 
             {authMode === "keyFile" && (
-              <Field label="SSH key path">
+              <Field
+                label={t("remote.fields.keyPath", {
+                  defaultValue: "SSH 密钥路径",
+                })}
+              >
                 <Input
                   value={keyPath}
                   onChange={(e) => setKeyPath(e.target.value)}
@@ -167,7 +217,9 @@ export function RemoteHostDialog({
             )}
 
             {authMode === "password" && (
-              <Field label="Password">
+              <Field
+                label={t("remote.fields.password", { defaultValue: "密码" })}
+              >
                 <Input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -184,9 +236,11 @@ export function RemoteHostDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("common.cancel", { defaultValue: "取消" })}
             </Button>
-            <Button type="submit">Save</Button>
+            <Button type="submit">
+              {t("common.save", { defaultValue: "保存" })}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -194,13 +248,7 @@ export function RemoteHostDialog({
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="grid gap-2">
       <Label>{label}</Label>

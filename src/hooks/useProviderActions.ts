@@ -2,7 +2,13 @@ import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { providersApi, settingsApi, openclawApi, type AppId } from "@/lib/api";
+import {
+  providersApi,
+  settingsApi,
+  openclawApi,
+  type AppId,
+  type ManagementTarget,
+} from "@/lib/api";
 import type {
   Provider,
   UsageScript,
@@ -32,14 +38,15 @@ export function useProviderActions(
   activeApp: AppId,
   isProxyRunning?: boolean,
   isProxyTakeover?: boolean,
+  target: ManagementTarget = { type: "local" },
 ) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
-  const addProviderMutation = useAddProviderMutation(activeApp);
-  const updateProviderMutation = useUpdateProviderMutation(activeApp);
-  const deleteProviderMutation = useDeleteProviderMutation(activeApp);
-  const switchProviderMutation = useSwitchProviderMutation(activeApp);
+  const addProviderMutation = useAddProviderMutation(activeApp, target);
+  const updateProviderMutation = useUpdateProviderMutation(activeApp, target);
+  const deleteProviderMutation = useDeleteProviderMutation(activeApp, target);
+  const switchProviderMutation = useSwitchProviderMutation(activeApp, target);
 
   // Claude 插件同步逻辑
   const syncClaudePlugin = useCallback(
@@ -136,7 +143,9 @@ export function useProviderActions(
 
       // 更新托盘菜单（失败不影响主操作）
       try {
-        await providersApi.updateTrayMenu();
+        if (target.type === "local") {
+          await providersApi.updateTrayMenu();
+        }
       } catch (trayError) {
         console.error(
           "Failed to update tray menu after updating provider",
@@ -144,7 +153,7 @@ export function useProviderActions(
         );
       }
     },
-    [updateProviderMutation],
+    [updateProviderMutation, target.type],
   );
 
   // 切换供应商
@@ -230,7 +239,9 @@ export function useProviderActions(
 
       try {
         const result = await switchProviderMutation.mutateAsync(provider.id);
-        await syncClaudePlugin(provider);
+        if (target.type === "local") {
+          await syncClaudePlugin(provider);
+        }
 
         // Show backfill warning if present
         if (result?.warnings?.length) {
@@ -275,6 +286,7 @@ export function useProviderActions(
       isProxyRunning,
       isProxyTakeover,
       t,
+      target.type,
     ],
   );
 
@@ -298,9 +310,18 @@ export function useProviderActions(
           },
         };
 
-        await providersApi.update(updatedProvider, activeApp);
+        await providersApi.update(
+          updatedProvider,
+          activeApp,
+          undefined,
+          target,
+        );
         await queryClient.invalidateQueries({
-          queryKey: ["providers", activeApp],
+          queryKey: [
+            "providers",
+            activeApp,
+            target.type === "remote" ? `remote:${target.profile.id}` : "local",
+          ],
         });
         // 🔧 保存用量脚本后，也应该失效该 provider 的用量查询缓存
         // 这样主页列表会使用新配置重新查询，而不是使用测试时的缓存
@@ -322,7 +343,7 @@ export function useProviderActions(
         toast.error(detail);
       }
     },
-    [activeApp, queryClient, t],
+    [activeApp, queryClient, t, target],
   );
 
   // Set provider as default model (OpenClaw only)

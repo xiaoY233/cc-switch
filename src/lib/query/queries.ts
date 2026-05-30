@@ -9,6 +9,7 @@ import {
   usageApi,
   sessionsApi,
   type AppId,
+  type ManagementTarget,
 } from "@/lib/api";
 import type {
   Provider,
@@ -49,16 +50,19 @@ export interface ProvidersQueryData {
 
 export interface UseProvidersQueryOptions {
   isProxyRunning?: boolean; // 代理服务是否运行中
+  target?: ManagementTarget;
 }
 
 export const useProvidersQuery = (
   appId: AppId,
   options?: UseProvidersQueryOptions,
 ): UseQueryResult<ProvidersQueryData> => {
-  const { isProxyRunning = false } = options || {};
+  const { isProxyRunning = false, target = { type: "local" } } = options || {};
+  const targetKey =
+    target.type === "remote" ? `remote:${target.profile.id}` : "local";
 
   return useQuery({
-    queryKey: ["providers", appId],
+    queryKey: ["providers", appId, targetKey],
     placeholderData: keepPreviousData,
     // 当代理服务运行时，每 10 秒刷新一次供应商列表
     // 这样可以自动反映后端熔断器自动禁用代理目标的变更
@@ -68,13 +72,13 @@ export const useProvidersQuery = (
       let currentProviderId = "";
 
       try {
-        providers = await providersApi.getAll(appId);
+        providers = await providersApi.getAll(appId, target);
       } catch (error) {
         console.error("获取供应商列表失败:", error);
       }
 
       try {
-        currentProviderId = await providersApi.getCurrent(appId);
+        currentProviderId = await providersApi.getCurrent(appId, target);
       } catch (error) {
         console.error("获取当前供应商失败:", error);
       }

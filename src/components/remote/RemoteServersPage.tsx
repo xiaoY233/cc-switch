@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import {
   CheckCircle2,
   KeyRound,
@@ -6,119 +8,198 @@ import {
   Plus,
   Server,
   ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { RemoteAuthMethod, RemoteHostProfile } from "@/lib/api";
+import {
+  remoteApi,
+  type RemoteAuthMethod,
+  type RemoteConnectionSecret,
+  type RemoteHostProfile,
+} from "@/lib/api";
 import { RemoteHealthPanel } from "./RemoteHealthPanel";
 import { RemoteHostDialog } from "./RemoteHostDialog";
-import { RemoteProvidersPanel } from "./RemoteProvidersPanel";
 
-export function RemoteServersPage() {
+export function RemoteServersPage({
+  profiles,
+  activeProfileId,
+  activeSecret,
+  onProfileSaved,
+  onProfilesChanged,
+}: {
+  profiles: RemoteHostProfile[];
+  activeProfileId?: string;
+  activeSecret?: RemoteConnectionSecret;
+  onProfileSaved: (
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ) => void;
+  onProfilesChanged: (profiles: RemoteHostProfile[]) => void;
+}) {
+  const { t } = useTranslation();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [profiles, setProfiles] = useState<RemoteHostProfile[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  const selectedProfile = useMemo(
-    () => profiles.find((profile) => profile.id === selectedId),
-    [profiles, selectedId],
+  const [selectedId, setSelectedId] = useState<string | null>(
+    activeProfileId ?? null,
   );
 
-  const handleSave = (profile: RemoteHostProfile) => {
-    setProfiles((current) => [profile, ...current]);
+  const selectedProfile = useMemo(
+    () =>
+      profiles.find(
+        (profile) => profile.id === (selectedId ?? activeProfileId),
+      ),
+    [profiles, selectedId, activeProfileId],
+  );
+
+  const handleSave = async (
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ) => {
+    const saved = await remoteApi.saveProfile(profile);
+    const next = await remoteApi.listProfiles();
+    onProfilesChanged(next);
+    onProfileSaved(saved, secret);
     setSelectedId(profile.id);
+    toast.success(t("remote.saved", { defaultValue: "远程服务器已保存" }));
+  };
+
+  const handleDelete = async (id: string) => {
+    await remoteApi.deleteProfile(id);
+    const next = await remoteApi.listProfiles();
+    onProfilesChanged(next);
+    if (selectedId === id) {
+      setSelectedId(next[0]?.id ?? null);
+    }
+    toast.success(t("remote.deleted", { defaultValue: "远程服务器已删除" }));
   };
 
   return (
-    <div className="h-full overflow-y-auto px-6 pb-8 pt-4">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold">Remote servers</h2>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden px-6">
+      <div className="flex-shrink-0 py-4">
+        <div className="flex items-center justify-between rounded-xl border border-border-default bg-card/60 px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold">
+              {t("remote.title", { defaultValue: "远程服务器" })}
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {t("remote.subtitle", {
+                defaultValue: "只保存连接信息；管理操作在现有页面按目标执行。",
+              })}
+            </p>
+          </div>
+          <Button size="sm" onClick={() => setDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("remote.addServer", { defaultValue: "新增服务器" })}
+          </Button>
         </div>
-        <Button size="sm" onClick={() => setDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add server
-        </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <section className="rounded-xl border border-border bg-card">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[360px_minmax(0,1fr)]">
+        <section className="min-h-0 overflow-hidden rounded-xl border border-border-default">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div className="flex items-center gap-2">
               <Server className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-semibold">Connections</span>
+              <span className="text-sm font-semibold">
+                {t("remote.connections", { defaultValue: "连接" })}
+              </span>
             </div>
             <span className="text-xs text-muted-foreground">
               {profiles.length}
             </span>
           </div>
 
-          <div className="grid gap-2 p-3">
+          <div className="grid gap-0 overflow-y-auto">
             {profiles.length === 0 ? (
               <button
                 type="button"
                 onClick={() => setDialogOpen(true)}
-                className="flex items-center gap-3 rounded-lg border border-dashed p-4 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                className="m-3 flex items-center gap-3 rounded-lg border border-dashed p-4 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
               >
                 <Plus className="h-4 w-4" />
-                Add server
+                {t("remote.addServer", { defaultValue: "新增服务器" })}
               </button>
             ) : (
               profiles.map((profile) => (
-                <button
+                <div
                   key={profile.id}
-                  type="button"
-                  onClick={() => setSelectedId(profile.id)}
                   className={cn(
-                    "flex items-start gap-3 rounded-lg border p-3 text-left transition-colors",
-                    selectedId === profile.id
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-background hover:bg-accent/50",
+                    "group flex items-start gap-3 border-b border-border-default px-4 py-3 transition-colors hover:bg-muted/50",
+                    (selectedId ?? activeProfileId) === profile.id &&
+                      "bg-primary/10",
                   )}
                 >
-                  <AuthIcon authMethod={profile.authMethod} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium">
-                        {profile.name}
-                      </span>
-                      {selectedId === profile.id && (
-                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
-                      )}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(profile.id)}
+                    className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                  >
+                    <AuthIcon authMethod={profile.authMethod} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium">
+                          {profile.name}
+                        </span>
+                        {(selectedId ?? activeProfileId) === profile.id && (
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+                        )}
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {profile.username}@{profile.host}:{profile.port}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {authLabel(profile.authMethod, t)}
+                      </p>
                     </div>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {profile.username}@{profile.host}:{profile.port}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {authLabel(profile.authMethod)}
-                    </p>
-                  </div>
-                </button>
+                  </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                    onClick={() => void handleDelete(profile.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               ))
             )}
           </div>
         </section>
 
         <div className="grid content-start gap-4">
-          <RemoteHealthPanel profile={selectedProfile} />
-          <RemoteProvidersPanel profile={selectedProfile} />
+          <RemoteHealthPanel profile={selectedProfile} secret={activeSecret} />
 
           <section className="rounded-xl border border-border bg-card">
             <div className="border-b px-4 py-3">
-              <h2 className="text-sm font-semibold">Connection details</h2>
+              <h2 className="text-sm font-semibold">
+                {t("remote.details", { defaultValue: "连接详情" })}
+              </h2>
             </div>
             <div className="grid gap-3 p-4 sm:grid-cols-2">
-              <Detail label="Name" value={selectedProfile?.name} />
-              <Detail label="Address" value={formatAddress(selectedProfile)} />
               <Detail
-                label="Authentication"
+                label={t("remote.fields.name", { defaultValue: "名称" })}
+                value={selectedProfile?.name}
+              />
+              <Detail
+                label={t("remote.address", { defaultValue: "地址" })}
+                value={formatAddress(selectedProfile)}
+              />
+              <Detail
+                label={t("remote.fields.authentication", {
+                  defaultValue: "认证方式",
+                })}
                 value={
                   selectedProfile
-                    ? authLabel(selectedProfile.authMethod)
+                    ? authLabel(selectedProfile.authMethod, t)
                     : undefined
                 }
               />
-              <Detail label="Helper" value={selectedProfile?.helperPath} />
+              <Detail
+                label={t("remote.fields.helperPath", {
+                  defaultValue: "Helper 路径",
+                })}
+                value={selectedProfile?.helperPath}
+              />
             </div>
           </section>
         </div>
@@ -153,10 +234,17 @@ function Detail({ label, value }: { label: string; value?: string }) {
   );
 }
 
-function authLabel(authMethod: RemoteAuthMethod) {
-  if (authMethod.type === "password") return "Password";
-  if (authMethod.type === "keyFile") return "Key file";
-  return "SSH agent";
+function authLabel(
+  authMethod: RemoteAuthMethod,
+  t: (key: string, options?: any) => string,
+) {
+  if (authMethod.type === "password") {
+    return t("remote.auth.password", { defaultValue: "密码" });
+  }
+  if (authMethod.type === "keyFile") {
+    return t("remote.auth.keyFile", { defaultValue: "密钥文件" });
+  }
+  return t("remote.auth.sshAgent", { defaultValue: "SSH Agent" });
 }
 
 function formatAddress(profile?: RemoteHostProfile) {

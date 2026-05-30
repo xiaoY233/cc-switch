@@ -1,4 +1,4 @@
-use crate::{AppState, AppType, Database, ProviderService};
+use crate::{AppState, AppType, Database, Provider, ProviderService};
 use serde::Serialize;
 use serde_json::Value;
 use std::sync::Arc;
@@ -32,6 +32,44 @@ pub fn list_providers(app: AppType) -> Result<serde_json::Value, String> {
     let mut value = serde_json::to_value(providers).map_err(|e| e.to_string())?;
     redact_secret_values(&mut value);
     Ok(value)
+}
+
+pub fn current_provider(app: AppType) -> Result<String, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    ProviderService::current(&state, app).map_err(|e| e.to_string())
+}
+
+pub fn switch_provider(app: AppType, id: &str) -> Result<crate::services::SwitchResult, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    ProviderService::switch(&state, app, id).map_err(|e| e.to_string())
+}
+
+pub fn add_provider(app: AppType, provider_json: &str, add_to_live: bool) -> Result<bool, String> {
+    let provider: Provider = serde_json::from_str(provider_json).map_err(|e| e.to_string())?;
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    ProviderService::add(&state, app, provider, add_to_live).map_err(|e| e.to_string())
+}
+
+pub fn update_provider(
+    app: AppType,
+    provider_json: &str,
+    original_id: Option<&str>,
+) -> Result<bool, String> {
+    let provider: Provider = serde_json::from_str(provider_json).map_err(|e| e.to_string())?;
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    ProviderService::update(&state, app, original_id, provider).map_err(|e| e.to_string())
+}
+
+pub fn delete_provider(app: AppType, id: &str) -> Result<bool, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    ProviderService::delete(&state, app, id)
+        .map(|_| true)
+        .map_err(|e| e.to_string())
 }
 
 fn redact_secret_values(value: &mut Value) {

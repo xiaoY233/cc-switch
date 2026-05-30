@@ -50,9 +50,7 @@ fn ssh_password_auth_uses_interactive_options_without_exposing_password() {
     let joined = args.join(" ");
 
     assert!(args.contains(&"BatchMode=no".to_string()));
-    assert!(args.contains(
-        &"PreferredAuthentications=password,keyboard-interactive".to_string()
-    ));
+    assert!(args.contains(&"PreferredAuthentications=password,keyboard-interactive".to_string()));
     assert!(args.contains(&"PubkeyAuthentication=no".to_string()));
     assert!(!joined.contains("password="));
 }

@@ -34,8 +34,12 @@ import type { EnvConflict } from "@/types/env";
 import { useProvidersQuery, useSettingsQuery } from "@/lib/query";
 import {
   providersApi,
+  remoteApi,
   settingsApi,
   type AppId,
+  type ManagementTarget,
+  type RemoteConnectionSecret,
+  type RemoteHostProfile,
   type ProviderSwitchEvent,
 } from "@/lib/api";
 import { checkAllEnvConflicts, checkEnvConflicts } from "@/lib/api/env";
@@ -170,6 +174,11 @@ function App() {
   const queryClient = useQueryClient();
 
   const [activeApp, setActiveApp] = useState<AppId>(getInitialApp);
+  const [remoteProfiles, setRemoteProfiles] = useState<RemoteHostProfile[]>([]);
+  const [remoteSecrets, setRemoteSecrets] = useState<
+    Record<string, RemoteConnectionSecret>
+  >({});
+  const [activeTargetKey, setActiveTargetKey] = useState("local");
   const sharedFeatureApp: AppId =
     activeApp === "claude-desktop" ? "claude" : activeApp;
   const [currentView, setCurrentView] = useState<View>(getInitialView);
@@ -205,6 +214,68 @@ function App() {
     if (visibleApps.openclaw) return "openclaw";
     if (visibleApps.hermes) return "hermes";
     return "claude"; // fallback
+  };
+
+  useEffect(() => {
+    let active = true;
+    void remoteApi
+      .listProfiles()
+      .then((profiles) => {
+        if (!active) return;
+        setRemoteProfiles(profiles);
+      })
+      .catch((error) => {
+        console.error("[App] Failed to load remote profiles", error);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const activeRemoteProfile = useMemo(
+    () =>
+      activeTargetKey.startsWith("remote:")
+        ? remoteProfiles.find(
+            (profile) => `remote:${profile.id}` === activeTargetKey,
+          )
+        : undefined,
+    [activeTargetKey, remoteProfiles],
+  );
+
+  useEffect(() => {
+    if (activeTargetKey === "local") return;
+    if (!activeRemoteProfile) {
+      setActiveTargetKey("local");
+    }
+  }, [activeTargetKey, activeRemoteProfile]);
+
+  const managementTarget: ManagementTarget = useMemo(() => {
+    if (activeRemoteProfile) {
+      return {
+        type: "remote",
+        profile: activeRemoteProfile,
+        secret: remoteSecrets[activeRemoteProfile.id],
+      };
+    }
+    return { type: "local" };
+  }, [activeRemoteProfile, remoteSecrets]);
+
+  const handleRemoteProfileSaved = (
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ) => {
+    setRemoteProfiles((current) => {
+      const next = current.filter((item) => item.id !== profile.id);
+      return [profile, ...next];
+    });
+    if (secret?.password) {
+      setRemoteSecrets((current) => ({
+        ...current,
+        [profile.id]: secret,
+      }));
+    }
+    setActiveTargetKey(`remote:${profile.id}`);
+    setCurrentView("providers");
   };
 
   useEffect(() => {
@@ -267,6 +338,7 @@ function App() {
 
   const { data, isLoading, refetch } = useProvidersQuery(activeApp, {
     isProxyRunning,
+    target: managementTarget,
   });
   const providers = useMemo(() => data?.providers ?? {}, [data]);
   const currentProviderId = data?.currentProviderId ?? "";
@@ -300,6 +372,7 @@ function App() {
     activeApp,
     isProxyRunning,
     isProxyRunning && isCurrentAppTakeoverActive,
+    managementTarget,
   );
 
   const disableOmoMutation = useDisableCurrentOmo();
@@ -690,34 +763,36 @@ function App() {
       activeApp === "hermes"
     ) {
       let liveProviderIds: string[] = [];
-      try {
-        liveProviderIds =
-          activeApp === "opencode"
-            ? await queryClient.ensureQueryData({
-                queryKey: ["opencodeLiveProviderIds"],
-                queryFn: () => providersApi.getOpenCodeLiveProviderIds(),
-              })
-            : activeApp === "openclaw"
+      if (managementTarget.type === "local") {
+        try {
+          liveProviderIds =
+            activeApp === "opencode"
               ? await queryClient.ensureQueryData({
-                  queryKey: openclawKeys.liveProviderIds,
-                  queryFn: () => providersApi.getOpenClawLiveProviderIds(),
+                  queryKey: ["opencodeLiveProviderIds"],
+                  queryFn: () => providersApi.getOpenCodeLiveProviderIds(),
                 })
-              : await queryClient.ensureQueryData({
-                  queryKey: hermesKeys.liveProviderIds,
-                  queryFn: () => providersApi.getHermesLiveProviderIds(),
-                });
-      } catch (error) {
-        console.error(
-          "[App] Failed to load live provider IDs for duplication",
-          error,
-        );
-        const errorMessage = extractErrorMessage(error);
-        toast.error(
-          t("provider.duplicateLiveIdsLoadFailed", {
-            defaultValue: "读取配置中的供应商标识失败，请先修复配置后再试",
-          }) + (errorMessage ? `: ${errorMessage}` : ""),
-        );
-        return;
+              : activeApp === "openclaw"
+                ? await queryClient.ensureQueryData({
+                    queryKey: openclawKeys.liveProviderIds,
+                    queryFn: () => providersApi.getOpenClawLiveProviderIds(),
+                  })
+                : await queryClient.ensureQueryData({
+                    queryKey: hermesKeys.liveProviderIds,
+                    queryFn: () => providersApi.getHermesLiveProviderIds(),
+                  });
+        } catch (error) {
+          console.error(
+            "[App] Failed to load live provider IDs for duplication",
+            error,
+          );
+          const errorMessage = extractErrorMessage(error);
+          toast.error(
+            t("provider.duplicateLiveIdsLoadFailed", {
+              defaultValue: "读取配置中的供应商标识失败，请先修复配置后再试",
+            }) + (errorMessage ? `: ${errorMessage}` : ""),
+          );
+          return;
+        }
       }
       const existingKeys = Array.from(
         new Set([...Object.keys(providers), ...liveProviderIds]),
@@ -726,10 +801,10 @@ function App() {
         provider.id,
         existingKeys,
       );
-      duplicatedProvider.addToLive = false;
+      duplicatedProvider.addToLive = managementTarget.type === "remote";
     }
 
-    if (provider.sortIndex !== undefined) {
+    if (provider.sortIndex !== undefined && managementTarget.type === "local") {
       const updates = Object.values(providers)
         .filter(
           (p) =>
@@ -869,7 +944,19 @@ function App() {
         case "hermesMemory":
           return <HermesMemoryPanel />;
         case "remoteServers":
-          return <RemoteServersPage />;
+          return (
+            <RemoteServersPage
+              profiles={remoteProfiles}
+              activeProfileId={activeRemoteProfile?.id}
+              activeSecret={
+                activeRemoteProfile
+                  ? remoteSecrets[activeRemoteProfile.id]
+                  : undefined
+              }
+              onProfileSaved={handleRemoteProfileSaved}
+              onProfilesChanged={setRemoteProfiles}
+            />
+          );
         case "skills":
           return (
             <UnifiedSkillsPanel
@@ -953,9 +1040,10 @@ function App() {
                         setConfirmAction({ provider, action: "delete" })
                       }
                       onRemoveFromConfig={
-                        activeApp === "opencode" ||
-                        activeApp === "openclaw" ||
-                        activeApp === "hermes"
+                        managementTarget.type === "local" &&
+                        (activeApp === "opencode" ||
+                          activeApp === "openclaw" ||
+                          activeApp === "hermes")
                           ? (provider) =>
                               setConfirmAction({ provider, action: "remove" })
                           : undefined
@@ -972,13 +1060,18 @@ function App() {
                       onConfigureUsage={setUsageProvider}
                       onOpenWebsite={handleOpenWebsite}
                       onOpenTerminal={
-                        activeApp === "claude" ? handleOpenTerminal : undefined
+                        activeApp === "claude" &&
+                        managementTarget.type === "local"
+                          ? handleOpenTerminal
+                          : undefined
                       }
                       onCreate={() => setIsAddOpen(true)}
                       onSetAsDefault={
+                        managementTarget.type === "local" &&
                         activeApp === "openclaw"
                           ? setAsDefaultModel
-                          : activeApp === "hermes"
+                          : managementTarget.type === "local" &&
+                              activeApp === "hermes"
                             ? switchProvider
                             : undefined
                       }
@@ -1144,7 +1237,8 @@ function App() {
                   {currentView === "openclawAgents" &&
                     t("openclaw.agents.title")}
                   {currentView === "hermesMemory" && t("hermes.memory.title")}
-                  {currentView === "remoteServers" && "Remote Servers"}
+                  {currentView === "remoteServers" &&
+                    t("remote.title", { defaultValue: "远程服务器" })}
                 </h1>
               </div>
             ) : (
@@ -1176,11 +1270,31 @@ function App() {
                 >
                   <Settings className="w-4 h-4" />
                 </Button>
+                <select
+                  value={activeTargetKey}
+                  onChange={(event) => setActiveTargetKey(event.target.value)}
+                  className="h-8 max-w-[180px] rounded-lg border border-border bg-background px-2 text-xs text-foreground outline-none hover:bg-muted/50"
+                  title={t("remote.targetSelector", {
+                    defaultValue: "管理目标",
+                  })}
+                  style={{ WebkitAppRegion: "no-drag" } as any}
+                >
+                  <option value="local">
+                    {t("remote.localTarget", { defaultValue: "本地" })}
+                  </option>
+                  {remoteProfiles.map((profile) => (
+                    <option key={profile.id} value={`remote:${profile.id}`}>
+                      {profile.name}
+                    </option>
+                  ))}
+                </select>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setCurrentView("remoteServers")}
-                  title="Remote Servers"
+                  title={t("remote.manageServers", {
+                    defaultValue: "远程服务器",
+                  })}
                   className="hover:bg-black/5 dark:hover:bg-white/5"
                 >
                   <Server className="w-4 h-4" />

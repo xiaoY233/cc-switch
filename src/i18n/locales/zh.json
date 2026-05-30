@@ -2674,6 +2674,46 @@
     "suggestedDefaults": "应用建议默认配置",
     "suggestedDefaultsHint": "使用此预设推荐的默认模型配置"
   },
+  "remote": {
+    "title": "远程服务器",
+    "subtitle": "只保存连接信息；管理操作在现有页面按目标执行。",
+    "targetSelector": "管理目标",
+    "localTarget": "本地",
+    "manageServers": "远程服务器",
+    "addServer": "新增服务器",
+    "connections": "连接",
+    "details": "连接详情",
+    "address": "地址",
+    "defaultName": "远程服务器",
+    "saved": "远程服务器已保存",
+    "deleted": "远程服务器已删除",
+    "dialog": {
+      "title": "远程服务器"
+    },
+    "fields": {
+      "name": "名称",
+      "host": "主机",
+      "username": "用户名",
+      "port": "端口",
+      "helperPath": "Helper 路径",
+      "authentication": "认证方式",
+      "keyPath": "SSH 密钥路径",
+      "password": "密码"
+    },
+    "auth": {
+      "sshAgent": "SSH Agent",
+      "keyFile": "密钥文件",
+      "password": "密码"
+    },
+    "health": {
+      "title": "健康检查",
+      "ok": "可连接",
+      "failed": "失败",
+      "notChecked": "未检查",
+      "check": "检查",
+      "platform": "平台"
+    }
+  },
   "subscription": {
     "title": "订阅额度",
     "fiveHour": "5小时",

@@ -46,7 +46,7 @@ use usage::validate_usage_script;
 pub struct ProviderService;
 
 /// Result of a provider switch operation, including any non-fatal warnings
-#[derive(Debug, serde::Serialize, Default)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SwitchResult {
     pub warnings: Vec<String>,
