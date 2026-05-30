@@ -2696,6 +2696,10 @@
       "title": "Remote Server",
       "description": "Save remote connection details. Passwords stay in the current session and are not written to the local database."
     },
+    "sessionPassword": {
+      "title": "Enter Remote Password",
+      "description": "{{name}} uses password authentication. The password stays in the current session and is not written to the local database."
+    },
     "fields": {
       "name": "Name",
       "host": "Host",

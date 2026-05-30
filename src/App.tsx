@@ -97,6 +97,7 @@ import OpenClawHealthBanner from "@/components/openclaw/OpenClawHealthBanner";
 import HermesMemoryPanel from "@/components/hermes/HermesMemoryPanel";
 import { RemoteServersPage } from "@/components/remote/RemoteServersPage";
 import { ManagementTargetSwitcher } from "@/components/remote/ManagementTargetSwitcher";
+import { RemoteSessionPasswordDialog } from "@/components/remote/RemoteSessionPasswordDialog";
 
 type View =
   | "providers"
@@ -191,6 +192,8 @@ function App() {
     Record<string, RemoteConnectionSecret>
   >({});
   const [activeTargetKey, setActiveTargetKey] = useState("local");
+  const [passwordPromptProfile, setPasswordPromptProfile] =
+    useState<RemoteHostProfile | null>(null);
   const sharedFeatureApp: AppId =
     activeApp === "claude-desktop" ? "claude" : activeApp;
   const [currentView, setCurrentView] = useState<View>(getInitialView);
@@ -272,6 +275,45 @@ function App() {
     return { type: "local" };
   }, [activeRemoteProfile, remoteSecrets]);
 
+  const handleManagementTargetChange = (targetKey: string) => {
+    if (targetKey === "local") {
+      setPasswordPromptProfile(null);
+      setActiveTargetKey("local");
+      return;
+    }
+
+    const profile = remoteProfiles.find(
+      (item) => `remote:${item.id}` === targetKey,
+    );
+    if (!profile) {
+      setPasswordPromptProfile(null);
+      setActiveTargetKey("local");
+      return;
+    }
+
+    if (
+      profile.authMethod.type === "password" &&
+      !remoteSecrets[profile.id]?.password
+    ) {
+      setPasswordPromptProfile(profile);
+      return;
+    }
+
+    setPasswordPromptProfile(null);
+    setActiveTargetKey(targetKey);
+  };
+
+  const handleSessionPasswordSubmit = (password: string) => {
+    if (!passwordPromptProfile) return;
+    const profile = passwordPromptProfile;
+    setRemoteSecrets((current) => ({
+      ...current,
+      [profile.id]: { password },
+    }));
+    setPasswordPromptProfile(null);
+    setActiveTargetKey(`remote:${profile.id}`);
+  };
+
   const handleRemoteProfileSaved = (
     profile: RemoteHostProfile,
     secret?: RemoteConnectionSecret,
@@ -294,7 +336,7 @@ function App() {
   };
 
   const handleRemoteProfileActivated = (profileId: string | null) => {
-    setActiveTargetKey(profileId ? `remote:${profileId}` : "local");
+    handleManagementTargetChange(profileId ? `remote:${profileId}` : "local");
   };
 
   useEffect(() => {
@@ -1274,7 +1316,7 @@ function App() {
                   <ManagementTargetSwitcher
                     profiles={remoteProfiles}
                     activeTargetKey={activeTargetKey}
-                    onTargetChange={setActiveTargetKey}
+                    onTargetChange={handleManagementTargetChange}
                     onManageServers={() => setCurrentView("remoteServers")}
                     className="ml-2"
                     style={{ WebkitAppRegion: "no-drag" } as any}
@@ -1313,7 +1355,7 @@ function App() {
                 <ManagementTargetSwitcher
                   profiles={remoteProfiles}
                   activeTargetKey={activeTargetKey}
-                  onTargetChange={setActiveTargetKey}
+                  onTargetChange={handleManagementTargetChange}
                   onManageServers={() => setCurrentView("remoteServers")}
                   style={{ WebkitAppRegion: "no-drag" } as any}
                 />
@@ -1770,6 +1812,11 @@ function App() {
 
       <DeepLinkImportDialog />
       <FirstRunNoticeDialog />
+      <RemoteSessionPasswordDialog
+        profile={passwordPromptProfile}
+        onCancel={() => setPasswordPromptProfile(null)}
+        onSubmit={handleSessionPasswordSubmit}
+      />
     </div>
   );
 }

@@ -28,6 +28,7 @@ vi.mock("@/components/providers/ProviderList", () => ({
   ProviderList: ({
     providers,
     currentProviderId,
+    target,
     onSwitch,
     onEdit,
     onDuplicate,
@@ -39,6 +40,7 @@ vi.mock("@/components/providers/ProviderList", () => ({
     <div>
       <div data-testid="provider-list">{JSON.stringify(providers)}</div>
       <div data-testid="current-provider">{currentProviderId}</div>
+      <div data-testid="provider-target">{target?.type ?? "local"}</div>
       <button onClick={() => onSwitch(providers[currentProviderId])}>
         switch
       </button>
@@ -391,7 +393,7 @@ describe("App integration with MSW", () => {
         host: "192.168.1.20",
         port: 22,
         username: "root",
-        authMethod: { type: "password" },
+        authMethod: { type: "sshAgent" },
         helperPath: "~/.local/bin/cc-switch-remote-helper",
         createdAt: 1,
         updatedAt: 1,
@@ -441,10 +443,7 @@ describe("App integration with MSW", () => {
     });
   });
 
-  it("does not refresh the local tray after remote import success", async () => {
-    const updateTrayMenuSpy = vi
-      .spyOn(providersApi, "updateTrayMenu")
-      .mockResolvedValue(true);
+  it("requires a session password before activating a password remote target", async () => {
     setRemoteProfiles([
       {
         id: "remote-1",
@@ -462,12 +461,52 @@ describe("App integration with MSW", () => {
     const { default: App } = await import("@/App");
     renderApp(App);
 
+    await waitFor(() =>
+      expect(screen.getByTestId("provider-target")).toHaveTextContent("local"),
+    );
+
+    fireEvent.click(await screen.findByText("Remote 1"));
+
+    expect(
+      await screen.findByTestId("remote-session-password-dialog"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("provider-target")).toHaveTextContent("local");
+
+    fireEvent.change(screen.getByTestId("remote-session-password-input"), {
+      target: { value: "secret-password" },
+    });
+    fireEvent.click(screen.getByTestId("remote-session-password-confirm"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("provider-target")).toHaveTextContent("remote"),
+    );
+  });
+
+  it("does not refresh the local tray after remote import success", async () => {
+    const updateTrayMenuSpy = vi
+      .spyOn(providersApi, "updateTrayMenu")
+      .mockResolvedValue(true);
+    setRemoteProfiles([
+      {
+        id: "remote-1",
+        name: "Remote 1",
+        host: "192.168.1.20",
+        port: 22,
+        username: "root",
+        authMethod: { type: "sshAgent" },
+        helperPath: "~/.local/bin/cc-switch-remote-helper",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+
+    const { default: App } = await import("@/App");
+    renderApp(App);
+
     fireEvent.click(await screen.findByText("Remote 1"));
     fireEvent.click(screen.getByTitle("common.settings"));
     await waitFor(() =>
-      expect(screen.getByTestId("settings-target")).toHaveTextContent(
-        "remote",
-      ),
+      expect(screen.getByTestId("settings-target")).toHaveTextContent("remote"),
     );
     expect(
       screen.getByTestId("management-target-switcher"),
@@ -497,7 +536,7 @@ describe("App integration with MSW", () => {
         host: "192.168.1.20",
         port: 22,
         username: "root",
-        authMethod: { type: "password" },
+        authMethod: { type: "sshAgent" },
         helperPath: "~/.local/bin/cc-switch-remote-helper",
         createdAt: 1,
         updatedAt: 1,
