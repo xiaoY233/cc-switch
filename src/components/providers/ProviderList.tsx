@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Provider } from "@/types";
-import type { AppId } from "@/lib/api";
+import type { AppId, ManagementTarget } from "@/lib/api";
 import { providersApi } from "@/lib/api/providers";
 import { useDragSort } from "@/hooks/useDragSort";
 import {
@@ -68,6 +68,7 @@ interface ProviderListProps {
   isProxyTakeover?: boolean; // 代理接管模式（Live配置已被接管）
   activeProviderId?: string; // 代理当前实际使用的供应商 ID（用于故障转移模式下标注绿色边框）
   onSetAsDefault?: (provider: Provider) => void; // OpenClaw: set as default model
+  target?: ManagementTarget;
 }
 
 export function ProviderList({
@@ -90,35 +91,45 @@ export function ProviderList({
   isProxyTakeover = false,
   activeProviderId,
   onSetAsDefault,
+  target = { type: "local" },
 }: ProviderListProps) {
   const { t } = useTranslation();
+  const isLocalTarget = target.type === "local";
   const { checkProvider, isChecking } = useStreamCheck(appId);
   const { sortedProviders, sensors, handleDragEnd } = useDragSort(
     providers,
     appId,
+    target,
   );
 
   const { data: opencodeLiveIds } = useQuery({
     queryKey: ["opencodeLiveProviderIds"],
     queryFn: () => providersApi.getOpenCodeLiveProviderIds(),
-    enabled: appId === "opencode",
+    enabled: isLocalTarget && appId === "opencode",
   });
 
   // OpenClaw: 查询 live 配置中的供应商 ID 列表，用于判断 isInConfig
   const { data: openclawLiveIds } = useOpenClawLiveProviderIds(
-    appId === "openclaw",
+    isLocalTarget && appId === "openclaw",
   );
 
   // Hermes: 查询 live 配置中的供应商 ID 列表，用于判断 isInConfig
-  const { data: hermesLiveIds } = useHermesLiveProviderIds(appId === "hermes");
+  const { data: hermesLiveIds } = useHermesLiveProviderIds(
+    isLocalTarget && appId === "hermes",
+  );
 
   // Hermes: 读取当前 model.provider，用于判断哪个供应商是"当前激活"（高亮）
-  const { data: hermesModelConfig } = useHermesModelConfig(appId === "hermes");
+  const { data: hermesModelConfig } = useHermesModelConfig(
+    isLocalTarget && appId === "hermes",
+  );
   const hermesCurrentProviderId = hermesModelConfig?.provider;
 
   // 判断供应商是否已添加到配置（累加模式应用：OpenCode/OpenClaw/Hermes）
   const isProviderInConfig = useCallback(
     (providerId: string): boolean => {
+      if (!isLocalTarget) {
+        return true;
+      }
       if (appId === "opencode") {
         return opencodeLiveIds?.includes(providerId) ?? false;
       }
@@ -130,12 +141,12 @@ export function ProviderList({
       }
       return true; // 其他应用始终返回 true
     },
-    [appId, opencodeLiveIds, openclawLiveIds, hermesLiveIds],
+    [appId, isLocalTarget, opencodeLiveIds, openclawLiveIds, hermesLiveIds],
   );
 
   // OpenClaw: query default model to determine which provider is default
   const { data: openclawDefaultModel } = useOpenClawDefaultModel(
-    appId === "openclaw",
+    isLocalTarget && appId === "openclaw",
   );
 
   const isProviderDefaultModel = useCallback(
@@ -147,17 +158,24 @@ export function ProviderList({
   );
 
   // 故障转移相关
-  const { data: isAutoFailoverEnabled } = useAutoFailoverEnabled(appId);
-  const { data: failoverQueue } = useFailoverQueue(appId);
+  const { data: isAutoFailoverEnabled } = useAutoFailoverEnabled(
+    appId,
+    isLocalTarget,
+  );
+  const { data: failoverQueue } = useFailoverQueue(appId, isLocalTarget);
   const addToQueue = useAddToFailoverQueue();
   const removeFromQueue = useRemoveFromFailoverQueue();
 
   const isFailoverModeActive =
-    isProxyTakeover === true && isAutoFailoverEnabled === true;
+    isLocalTarget && isProxyTakeover === true && isAutoFailoverEnabled === true;
 
   const isOpenCode = appId === "opencode";
-  const { data: currentOmoId } = useCurrentOmoProviderId(isOpenCode);
-  const { data: currentOmoSlimId } = useCurrentOmoSlimProviderId(isOpenCode);
+  const { data: currentOmoId } = useCurrentOmoProviderId(
+    isLocalTarget && isOpenCode,
+  );
+  const { data: currentOmoSlimId } = useCurrentOmoSlimProviderId(
+    isLocalTarget && isOpenCode,
+  );
 
   const getFailoverPriority = useCallback(
     (providerId: string): number | undefined => {
@@ -198,18 +216,22 @@ export function ProviderList({
   const { data: claudeDesktopStatus } = useQuery({
     queryKey: ["claudeDesktopStatus"],
     queryFn: () => providersApi.getClaudeDesktopStatus(),
-    enabled: appId === "claude-desktop",
-    refetchInterval: appId === "claude-desktop" ? 5000 : false,
+    enabled: isLocalTarget && appId === "claude-desktop",
+    refetchInterval: isLocalTarget && appId === "claude-desktop" ? 5000 : false,
   });
 
   // Query settings for streamCheckConfirmed flag
   const { data: settings } = useQuery({
     queryKey: ["settings"],
     queryFn: () => settingsApi.get(),
+    enabled: isLocalTarget,
   });
 
   const handleTest = useCallback(
     (provider: Provider) => {
+      if (!isLocalTarget) {
+        return;
+      }
       if (!settings?.streamCheckConfirmed) {
         setPendingTestProvider(provider);
         setShowStreamCheckConfirm(true);
@@ -217,7 +239,7 @@ export function ProviderList({
         checkProvider(provider.id, provider.name);
       }
     },
-    [checkProvider, settings?.streamCheckConfirmed],
+    [checkProvider, isLocalTarget, settings?.streamCheckConfirmed],
   );
 
   const handleStreamCheckConfirm = async () => {
@@ -389,7 +411,7 @@ export function ProviderList({
       <ProviderEmptyState
         appId={appId}
         onCreate={onCreate}
-        onImport={() => importMutation.mutate()}
+        onImport={isLocalTarget ? () => importMutation.mutate() : undefined}
       />
     );
   }
@@ -440,7 +462,7 @@ export function ProviderList({
                 onConfigureUsage={onConfigureUsage}
                 onOpenWebsite={onOpenWebsite}
                 onOpenTerminal={onOpenTerminal}
-                onTest={handleTest}
+                onTest={isLocalTarget ? handleTest : undefined}
                 isTesting={isChecking(provider.id)}
                 isProxyRunning={isProxyRunning}
                 isProxyTakeover={isProxyTakeover}

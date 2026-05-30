@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi, beforeEach, afterAll } from "vitest";
 import type { Provider } from "@/types";
 import { useDragSort } from "@/hooks/useDragSort";
+import type { ManagementTarget } from "@/lib/api";
 
 const updateSortOrderMock = vi.fn();
 const toastSuccessMock = vi.fn();
@@ -58,6 +59,22 @@ const mockProviders: Record<string, Provider> = {
     settingsConfig: {},
     createdAt: 1,
   },
+};
+
+const remoteTarget: ManagementTarget = {
+  type: "remote",
+  profile: {
+    id: "remote-1",
+    name: "Remote 1",
+    host: "192.168.1.20",
+    port: 22,
+    username: "root",
+    authMethod: { type: "password" },
+    helperPath: "~/.local/bin/cc-switch-remote-helper",
+    createdAt: 1,
+    updatedAt: 1,
+  },
+  secret: { password: "secret" },
 };
 
 describe("useDragSort", () => {
@@ -153,5 +170,27 @@ describe("useDragSort", () => {
     });
 
     expect(updateSortOrderMock).not.toHaveBeenCalled();
+  });
+
+  it("should not call local sort API when target is remote", async () => {
+    const { wrapper } = createWrapper();
+
+    const { result } = renderHook(
+      () => useDragSort(mockProviders, "claude", remoteTarget),
+      {
+        wrapper,
+      },
+    );
+
+    await act(async () => {
+      await result.current.handleDragEnd({
+        active: { id: "b" },
+        over: { id: "a" },
+      } as any);
+    });
+
+    expect(updateSortOrderMock).not.toHaveBeenCalled();
+    expect(toastSuccessMock).not.toHaveBeenCalled();
+    expect(toastErrorMock).not.toHaveBeenCalled();
   });
 });

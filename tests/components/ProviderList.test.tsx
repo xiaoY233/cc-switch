@@ -4,10 +4,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ReactElement } from "react";
 import type { Provider } from "@/types";
 import { ProviderList } from "@/components/providers/ProviderList";
+import type { ManagementTarget } from "@/lib/api";
 
 const useDragSortMock = vi.fn();
 const useSortableMock = vi.fn();
 const providerCardRenderSpy = vi.fn();
+const useAutoFailoverEnabledMock = vi.fn();
+const useFailoverQueueMock = vi.fn();
+const useCurrentOmoProviderIdMock = vi.fn();
+const useCurrentOmoSlimProviderIdMock = vi.fn();
 
 vi.mock("@/hooks/useDragSort", () => ({
   useDragSort: (...args: unknown[]) => useDragSortMock(...args),
@@ -90,11 +95,19 @@ vi.mock("@/hooks/useStreamCheck", () => ({
 }));
 
 vi.mock("@/lib/query/failover", () => ({
-  useAutoFailoverEnabled: () => ({ data: false }),
-  useFailoverQueue: () => ({ data: [] }),
+  useAutoFailoverEnabled: (...args: unknown[]) =>
+    useAutoFailoverEnabledMock(...args),
+  useFailoverQueue: (...args: unknown[]) => useFailoverQueueMock(...args),
   useAddToFailoverQueue: () => ({ mutate: vi.fn() }),
   useRemoveFromFailoverQueue: () => ({ mutate: vi.fn() }),
   useReorderFailoverQueue: () => ({ mutate: vi.fn() }),
+}));
+
+vi.mock("@/lib/query/omo", () => ({
+  useCurrentOmoProviderId: (...args: unknown[]) =>
+    useCurrentOmoProviderIdMock(...args),
+  useCurrentOmoSlimProviderId: (...args: unknown[]) =>
+    useCurrentOmoSlimProviderIdMock(...args),
 }));
 
 function createProvider(overrides: Partial<Provider> = {}): Provider {
@@ -110,6 +123,22 @@ function createProvider(overrides: Partial<Provider> = {}): Provider {
   };
 }
 
+const remoteTarget: ManagementTarget = {
+  type: "remote",
+  profile: {
+    id: "remote-1",
+    name: "Remote 1",
+    host: "192.168.1.20",
+    port: 22,
+    username: "root",
+    authMethod: { type: "password" },
+    helperPath: "~/.local/bin/cc-switch-remote-helper",
+    createdAt: 1,
+    updatedAt: 1,
+  },
+  secret: { password: "secret" },
+};
+
 function renderWithQueryClient(ui: ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -124,6 +153,15 @@ beforeEach(() => {
   useDragSortMock.mockReset();
   useSortableMock.mockReset();
   providerCardRenderSpy.mockClear();
+  useAutoFailoverEnabledMock.mockReset();
+  useFailoverQueueMock.mockReset();
+  useCurrentOmoProviderIdMock.mockReset();
+  useCurrentOmoSlimProviderIdMock.mockReset();
+
+  useAutoFailoverEnabledMock.mockReturnValue({ data: false });
+  useFailoverQueueMock.mockReturnValue({ data: [] });
+  useCurrentOmoProviderIdMock.mockReturnValue({ data: undefined });
+  useCurrentOmoSlimProviderIdMock.mockReturnValue({ data: undefined });
 
   useSortableMock.mockImplementation(({ id }: { id: string }) => ({
     setNodeRef: vi.fn(),
@@ -261,7 +299,42 @@ describe("ProviderList Component", () => {
     expect(useDragSortMock).toHaveBeenCalledWith(
       { a: providerA, b: providerB },
       "claude",
+      { type: "local" },
     );
+  });
+
+  it("should hide local import action and pass remote target to drag sorting", () => {
+    useDragSortMock.mockReturnValueOnce({
+      sortedProviders: [],
+      sensors: [],
+      handleDragEnd: vi.fn(),
+    });
+
+    renderWithQueryClient(
+      <ProviderList
+        providers={{}}
+        currentProviderId=""
+        appId="claude"
+        target={remoteTarget}
+        onSwitch={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onDuplicate={vi.fn()}
+        onOpenWebsite={vi.fn()}
+        onCreate={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("provider.importCurrent")).not.toBeInTheDocument();
+    expect(useDragSortMock).toHaveBeenCalledWith(
+      {},
+      "claude",
+      remoteTarget,
+    );
+    expect(useAutoFailoverEnabledMock).toHaveBeenCalledWith("claude", false);
+    expect(useFailoverQueueMock).toHaveBeenCalledWith("claude", false);
+    expect(useCurrentOmoProviderIdMock).toHaveBeenCalledWith(false);
+    expect(useCurrentOmoSlimProviderIdMock).toHaveBeenCalledWith(false);
   });
 
   it("filters providers with the search input", () => {
