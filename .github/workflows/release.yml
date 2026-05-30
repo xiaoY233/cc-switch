@@ -477,6 +477,41 @@ jobs:
             echo "No .rpm found (optional)"
           fi
 
+      - name: Prepare Remote Helper CLI Asset
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p release-assets
+          VERSION="${GITHUB_REF_NAME}"
+          case "${{ runner.os }}" in
+            macOS)
+              HELPER_PATH="src-tauri/target/universal-apple-darwin/release/cc-switch-cli"
+              HELPER_OS="macOS"
+              HELPER_ARCH="universal"
+              ;;
+            Linux)
+              HELPER_PATH="src-tauri/target/release/cc-switch-cli"
+              HELPER_OS="Linux"
+              HELPER_ARCH="${{ matrix.arch || 'x86_64' }}"
+              ;;
+            Windows)
+              HELPER_PATH="src-tauri/target/release/cc-switch-cli.exe"
+              HELPER_OS="Windows"
+              HELPER_ARCH="x86_64"
+              ;;
+          esac
+          if [ ! -f "$HELPER_PATH" ]; then
+            echo "Remote helper CLI not found at $HELPER_PATH" >&2
+            exit 1
+          fi
+          ASSET="cc-switch-cli-${VERSION}-${HELPER_OS}-${HELPER_ARCH}"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp "$HELPER_PATH" "release-assets/${ASSET}.exe"
+          else
+            cp "$HELPER_PATH" "release-assets/${ASSET}"
+            chmod +x "release-assets/${ASSET}"
+          fi
+
       - name: List prepared assets
         shell: bash
         run: |
