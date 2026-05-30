@@ -72,7 +72,6 @@ export function RemoteServersPage({
   const openEditDialog = (profile: RemoteHostProfile) => {
     setEditingProfile(profile);
     setSelectedId(profile.id);
-    onProfileActivated?.(profile.id);
     setDialogOpen(true);
   };
 

@@ -128,4 +128,34 @@ describe("RemoteServersPage", () => {
       }),
     );
   });
+
+  it("does not activate a remote profile when opening it for editing", async () => {
+    const user = userEvent.setup();
+    const onProfileActivated = vi.fn();
+    const profile: RemoteHostProfile = {
+      id: "remote-1",
+      name: "测试服务器",
+      host: "192.168.123.203",
+      port: 22,
+      username: "root",
+      authMethod: { type: "password" },
+      helperPath: "~/.local/bin/cc-switch-remote-helper",
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    render(
+      <RemoteServersPage
+        profiles={[profile]}
+        onProfileSaved={vi.fn()}
+        onProfileActivated={onProfileActivated}
+        onProfilesChanged={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByTitle("编辑"));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(onProfileActivated).not.toHaveBeenCalled();
+  });
 });
