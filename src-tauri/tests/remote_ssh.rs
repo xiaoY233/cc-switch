@@ -42,6 +42,22 @@ fn ssh_args_terminate_options_before_destination() {
 }
 
 #[test]
+fn ssh_password_auth_uses_interactive_options_without_exposing_password() {
+    let mut profile = profile();
+    profile.auth_method = RemoteAuthMethod::Password;
+
+    let args = build_ssh_args(&profile, &["status".to_string()]);
+    let joined = args.join(" ");
+
+    assert!(args.contains(&"BatchMode=no".to_string()));
+    assert!(args.contains(
+        &"PreferredAuthentications=password,keyboard-interactive".to_string()
+    ));
+    assert!(args.contains(&"PubkeyAuthentication=no".to_string()));
+    assert!(!joined.contains("password="));
+}
+
+#[test]
 fn ssh_command_preserves_empty_and_space_helper_args() {
     let args = build_ssh_args(
         &profile(),

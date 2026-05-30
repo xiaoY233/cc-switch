@@ -19,6 +19,7 @@ pub struct RemoteHostProfile {
 pub enum RemoteAuthMethod {
     SshAgent,
     KeyFile { path: String },
+    Password,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -2,7 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type RemoteAuthMethod =
   | { type: "sshAgent" }
-  | { type: "keyFile"; path: string };
+  | { type: "keyFile"; path: string }
+  | { type: "password" };
 
 export interface RemoteHostProfile {
   id: string;

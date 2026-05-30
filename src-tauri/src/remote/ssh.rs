@@ -5,12 +5,24 @@ pub fn build_ssh_args(profile: &RemoteHostProfile, helper_args: &[String]) -> Ve
         "-p".to_string(),
         profile.port.to_string(),
         "-o".to_string(),
-        "BatchMode=yes".to_string(),
+        match &profile.auth_method {
+            RemoteAuthMethod::Password => "BatchMode=no".to_string(),
+            _ => "BatchMode=yes".to_string(),
+        },
     ];
 
-    if let RemoteAuthMethod::KeyFile { path } = &profile.auth_method {
-        args.push("-i".to_string());
-        args.push(path.clone());
+    match &profile.auth_method {
+        RemoteAuthMethod::KeyFile { path } => {
+            args.push("-i".to_string());
+            args.push(path.clone());
+        }
+        RemoteAuthMethod::Password => {
+            args.push("-o".to_string());
+            args.push("PreferredAuthentications=password,keyboard-interactive".to_string());
+            args.push("-o".to_string());
+            args.push("PubkeyAuthentication=no".to_string());
+        }
+        RemoteAuthMethod::SshAgent => {}
     }
 
     args.push("--".to_string());
