@@ -16,6 +16,10 @@ fn build_ssh_base_args(profile: &RemoteHostProfile) -> Vec<String> {
         "-o".to_string(),
         "ConnectTimeout=10".to_string(),
         "-o".to_string(),
+        "StrictHostKeyChecking=accept-new".to_string(),
+        "-o".to_string(),
+        "NumberOfPasswordPrompts=1".to_string(),
+        "-o".to_string(),
         match &profile.auth_method {
             RemoteAuthMethod::Password => "BatchMode=no".to_string(),
             _ => "BatchMode=yes".to_string(),

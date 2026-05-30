@@ -1,6 +1,13 @@
 use cc_switch_lib::remote::{
-    build_helper_install_args, build_ssh_args, RemoteAuthMethod, RemoteHostProfile,
+    build_helper_install_args, build_ssh_args, run_helper_json, RemoteAuthMethod,
+    RemoteConnectionSecret, RemoteHostProfile,
 };
+#[cfg(unix)]
+use serial_test::serial;
+#[cfg(unix)]
+use std::fs;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 fn profile() -> RemoteHostProfile {
     RemoteHostProfile {
@@ -30,6 +37,15 @@ fn ssh_args_include_port_identity_and_json_command() {
 }
 
 #[test]
+fn ssh_args_accept_new_host_keys_without_disabling_changed_host_protection() {
+    let args = build_ssh_args(&profile(), &["status".to_string()]);
+
+    assert!(args.contains(&"StrictHostKeyChecking=accept-new".to_string()));
+    assert!(args.contains(&"NumberOfPasswordPrompts=1".to_string()));
+    assert!(!args.contains(&"StrictHostKeyChecking=no".to_string()));
+}
+
+#[test]
 fn ssh_args_terminate_options_before_destination() {
     let mut profile = profile();
     profile.username = "-oProxyCommand=bad".to_string();
@@ -55,6 +71,48 @@ fn ssh_password_auth_uses_interactive_options_without_exposing_password() {
     assert!(args.contains(&"PreferredAuthentications=password,keyboard-interactive".to_string()));
     assert!(args.contains(&"PubkeyAuthentication=no".to_string()));
     assert!(!joined.contains("password="));
+}
+
+#[test]
+#[cfg(unix)]
+#[serial]
+fn password_auth_runs_ssh_with_askpass_secret_without_command_line_secret() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let ssh_path = dir.path().join("ssh");
+    fs::write(
+        &ssh_path,
+        r#"#!/bin/sh
+set -eu
+test "${SSH_ASKPASS_REQUIRE:-}" = "force"
+test "${DISPLAY:-}" = "cc-switch"
+test "$("$SSH_ASKPASS")" = "unit-test-secret"
+test "${CC_SWITCH_REMOTE_SSH_PASSWORD:-}" = "unit-test-secret"
+printf '%s\n' '{"ok":true,"data":{"version":"test","platform":"linux","capabilities":["providers"]},"error":null}'
+"#,
+    )
+    .expect("write fake ssh");
+    let mut permissions = fs::metadata(&ssh_path)
+        .expect("fake ssh metadata")
+        .permissions();
+    permissions.set_mode(0o700);
+    fs::set_permissions(&ssh_path, permissions).expect("chmod fake ssh");
+
+    let old_path = std::env::var_os("PATH").unwrap_or_default();
+    let new_path = format!("{}:{}", dir.path().display(), old_path.to_string_lossy());
+    std::env::set_var("PATH", new_path);
+
+    let mut profile = profile();
+    profile.auth_method = RemoteAuthMethod::Password;
+    let secret = RemoteConnectionSecret {
+        password: Some("unit-test-secret".to_string()),
+    };
+
+    let status: serde_json::Value =
+        run_helper_json(&profile, &["status".to_string()], Some(&secret)).expect("helper status");
+
+    std::env::set_var("PATH", old_path);
+
+    assert_eq!(status["version"], "test");
 }
 
 #[test]
