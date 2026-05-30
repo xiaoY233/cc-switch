@@ -173,9 +173,13 @@ fn parse_helper_json<T: DeserializeOwned>(stdout: &str) -> Result<T, AppError> {
         .map_err(|e| AppError::Message(format!("Remote helper returned invalid JSON: {e}")))?;
 
     if envelope.ok {
-        envelope
-            .data
-            .ok_or_else(|| AppError::Message("Remote helper returned ok without data".to_string()))
+        if let Some(data) = envelope.data {
+            Ok(data)
+        } else {
+            serde_json::from_value(serde_json::Value::Null).map_err(|_| {
+                AppError::Message("Remote helper returned ok without data".to_string())
+            })
+        }
     } else {
         let RemoteCommandError { code, message } = envelope.error.unwrap_or(RemoteCommandError {
             code: "remote_error".to_string(),

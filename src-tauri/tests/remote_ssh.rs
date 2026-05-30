@@ -116,6 +116,38 @@ printf '%s\n' '{"ok":true,"data":{"version":"test","platform":"linux","capabilit
 }
 
 #[test]
+#[cfg(unix)]
+#[serial]
+fn helper_json_accepts_ok_null_data_for_void_commands() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let ssh_path = dir.path().join("ssh");
+    fs::write(
+        &ssh_path,
+        r#"#!/bin/sh
+set -eu
+printf '%s\n' '{"ok":true,"data":null,"error":null}'
+"#,
+    )
+    .expect("write fake ssh");
+    let mut permissions = fs::metadata(&ssh_path)
+        .expect("fake ssh metadata")
+        .permissions();
+    permissions.set_mode(0o700);
+    fs::set_permissions(&ssh_path, permissions).expect("chmod fake ssh");
+
+    let old_path = std::env::var_os("PATH").unwrap_or_default();
+    let new_path = format!("{}:{}", dir.path().display(), old_path.to_string_lossy());
+    std::env::set_var("PATH", new_path);
+
+    let result =
+        run_helper_json::<()>(&profile(), &["mcp".to_string(), "upsert".to_string()], None);
+
+    std::env::set_var("PATH", old_path);
+
+    assert!(result.is_ok());
+}
+
+#[test]
 fn ssh_command_preserves_empty_and_space_helper_args() {
     let args = build_ssh_args(
         &profile(),
