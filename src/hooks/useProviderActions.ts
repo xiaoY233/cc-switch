@@ -88,7 +88,11 @@ export function useProviderActions(
       await addProviderMutation.mutateAsync(enhanced);
 
       // OpenClaw: register models to allowlist after adding provider
-      if (activeApp === "openclaw" && provider.suggestedDefaults) {
+      if (
+        target.type === "local" &&
+        activeApp === "openclaw" &&
+        provider.suggestedDefaults
+      ) {
         const { model, modelCatalog } = provider.suggestedDefaults;
         let modelsRegistered = false;
 
@@ -133,7 +137,7 @@ export function useProviderActions(
         }
       }
     },
-    [addProviderMutation, activeApp, queryClient, t],
+    [addProviderMutation, activeApp, queryClient, t, target.type],
   );
 
   // 更新供应商

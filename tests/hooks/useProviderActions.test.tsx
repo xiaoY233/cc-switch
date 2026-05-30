@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useProviderActions } from "@/hooks/useProviderActions";
 import type { Provider, UsageScript } from "@/types";
+import type { ManagementTarget } from "@/lib/api";
 
 const toastSuccessMock = vi.fn();
 const toastErrorMock = vi.fn();
@@ -58,6 +59,7 @@ const providersApiUpdateTrayMenuMock = vi.fn();
 const settingsApiGetMock = vi.fn();
 const settingsApiApplyMock = vi.fn();
 const openclawApiGetModelCatalogMock = vi.fn();
+const openclawApiSetModelCatalogMock = vi.fn();
 const openclawApiGetDefaultModelMock = vi.fn();
 const openclawApiSetDefaultModelMock = vi.fn();
 
@@ -75,6 +77,8 @@ vi.mock("@/lib/api", () => ({
   openclawApi: {
     getModelCatalog: (...args: unknown[]) =>
       openclawApiGetModelCatalogMock(...args),
+    setModelCatalog: (...args: unknown[]) =>
+      openclawApiSetModelCatalogMock(...args),
     getDefaultModel: (...args: unknown[]) =>
       openclawApiGetDefaultModelMock(...args),
     setDefaultModel: (...args: unknown[]) =>
@@ -116,6 +120,7 @@ beforeEach(() => {
   settingsApiGetMock.mockReset();
   settingsApiApplyMock.mockReset();
   openclawApiGetModelCatalogMock.mockReset();
+  openclawApiSetModelCatalogMock.mockReset();
   openclawApiGetDefaultModelMock.mockReset();
   openclawApiSetDefaultModelMock.mockReset();
   toastSuccessMock.mockReset();
@@ -153,6 +158,58 @@ describe("useProviderActions", () => {
 
     expect(addProviderMutateAsync).toHaveBeenCalledTimes(1);
     expect(addProviderMutateAsync).toHaveBeenCalledWith(providerInput);
+  });
+
+  it("should not write local OpenClaw defaults after adding provider to remote target", async () => {
+    addProviderMutateAsync.mockResolvedValueOnce(undefined);
+    const { wrapper } = createWrapper();
+    const remoteTarget: ManagementTarget = {
+      type: "remote",
+      profile: {
+        id: "remote-1",
+        name: "Remote 1",
+        host: "192.168.1.20",
+        port: 22,
+        username: "root",
+        authMethod: { type: "password" },
+        helperPath: "~/.local/bin/cc-switch-remote-helper",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      secret: { password: "secret" },
+    };
+
+    const { result } = renderHook(
+      () => useProviderActions("openclaw", false, false, remoteTarget),
+      {
+        wrapper,
+      },
+    );
+
+    await act(async () => {
+      await result.current.addProvider({
+        name: "Remote OpenClaw Provider",
+        providerKey: "remote-openclaw",
+        settingsConfig: {},
+        suggestedDefaults: {
+          model: {
+            primary: "remote-openclaw/gpt-4.1",
+            fallbacks: [],
+          },
+          modelCatalog: {
+            "remote-openclaw/gpt-4.1": {
+              alias: "GPT 4.1",
+            },
+          },
+        },
+      });
+    });
+
+    expect(addProviderMutateAsync).toHaveBeenCalledTimes(1);
+    expect(openclawApiGetModelCatalogMock).not.toHaveBeenCalled();
+    expect(openclawApiSetModelCatalogMock).not.toHaveBeenCalled();
+    expect(openclawApiGetDefaultModelMock).not.toHaveBeenCalled();
+    expect(openclawApiSetDefaultModelMock).not.toHaveBeenCalled();
   });
 
   it("should update tray menu when calling updateProvider", async () => {
@@ -408,9 +465,11 @@ describe("useProviderActions", () => {
         },
       },
       "claude",
+      undefined,
+      { type: "local" },
     );
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ["providers", "claude"],
+      queryKey: ["providers", "claude", "local"],
     });
     expect(toastSuccessMock).toHaveBeenCalledTimes(1);
   });
