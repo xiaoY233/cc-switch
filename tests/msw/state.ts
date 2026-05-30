@@ -1,11 +1,13 @@
 import type { AppId } from "@/lib/api/types";
 import type {
   McpServer,
+  OpenClawDefaultModel,
   Provider,
   SessionMessage,
   SessionMeta,
   Settings,
 } from "@/types";
+import type { RemoteHostProfile } from "@/lib/api/remote";
 import { deepClone } from "@/utils/deepClone";
 
 type ProvidersByApp = Record<AppId, Record<string, Provider>>;
@@ -100,6 +102,8 @@ let settingsState: Settings = {
   language: "zh",
 };
 let appConfigDirOverride: string | null = null;
+let remoteProfilesState: RemoteHostProfile[] = [];
+let remoteOpenClawDefaultModelState: OpenClawDefaultModel | null = null;
 const sessionMessageKey = (providerId: string, sourcePath: string) =>
   `${providerId}:${sourcePath}`;
 
@@ -218,6 +222,8 @@ export const resetProviderState = () => {
     language: "zh",
   };
   appConfigDirOverride = null;
+  remoteProfilesState = [];
+  remoteOpenClawDefaultModelState = null;
   mcpConfigs = {
     claude: {
       sample: {
@@ -338,6 +344,26 @@ export const updateSortOrder = (
 
 export const listProviders = (appType: AppId) =>
   deepClone(providers[appType] ?? {}) as Record<string, Provider>;
+
+export const getRemoteProfiles = () =>
+  deepClone(remoteProfilesState) as RemoteHostProfile[];
+
+export const setRemoteProfiles = (profiles: RemoteHostProfile[]) => {
+  remoteProfilesState = deepClone(profiles) as RemoteHostProfile[];
+};
+
+export const getRemoteOpenClawDefaultModel = () =>
+  remoteOpenClawDefaultModelState
+    ? (deepClone(remoteOpenClawDefaultModelState) as OpenClawDefaultModel)
+    : null;
+
+export const setRemoteOpenClawDefaultModel = (
+  model: OpenClawDefaultModel | null,
+) => {
+  remoteOpenClawDefaultModelState = model
+    ? (deepClone(model) as OpenClawDefaultModel)
+    : null;
+};
 
 export const getSettings = () => deepClone(settingsState) as Settings;
 

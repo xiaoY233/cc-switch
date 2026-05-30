@@ -7,6 +7,8 @@ import {
   deleteSession,
   getCurrentProviderId,
   getLiveProviderIds,
+  getRemoteOpenClawDefaultModel,
+  getRemoteProfiles,
   getSessionMessages,
   getProviders,
   listProviders,
@@ -21,6 +23,7 @@ import {
   setAppConfigDirOverrideState,
   getMcpConfig,
   setMcpServerEnabled,
+  setRemoteOpenClawDefaultModel,
   upsertMcpServer,
   deleteMcpServer,
 } from "./state";
@@ -78,6 +81,39 @@ export const handlers = [
 
   http.post(`${TAURI_ENDPOINT}/get_openclaw_default_model`, () =>
     success({ primary: null, fallback: [] }),
+  ),
+
+  http.post(`${TAURI_ENDPOINT}/remote_list_profiles`, () =>
+    success(getRemoteProfiles()),
+  ),
+
+  http.post(`${TAURI_ENDPOINT}/remote_get_providers`, async ({ request }) => {
+    const { app } = await withJson<{ app: AppId }>(request);
+    return success(getProviders(app));
+  }),
+
+  http.post(
+    `${TAURI_ENDPOINT}/remote_get_current_provider`,
+    async ({ request }) => {
+      const { app } = await withJson<{ app: AppId }>(request);
+      return success(getCurrentProviderId(app));
+    },
+  ),
+
+  http.post(`${TAURI_ENDPOINT}/remote_get_openclaw_default_model`, () =>
+    success(getRemoteOpenClawDefaultModel()),
+  ),
+
+  http.post(
+    `${TAURI_ENDPOINT}/remote_set_openclaw_default_model`,
+    async ({ request }) => {
+      const { model } = await withJson<{ model: any }>(request);
+      setRemoteOpenClawDefaultModel(model);
+      return success({
+        backupPath: "/tmp/remote-openclaw-backup.json5",
+        warnings: [],
+      });
+    },
   ),
 
   http.post(`${TAURI_ENDPOINT}/scan_openclaw_config_health`, () => success([])),

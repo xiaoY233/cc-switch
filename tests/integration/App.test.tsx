@@ -5,9 +5,11 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { providersApi } from "@/lib/api/providers";
 import {
   resetProviderState,
+  getRemoteOpenClawDefaultModel,
   setCurrentProviderId,
   setLiveProviderIds,
   setProviders,
+  setRemoteProfiles,
 } from "../msw/state";
 import { emitTauriEvent } from "../msw/tauriMocks";
 
@@ -31,6 +33,7 @@ vi.mock("@/components/providers/ProviderList", () => ({
     onConfigureUsage,
     onOpenWebsite,
     onCreate,
+    onSetAsDefault,
   }: any) => (
     <div>
       <div data-testid="provider-list">{JSON.stringify(providers)}</div>
@@ -49,6 +52,9 @@ vi.mock("@/components/providers/ProviderList", () => ({
         open-website
       </button>
       <button onClick={() => onCreate?.()}>create</button>
+      <button onClick={() => onSetAsDefault?.(providers[currentProviderId])}>
+        set-default
+      </button>
     </div>
   ),
 }));
@@ -124,6 +130,22 @@ vi.mock("@/components/AppSwitcher", () => ({
       <button onClick={() => onSwitch("claude")}>switch-claude</button>
       <button onClick={() => onSwitch("codex")}>switch-codex</button>
       <button onClick={() => onSwitch("openclaw")}>switch-openclaw</button>
+    </div>
+  ),
+}));
+
+vi.mock("@/components/remote/ManagementTargetSwitcher", () => ({
+  ManagementTargetSwitcher: ({ profiles, onTargetChange }: any) => (
+    <div data-testid="management-target-switcher">
+      <button onClick={() => onTargetChange("local")}>target-local</button>
+      {profiles.map((profile: any) => (
+        <button
+          key={profile.id}
+          onClick={() => onTargetChange(`remote:${profile.id}`)}
+        >
+          {profile.name}
+        </button>
+      ))}
     </div>
   ),
 }));
@@ -335,5 +357,63 @@ describe("App integration with MSW", () => {
     );
 
     liveIdsSpy.mockRestore();
+  });
+
+  it("wires remote OpenClaw default model actions through the provider list", async () => {
+    setRemoteProfiles([
+      {
+        id: "remote-1",
+        name: "Remote 1",
+        host: "192.168.1.20",
+        port: 22,
+        username: "root",
+        authMethod: { type: "password" },
+        helperPath: "~/.local/bin/cc-switch-remote-helper",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+    setProviders("openclaw", {
+      deepseek: {
+        id: "deepseek",
+        name: "DeepSeek",
+        settingsConfig: {
+          baseUrl: "https://api.deepseek.com",
+          apiKey: "test-key",
+          api: "openai-completions",
+          models: [{ id: "deepseek-chat" }, { id: "deepseek-reasoner" }],
+        },
+        category: "custom",
+        sortIndex: 0,
+        createdAt: Date.now(),
+      },
+    });
+    setCurrentProviderId("openclaw", "deepseek");
+
+    const { default: App } = await import("@/App");
+    renderApp(App);
+
+    fireEvent.click(screen.getByText("switch-openclaw"));
+    await waitFor(() =>
+      expect(screen.getByTestId("provider-list").textContent).toContain(
+        "deepseek",
+      ),
+    );
+
+    fireEvent.click(await screen.findByText("Remote 1"));
+    await waitFor(() =>
+      expect(screen.getByTestId("provider-list").textContent).toContain(
+        "deepseek",
+      ),
+    );
+
+    fireEvent.click(screen.getByText("set-default"));
+
+    await waitFor(() => {
+      expect(getRemoteOpenClawDefaultModel()).toEqual({
+        primary: "deepseek/deepseek-chat",
+        fallbacks: ["deepseek/deepseek-reasoner"],
+      });
+    });
   });
 });

@@ -1085,7 +1085,6 @@ function App() {
                       }
                       onCreate={() => setIsAddOpen(true)}
                       onSetAsDefault={
-                        managementTarget.type === "local" &&
                         activeApp === "openclaw"
                           ? setAsDefaultModel
                           : managementTarget.type === "local" &&
