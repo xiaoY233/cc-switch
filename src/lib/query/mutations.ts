@@ -92,7 +92,7 @@ export const useAddProviderMutation = (
 
       if (appId === "openclaw") {
         await queryClient.invalidateQueries({
-          queryKey: openclawKeys.health,
+          queryKey: [...openclawKeys.health, targetKey(target)],
         });
       }
 
@@ -156,7 +156,7 @@ export const useUpdateProviderMutation = (
       });
       if (appId === "openclaw") {
         await queryClient.invalidateQueries({
-          queryKey: openclawKeys.health,
+          queryKey: [...openclawKeys.health, targetKey(target)],
         });
       }
       if (appId === "hermes") {
@@ -216,7 +216,7 @@ export const useDeleteProviderMutation = (
 
       if (appId === "openclaw") {
         await queryClient.invalidateQueries({
-          queryKey: openclawKeys.health,
+          queryKey: [...openclawKeys.health, targetKey(target)],
         });
       }
 
@@ -295,10 +295,10 @@ export const useSwitchProviderMutation = (
           queryKey: openclawKeys.liveProviderIds,
         });
         await queryClient.invalidateQueries({
-          queryKey: openclawKeys.defaultModel,
+          queryKey: [...openclawKeys.defaultModel, targetKey(target)],
         });
         await queryClient.invalidateQueries({
-          queryKey: openclawKeys.health,
+          queryKey: [...openclawKeys.health, targetKey(target)],
         });
       }
       if (appId === "hermes") {

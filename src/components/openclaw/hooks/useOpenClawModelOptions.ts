@@ -1,17 +1,20 @@
 import { useMemo } from "react";
 import { useProvidersQuery } from "@/lib/query/queries";
 import type { OpenClawProviderConfig } from "@/types";
+import type { ManagementTarget } from "@/lib/api";
 
 export interface ModelOption {
   value: string; // "providerId/modelId"
   label: string; // "Provider Name / Model Name"
 }
 
-export function useOpenClawModelOptions(): {
+export function useOpenClawModelOptions(target?: ManagementTarget): {
   options: ModelOption[];
   isLoading: boolean;
 } {
-  const { data: providersData, isLoading } = useProvidersQuery("openclaw");
+  const { data: providersData, isLoading } = useProvidersQuery("openclaw", {
+    target,
+  });
 
   const options = useMemo<ModelOption[]>(() => {
     const allProviders = providersData?.providers;

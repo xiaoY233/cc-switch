@@ -19,17 +19,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { OpenClawAgentsDefaults } from "@/types";
+import type { ManagementTarget } from "@/lib/api";
 import { useOpenClawModelOptions } from "./hooks/useOpenClawModelOptions";
 import { getOpenClawTimeoutInputValue } from "./utils";
 
 const UNSET_SENTINEL = "__unset__";
 
-const AgentsDefaultsPanel: React.FC = () => {
+interface AgentsDefaultsPanelProps {
+  target?: ManagementTarget;
+}
+
+const AgentsDefaultsPanel: React.FC<AgentsDefaultsPanelProps> = ({
+  target,
+}) => {
   const { t } = useTranslation();
-  const { data: agentsData, isLoading } = useOpenClawAgentsDefaults();
-  const saveAgentsMutation = useSaveOpenClawAgentsDefaults();
+  const { data: agentsData, isLoading } = useOpenClawAgentsDefaults(target);
+  const saveAgentsMutation = useSaveOpenClawAgentsDefaults(target);
   const { options: modelOptions, isLoading: modelsLoading } =
-    useOpenClawModelOptions();
+    useOpenClawModelOptions(target);
 
   const [defaults, setDefaults] = useState<OpenClawAgentsDefaults | null>(null);
   const [primaryModel, setPrimaryModel] = useState("");

@@ -9,7 +9,7 @@ import type {
 } from "@/types";
 
 const LOCAL_TARGET: ManagementTarget = { type: "local" };
-const getTargetKey = (target: ManagementTarget) =>
+export const getOpenClawTargetKey = (target: ManagementTarget) =>
   target.type === "remote" ? `remote:${target.profile.id}` : "local";
 
 /**
@@ -51,7 +51,7 @@ export function useOpenClawDefaultModel(
   target: ManagementTarget = LOCAL_TARGET,
 ) {
   return useQuery({
-    queryKey: [...openclawKeys.defaultModel, getTargetKey(target)],
+    queryKey: [...openclawKeys.defaultModel, getOpenClawTargetKey(target)],
     queryFn: () =>
       target.type === "remote"
         ? remoteApi.getOpenClawDefaultModel(target.profile, target.secret)
@@ -63,10 +63,13 @@ export function useOpenClawDefaultModel(
 /**
  * Query env section of openclaw.json.
  */
-export function useOpenClawEnv() {
+export function useOpenClawEnv(target: ManagementTarget = LOCAL_TARGET) {
   return useQuery({
-    queryKey: openclawKeys.env,
-    queryFn: () => openclawApi.getEnv(),
+    queryKey: [...openclawKeys.env, getOpenClawTargetKey(target)],
+    queryFn: () =>
+      target.type === "remote"
+        ? remoteApi.getOpenClawEnv(target.profile, target.secret)
+        : openclawApi.getEnv(),
     staleTime: 30_000,
   });
 }
@@ -74,10 +77,13 @@ export function useOpenClawEnv() {
 /**
  * Query tools section of openclaw.json.
  */
-export function useOpenClawTools() {
+export function useOpenClawTools(target: ManagementTarget = LOCAL_TARGET) {
   return useQuery({
-    queryKey: openclawKeys.tools,
-    queryFn: () => openclawApi.getTools(),
+    queryKey: [...openclawKeys.tools, getOpenClawTargetKey(target)],
+    queryFn: () =>
+      target.type === "remote"
+        ? remoteApi.getOpenClawTools(target.profile, target.secret)
+        : openclawApi.getTools(),
     staleTime: 30_000,
   });
 }
@@ -85,18 +91,27 @@ export function useOpenClawTools() {
 /**
  * Query agents.defaults section of openclaw.json.
  */
-export function useOpenClawAgentsDefaults() {
+export function useOpenClawAgentsDefaults(
+  target: ManagementTarget = LOCAL_TARGET,
+) {
   return useQuery({
-    queryKey: openclawKeys.agentsDefaults,
-    queryFn: () => openclawApi.getAgentsDefaults(),
+    queryKey: [...openclawKeys.agentsDefaults, getOpenClawTargetKey(target)],
+    queryFn: () =>
+      target.type === "remote"
+        ? remoteApi.getOpenClawAgentsDefaults(target.profile, target.secret)
+        : openclawApi.getAgentsDefaults(),
     staleTime: 30_000,
   });
 }
 
-export function useOpenClawHealth(enabled: boolean) {
+export function useOpenClawHealth(
+  enabled: boolean,
+  target: ManagementTarget = LOCAL_TARGET,
+) {
   return useQuery({
-    queryKey: openclawKeys.health,
-    queryFn: () => openclawApi.scanHealth(),
+    queryKey: [...openclawKeys.health, getOpenClawTargetKey(target)],
+    queryFn: () =>
+      target.type === "remote" ? Promise.resolve([]) : openclawApi.scanHealth(),
     staleTime: 30_000,
     enabled,
   });
@@ -110,13 +125,20 @@ export function useOpenClawHealth(enabled: boolean) {
  * Save env config. Invalidates env query on success.
  * Toast notifications are handled by the component.
  */
-export function useSaveOpenClawEnv() {
+export function useSaveOpenClawEnv(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (env: OpenClawEnvConfig) => openclawApi.setEnv(env),
+    mutationFn: (env: OpenClawEnvConfig) =>
+      target.type === "remote"
+        ? remoteApi.setOpenClawEnv(target.profile, env, target.secret)
+        : openclawApi.setEnv(env),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: openclawKeys.env });
-      queryClient.invalidateQueries({ queryKey: openclawKeys.health });
+      queryClient.invalidateQueries({
+        queryKey: [...openclawKeys.env, getOpenClawTargetKey(target)],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...openclawKeys.health, getOpenClawTargetKey(target)],
+      });
     },
   });
 }
@@ -125,13 +147,20 @@ export function useSaveOpenClawEnv() {
  * Save tools config. Invalidates tools query on success.
  * Toast notifications are handled by the component.
  */
-export function useSaveOpenClawTools() {
+export function useSaveOpenClawTools(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (tools: OpenClawToolsConfig) => openclawApi.setTools(tools),
+    mutationFn: (tools: OpenClawToolsConfig) =>
+      target.type === "remote"
+        ? remoteApi.setOpenClawTools(target.profile, tools, target.secret)
+        : openclawApi.setTools(tools),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: openclawKeys.tools });
-      queryClient.invalidateQueries({ queryKey: openclawKeys.health });
+      queryClient.invalidateQueries({
+        queryKey: [...openclawKeys.tools, getOpenClawTargetKey(target)],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...openclawKeys.health, getOpenClawTargetKey(target)],
+      });
     },
   });
 }
@@ -141,15 +170,32 @@ export function useSaveOpenClawTools() {
  * queries on success (since changing agents.defaults may affect the default model).
  * Toast notifications are handled by the component.
  */
-export function useSaveOpenClawAgentsDefaults() {
+export function useSaveOpenClawAgentsDefaults(
+  target: ManagementTarget = LOCAL_TARGET,
+) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (defaults: OpenClawAgentsDefaults) =>
-      openclawApi.setAgentsDefaults(defaults),
+      target.type === "remote"
+        ? remoteApi.setOpenClawAgentsDefaults(
+            target.profile,
+            defaults,
+            target.secret,
+          )
+        : openclawApi.setAgentsDefaults(defaults),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: openclawKeys.agentsDefaults });
-      queryClient.invalidateQueries({ queryKey: openclawKeys.defaultModel });
-      queryClient.invalidateQueries({ queryKey: openclawKeys.health });
+      queryClient.invalidateQueries({
+        queryKey: [
+          ...openclawKeys.agentsDefaults,
+          getOpenClawTargetKey(target),
+        ],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...openclawKeys.defaultModel, getOpenClawTargetKey(target)],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...openclawKeys.health, getOpenClawTargetKey(target)],
+      });
     },
   });
 }

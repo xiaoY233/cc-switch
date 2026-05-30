@@ -126,6 +126,72 @@ fn run_normalized(args: &[String]) -> Value {
                 .expect("serialize openclaw default model error"),
             }
         }
+        [group, cmd] if group == "openclaw" && cmd == "get-env" => {
+            match commands::get_openclaw_env() {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize openclaw env")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("openclaw_get_env_failed", message))
+                        .expect("serialize openclaw env error")
+                }
+            }
+        }
+        [group, cmd, env_json] if group == "openclaw" && cmd == "set-env" => {
+            match commands::set_openclaw_env(env_json) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize openclaw env")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("openclaw_set_env_failed", message))
+                        .expect("serialize openclaw env error")
+                }
+            }
+        }
+        [group, cmd] if group == "openclaw" && cmd == "get-tools" => {
+            match commands::get_openclaw_tools() {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize openclaw tools")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("openclaw_get_tools_failed", message))
+                        .expect("serialize openclaw tools error")
+                }
+            }
+        }
+        [group, cmd, tools_json] if group == "openclaw" && cmd == "set-tools" => {
+            match commands::set_openclaw_tools(tools_json) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize openclaw tools")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("openclaw_set_tools_failed", message))
+                        .expect("serialize openclaw tools error")
+                }
+            }
+        }
+        [group, cmd] if group == "openclaw" && cmd == "get-agents-defaults" => {
+            match commands::get_openclaw_agents_defaults() {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize openclaw agents defaults"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "openclaw_get_agents_defaults_failed",
+                    message,
+                ))
+                .expect("serialize openclaw agents defaults error"),
+            }
+        }
+        [group, cmd, defaults_json] if group == "openclaw" && cmd == "set-agents-defaults" => {
+            match commands::set_openclaw_agents_defaults(defaults_json) {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize openclaw agents defaults"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "openclaw_set_agents_defaults_failed",
+                    message,
+                ))
+                .expect("serialize openclaw agents defaults error"),
+            }
+        }
         [group, cmd] if group == "mcp" && cmd == "list" => match commands::list_mcp_servers() {
             Ok(value) => serde_json::to_value(types::ok(value)).expect("serialize mcp list"),
             Err(message) => serde_json::to_value(types::err::<()>("mcp_list_failed", message))

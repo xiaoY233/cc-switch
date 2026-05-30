@@ -95,6 +95,43 @@ pub fn set_openclaw_default_model(
     crate::openclaw_config::set_default_model(&model).map_err(|e| e.to_string())
 }
 
+pub fn get_openclaw_env() -> Result<crate::openclaw_config::OpenClawEnvConfig, String> {
+    crate::openclaw_config::get_env_config().map_err(|e| e.to_string())
+}
+
+pub fn set_openclaw_env(
+    env_json: &str,
+) -> Result<crate::openclaw_config::OpenClawWriteOutcome, String> {
+    let env: crate::openclaw_config::OpenClawEnvConfig =
+        serde_json::from_str(env_json).map_err(|e| e.to_string())?;
+    crate::openclaw_config::set_env_config(&env).map_err(|e| e.to_string())
+}
+
+pub fn get_openclaw_tools() -> Result<crate::openclaw_config::OpenClawToolsConfig, String> {
+    crate::openclaw_config::get_tools_config().map_err(|e| e.to_string())
+}
+
+pub fn set_openclaw_tools(
+    tools_json: &str,
+) -> Result<crate::openclaw_config::OpenClawWriteOutcome, String> {
+    let tools: crate::openclaw_config::OpenClawToolsConfig =
+        serde_json::from_str(tools_json).map_err(|e| e.to_string())?;
+    crate::openclaw_config::set_tools_config(&tools).map_err(|e| e.to_string())
+}
+
+pub fn get_openclaw_agents_defaults(
+) -> Result<Option<crate::openclaw_config::OpenClawAgentsDefaults>, String> {
+    crate::openclaw_config::get_agents_defaults().map_err(|e| e.to_string())
+}
+
+pub fn set_openclaw_agents_defaults(
+    defaults_json: &str,
+) -> Result<crate::openclaw_config::OpenClawWriteOutcome, String> {
+    let defaults: crate::openclaw_config::OpenClawAgentsDefaults =
+        serde_json::from_str(defaults_json).map_err(|e| e.to_string())?;
+    crate::openclaw_config::set_agents_defaults(&defaults).map_err(|e| e.to_string())
+}
+
 pub fn list_mcp_servers() -> Result<IndexMap<String, McpServer>, String> {
     let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
     let state = AppState::new(db);

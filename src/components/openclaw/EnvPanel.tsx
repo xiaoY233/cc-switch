@@ -7,11 +7,16 @@ import { extractErrorMessage } from "@/utils/errorUtils";
 import { Button } from "@/components/ui/button";
 import JsonEditor from "@/components/JsonEditor";
 import { parseOpenClawEnvEditorValue } from "./utils";
+import type { ManagementTarget } from "@/lib/api";
 
-const EnvPanel: React.FC = () => {
+interface EnvPanelProps {
+  target?: ManagementTarget;
+}
+
+const EnvPanel: React.FC<EnvPanelProps> = ({ target }) => {
   const { t } = useTranslation();
-  const { data: envData, isLoading } = useOpenClawEnv();
-  const saveEnvMutation = useSaveOpenClawEnv();
+  const { data: envData, isLoading } = useOpenClawEnv(target);
+  const saveEnvMutation = useSaveOpenClawEnv(target);
   const [editorValue, setEditorValue] = useState("{}");
   const [isDarkMode, setIsDarkMode] = useState(false);
 

@@ -270,6 +270,100 @@ pub fn remote_set_openclaw_default_model(
 }
 
 #[tauri::command]
+pub fn remote_get_openclaw_env(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<crate::openclaw_config::OpenClawEnvConfig, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &["openclaw".to_string(), "get-env".to_string()],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_set_openclaw_env(
+    profile: RemoteHostProfile,
+    env: crate::openclaw_config::OpenClawEnvConfig,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<crate::openclaw_config::OpenClawWriteOutcome, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    let env_json = serde_json::to_string(&env).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &["openclaw".to_string(), "set-env".to_string(), env_json],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_get_openclaw_tools(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<crate::openclaw_config::OpenClawToolsConfig, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &["openclaw".to_string(), "get-tools".to_string()],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_set_openclaw_tools(
+    profile: RemoteHostProfile,
+    tools: crate::openclaw_config::OpenClawToolsConfig,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<crate::openclaw_config::OpenClawWriteOutcome, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    let tools_json = serde_json::to_string(&tools).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &["openclaw".to_string(), "set-tools".to_string(), tools_json],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_get_openclaw_agents_defaults(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Option<crate::openclaw_config::OpenClawAgentsDefaults>, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &["openclaw".to_string(), "get-agents-defaults".to_string()],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_set_openclaw_agents_defaults(
+    profile: RemoteHostProfile,
+    defaults: crate::openclaw_config::OpenClawAgentsDefaults,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<crate::openclaw_config::OpenClawWriteOutcome, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    let defaults_json = serde_json::to_string(&defaults).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &[
+            "openclaw".to_string(),
+            "set-agents-defaults".to_string(),
+            defaults_json,
+        ],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn remote_get_mcp_servers(
     profile: RemoteHostProfile,
     secret: Option<RemoteConnectionSecret>,

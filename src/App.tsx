@@ -365,7 +365,7 @@ function App() {
       currentView === "openclawTools" ||
       currentView === "openclawAgents");
   const { data: openclawHealthWarnings = [] } =
-    useOpenClawHealth(isOpenClawView);
+    useOpenClawHealth(isOpenClawView, managementTarget);
   const hasSkillsSupport = sharedFeatureApp !== "openclaw";
   const hasSessionSupport =
     sharedFeatureApp === "claude" ||
@@ -1024,11 +1024,11 @@ function App() {
         case "workspace":
           return <WorkspaceFilesPanel />;
         case "openclawEnv":
-          return <EnvPanel />;
+          return <EnvPanel target={managementTarget} />;
         case "openclawTools":
-          return <ToolsPanel />;
+          return <ToolsPanel target={managementTarget} />;
         case "openclawAgents":
-          return <AgentsDefaultsPanel />;
+          return <AgentsDefaultsPanel target={managementTarget} />;
         default:
           return (
             <div className="px-6 flex flex-col flex-1 min-h-0 overflow-hidden">

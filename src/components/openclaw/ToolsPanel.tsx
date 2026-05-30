@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { OpenClawToolsConfig, OpenClawToolsProfile } from "@/types";
+import type { ManagementTarget } from "@/lib/api";
 import {
   getOpenClawToolsProfileSelectValue,
   getOpenClawUnsupportedProfile,
@@ -29,10 +30,14 @@ interface ListItem {
   value: string;
 }
 
-const ToolsPanel: React.FC = () => {
+interface ToolsPanelProps {
+  target?: ManagementTarget;
+}
+
+const ToolsPanel: React.FC<ToolsPanelProps> = ({ target }) => {
   const { t } = useTranslation();
-  const { data: toolsData, isLoading } = useOpenClawTools();
-  const saveToolsMutation = useSaveOpenClawTools();
+  const { data: toolsData, isLoading } = useOpenClawTools(target);
+  const saveToolsMutation = useSaveOpenClawTools(target);
   const [config, setConfig] = useState<OpenClawToolsConfig>({});
   const [allowList, setAllowList] = useState<ListItem[]>([]);
   const [denyList, setDenyList] = useState<ListItem[]>([]);

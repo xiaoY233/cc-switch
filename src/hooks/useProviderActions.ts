@@ -25,7 +25,7 @@ import {
   useSwitchProviderMutation,
 } from "@/lib/query";
 import { extractErrorMessage } from "@/utils/errorUtils";
-import { openclawKeys } from "@/hooks/useOpenClaw";
+import { getOpenClawTargetKey, openclawKeys } from "@/hooks/useOpenClaw";
 import {
   extractCodexWireApi,
   isCodexChatWireApi,
@@ -104,7 +104,7 @@ export function useProviderActions(
             const mergedCatalog = { ...existingCatalog, ...modelCatalog };
             await openclawApi.setModelCatalog(mergedCatalog);
             await queryClient.invalidateQueries({
-              queryKey: openclawKeys.health,
+              queryKey: [...openclawKeys.health, "local"],
             });
             modelsRegistered = true;
           }
@@ -115,7 +115,7 @@ export function useProviderActions(
             if (!existingDefault?.primary) {
               await openclawApi.setDefaultModel(model);
               await queryClient.invalidateQueries({
-                queryKey: openclawKeys.health,
+                queryKey: [...openclawKeys.health, "local"],
               });
             }
           }
@@ -380,10 +380,10 @@ export function useProviderActions(
           await openclawApi.setDefaultModel(model);
         }
         await queryClient.invalidateQueries({
-          queryKey: openclawKeys.defaultModel,
+          queryKey: [...openclawKeys.defaultModel, getOpenClawTargetKey(target)],
         });
         await queryClient.invalidateQueries({
-          queryKey: openclawKeys.health,
+          queryKey: [...openclawKeys.health, getOpenClawTargetKey(target)],
         });
         toast.success(
           t("notifications.openclawDefaultModelSet", {

@@ -1,9 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { McpServer, McpServersMap, Provider } from "@/types";
+import type {
+  McpServer,
+  McpServersMap,
+  OpenClawAgentsDefaults,
+  OpenClawDefaultModel,
+  OpenClawEnvConfig,
+  OpenClawToolsConfig,
+  OpenClawWriteOutcome,
+  Provider,
+} from "@/types";
 import type { AppId } from "./types";
 import type { SwitchResult } from "./providers";
 import type { Prompt } from "./prompts";
-import type { OpenClawDefaultModel, OpenClawWriteOutcome } from "@/types";
 import type {
   DiscoverableSkill,
   ImportSkillSelection,
@@ -199,6 +207,78 @@ export const remoteApi = {
       model,
       secret,
     });
+  },
+
+  getOpenClawEnv(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<OpenClawEnvConfig> {
+    return invoke<OpenClawEnvConfig>("remote_get_openclaw_env", {
+      profile,
+      secret,
+    });
+  },
+
+  setOpenClawEnv(
+    profile: RemoteHostProfile,
+    env: OpenClawEnvConfig,
+    secret?: RemoteConnectionSecret,
+  ): Promise<OpenClawWriteOutcome> {
+    return invoke<OpenClawWriteOutcome>("remote_set_openclaw_env", {
+      profile,
+      env,
+      secret,
+    });
+  },
+
+  getOpenClawTools(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<OpenClawToolsConfig> {
+    return invoke<OpenClawToolsConfig>("remote_get_openclaw_tools", {
+      profile,
+      secret,
+    });
+  },
+
+  setOpenClawTools(
+    profile: RemoteHostProfile,
+    tools: OpenClawToolsConfig,
+    secret?: RemoteConnectionSecret,
+  ): Promise<OpenClawWriteOutcome> {
+    return invoke<OpenClawWriteOutcome>("remote_set_openclaw_tools", {
+      profile,
+      tools,
+      secret,
+    });
+  },
+
+  getOpenClawAgentsDefaults(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<OpenClawAgentsDefaults | null> {
+    return invoke<OpenClawAgentsDefaults | null>(
+      "remote_get_openclaw_agents_defaults",
+      {
+        profile,
+        secret,
+      },
+    );
+  },
+
+  setOpenClawAgentsDefaults(
+    profile: RemoteHostProfile,
+    defaults: OpenClawAgentsDefaults,
+    secret?: RemoteConnectionSecret,
+  ): Promise<OpenClawWriteOutcome> {
+    return invoke<OpenClawWriteOutcome>(
+      "remote_set_openclaw_agents_defaults",
+      {
+        profile,
+        defaults,
+        secret,
+      },
+    );
   },
 
   getMcpServers(
