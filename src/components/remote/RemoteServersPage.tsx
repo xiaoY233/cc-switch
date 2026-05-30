@@ -84,8 +84,8 @@ export function RemoteServersPage({
     const next = await remoteApi.listProfiles();
     onProfilesChanged(next);
     onProfileSaved(saved, secret);
-    setSelectedId(profile.id);
-    onProfileActivated?.(profile.id);
+    setSelectedId(saved.id);
+    onProfileActivated?.(saved.id);
     toast.success(t("remote.saved", { defaultValue: "远程服务器已保存" }));
   };
 

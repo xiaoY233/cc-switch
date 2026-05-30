@@ -2691,7 +2691,8 @@
     "saved": "Remote server saved",
     "deleted": "Remote server deleted",
     "dialog": {
-      "title": "Remote Server"
+      "title": "Remote Server",
+      "description": "Save remote connection details. Passwords stay in the current session and are not written to the local database."
     },
     "fields": {
       "name": "Name",

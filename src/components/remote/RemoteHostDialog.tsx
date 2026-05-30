@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -134,15 +135,32 @@ export function RemoteHostDialog({
             <DialogTitle>
               {t("remote.dialog.title", { defaultValue: "远程服务器" })}
             </DialogTitle>
+            <DialogDescription>
+              {t("remote.dialog.description", {
+                defaultValue:
+                  "保存远程连接信息。密码仅保留在当前会话中，不会写入本地数据库。",
+              })}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-5 px-6 py-5">
             <div className="grid grid-cols-2 gap-3">
-              <Field label={t("remote.fields.name", { defaultValue: "名称" })}>
-                <Input value={name} onChange={(e) => setName(e.target.value)} />
-              </Field>
-              <Field label={t("remote.fields.host", { defaultValue: "主机" })}>
+              <Field
+                id="remote-name"
+                label={t("remote.fields.name", { defaultValue: "名称" })}
+              >
                 <Input
+                  id="remote-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </Field>
+              <Field
+                id="remote-host"
+                label={t("remote.fields.host", { defaultValue: "主机" })}
+              >
+                <Input
+                  id="remote-host"
                   value={host}
                   onChange={(e) => setHost(e.target.value)}
                   placeholder="10.0.0.10"
@@ -150,17 +168,23 @@ export function RemoteHostDialog({
                 />
               </Field>
               <Field
+                id="remote-username"
                 label={t("remote.fields.username", { defaultValue: "用户名" })}
               >
                 <Input
+                  id="remote-username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="deploy"
                   required
                 />
               </Field>
-              <Field label={t("remote.fields.port", { defaultValue: "端口" })}>
+              <Field
+                id="remote-port"
+                label={t("remote.fields.port", { defaultValue: "端口" })}
+              >
                 <Input
+                  id="remote-port"
                   value={port}
                   onChange={(e) => setPort(e.target.value)}
                   inputMode="numeric"
@@ -170,11 +194,13 @@ export function RemoteHostDialog({
             </div>
 
             <Field
+              id="remote-helper-path"
               label={t("remote.fields.helperPath", {
                 defaultValue: "Helper 路径",
               })}
             >
               <Input
+                id="remote-helper-path"
                 value={helperPath}
                 onChange={(e) => setHelperPath(e.target.value)}
               />
@@ -214,11 +240,13 @@ export function RemoteHostDialog({
 
             {authMode === "keyFile" && (
               <Field
+                id="remote-key-path"
                 label={t("remote.fields.keyPath", {
                   defaultValue: "SSH 密钥路径",
                 })}
               >
                 <Input
+                  id="remote-key-path"
                   value={keyPath}
                   onChange={(e) => setKeyPath(e.target.value)}
                   required
@@ -228,9 +256,11 @@ export function RemoteHostDialog({
 
             {authMode === "password" && (
               <Field
+                id="remote-password"
                 label={t("remote.fields.password", { defaultValue: "密码" })}
               >
                 <Input
+                  id="remote-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   type="password"
@@ -265,10 +295,18 @@ export function RemoteHostDialog({
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({
+  id,
+  label,
+  children,
+}: {
+  id: string;
+  label: string;
+  children: ReactNode;
+}) {
   return (
     <div className="grid gap-2">
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       {children}
     </div>
   );
