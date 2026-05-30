@@ -21,6 +21,7 @@ import {
   Download,
   FolderArchive,
   Search,
+  Server,
   FolderOpen,
   KeyRound,
   Shield,
@@ -90,6 +91,7 @@ import ToolsPanel from "@/components/openclaw/ToolsPanel";
 import AgentsDefaultsPanel from "@/components/openclaw/AgentsDefaultsPanel";
 import OpenClawHealthBanner from "@/components/openclaw/OpenClawHealthBanner";
 import HermesMemoryPanel from "@/components/hermes/HermesMemoryPanel";
+import { RemoteServersPage } from "@/components/remote/RemoteServersPage";
 
 type View =
   | "providers"
@@ -105,7 +107,8 @@ type View =
   | "openclawEnv"
   | "openclawTools"
   | "openclawAgents"
-  | "hermesMemory";
+  | "hermesMemory"
+  | "remoteServers";
 
 interface WebDavSyncStatusUpdatedPayload {
   source?: string;
@@ -151,6 +154,7 @@ const VALID_VIEWS: View[] = [
   "openclawTools",
   "openclawAgents",
   "hermesMemory",
+  "remoteServers",
 ];
 
 const getInitialView = (): View => {
@@ -864,6 +868,8 @@ function App() {
           );
         case "hermesMemory":
           return <HermesMemoryPanel />;
+        case "remoteServers":
+          return <RemoteServersPage />;
         case "skills":
           return (
             <UnifiedSkillsPanel
@@ -1138,6 +1144,7 @@ function App() {
                   {currentView === "openclawAgents" &&
                     t("openclaw.agents.title")}
                   {currentView === "hermesMemory" && t("hermes.memory.title")}
+                  {currentView === "remoteServers" && "Remote Servers"}
                 </h1>
               </div>
             ) : (
@@ -1168,6 +1175,15 @@ function App() {
                   className="hover:bg-black/5 dark:hover:bg-white/5"
                 >
                   <Settings className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setCurrentView("remoteServers")}
+                  title="Remote Servers"
+                  className="hover:bg-black/5 dark:hover:bg-white/5"
+                >
+                  <Server className="w-4 h-4" />
                 </Button>
                 <UpdateBadge
                   onClick={() => {
