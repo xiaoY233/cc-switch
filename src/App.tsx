@@ -115,6 +115,17 @@ type View =
   | "hermesMemory"
   | "remoteServers";
 
+const TARGET_AWARE_VIEWS = new Set<View>([
+  "settings",
+  "prompts",
+  "skills",
+  "skillsDiscovery",
+  "mcp",
+  "openclawEnv",
+  "openclawTools",
+  "openclawAgents",
+]);
+
 interface WebDavSyncStatusUpdatedPayload {
   source?: string;
   status?: string;
@@ -1259,6 +1270,16 @@ function App() {
                   {currentView === "remoteServers" &&
                     t("remote.title", { defaultValue: "远程服务器" })}
                 </h1>
+                {TARGET_AWARE_VIEWS.has(currentView) && (
+                  <ManagementTargetSwitcher
+                    profiles={remoteProfiles}
+                    activeTargetKey={activeTargetKey}
+                    onTargetChange={setActiveTargetKey}
+                    onManageServers={() => setCurrentView("remoteServers")}
+                    className="ml-2"
+                    style={{ WebkitAppRegion: "no-drag" } as any}
+                  />
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2">

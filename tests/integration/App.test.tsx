@@ -469,6 +469,9 @@ describe("App integration with MSW", () => {
         "remote",
       ),
     );
+    expect(
+      screen.getByTestId("management-target-switcher"),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("simulate-import-success"));
 
