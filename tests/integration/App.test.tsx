@@ -156,6 +156,17 @@ vi.mock("@/components/UpdateBadge", () => ({
   ),
 }));
 
+vi.mock("@/components/settings/SettingsPage", () => ({
+  SettingsPage: ({ onImportSuccess, target }: any) => (
+    <div data-testid="settings-page">
+      <span data-testid="settings-target">{target?.type ?? "local"}</span>
+      <button onClick={() => onImportSuccess?.()}>
+        simulate-import-success
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock("@/components/mcp/McpPanel", () => ({
   default: ({ open, onOpenChange }: any) =>
     open ? (
@@ -415,5 +426,43 @@ describe("App integration with MSW", () => {
         fallbacks: ["deepseek/deepseek-reasoner"],
       });
     });
+  });
+
+  it("does not refresh the local tray after remote import success", async () => {
+    const updateTrayMenuSpy = vi
+      .spyOn(providersApi, "updateTrayMenu")
+      .mockResolvedValue(true);
+    setRemoteProfiles([
+      {
+        id: "remote-1",
+        name: "Remote 1",
+        host: "192.168.1.20",
+        port: 22,
+        username: "root",
+        authMethod: { type: "password" },
+        helperPath: "~/.local/bin/cc-switch-remote-helper",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+
+    const { default: App } = await import("@/App");
+    renderApp(App);
+
+    fireEvent.click(await screen.findByText("Remote 1"));
+    fireEvent.click(screen.getByTitle("common.settings"));
+    await waitFor(() =>
+      expect(screen.getByTestId("settings-target")).toHaveTextContent(
+        "remote",
+      ),
+    );
+
+    fireEvent.click(screen.getByText("simulate-import-success"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("settings-page")).toBeInTheDocument(),
+    );
+    expect(updateTrayMenuSpy).not.toHaveBeenCalled();
+    updateTrayMenuSpy.mockRestore();
   });
 });

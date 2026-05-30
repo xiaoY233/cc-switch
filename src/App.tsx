@@ -885,10 +885,12 @@ function App() {
       console.error("[App] Failed to refresh providers after import", error);
       await refetch();
     }
-    try {
-      await providersApi.updateTrayMenu();
-    } catch (error) {
-      console.error("[App] Failed to refresh tray menu", error);
+    if (managementTarget.type === "local") {
+      try {
+        await providersApi.updateTrayMenu();
+      } catch (error) {
+        console.error("[App] Failed to refresh tray menu", error);
+      }
     }
   };
 
