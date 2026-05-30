@@ -1310,6 +1310,9 @@ pub fn run() {
             commands::get_tool_versions,
             commands::run_tool_lifecycle_action,
             commands::probe_tool_installations,
+            commands::remote_validate_profile,
+            commands::remote_build_status_command,
+            commands::remote_parse_helper_response,
             // Provider terminal
             commands::open_provider_terminal,
             // Universal Provider management
