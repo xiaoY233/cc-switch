@@ -15,6 +15,7 @@ import type {
   UsageScript,
   OpenClawProviderConfig,
   OpenClawDefaultModel,
+  OpenClawAgentsDefaults,
 } from "@/types";
 import type { OpenClawSuggestedDefaults } from "@/config/openclawProviderPresets";
 import { injectCodingPlanUsageScript } from "@/config/codingPlanProviders";
@@ -48,6 +49,81 @@ export function useProviderActions(
   const updateProviderMutation = useUpdateProviderMutation(activeApp, target);
   const deleteProviderMutation = useDeleteProviderMutation(activeApp, target);
   const switchProviderMutation = useSwitchProviderMutation(activeApp, target);
+
+  const registerOpenClawSuggestedDefaults = useCallback(
+    async (suggestedDefaults: OpenClawSuggestedDefaults) => {
+      const { model, modelCatalog } = suggestedDefaults;
+      let modelsRegistered = false;
+
+      if (target.type === "remote") {
+        const existingDefaults =
+          (await remoteApi.getOpenClawAgentsDefaults(
+            target.profile,
+            target.secret,
+          )) ?? {};
+        const nextDefaults: OpenClawAgentsDefaults = {
+          ...existingDefaults,
+        };
+
+        if (modelCatalog && Object.keys(modelCatalog).length > 0) {
+          nextDefaults.models = {
+            ...(existingDefaults.models ?? {}),
+            ...modelCatalog,
+          };
+          modelsRegistered = true;
+        }
+
+        if (model && !existingDefaults.model?.primary) {
+          nextDefaults.model = model;
+        }
+
+        if (modelsRegistered || nextDefaults.model !== existingDefaults.model) {
+          await remoteApi.setOpenClawAgentsDefaults(
+            target.profile,
+            nextDefaults,
+            target.secret,
+          );
+          const targetKey = getOpenClawTargetKey(target);
+          await queryClient.invalidateQueries({
+            queryKey: [...openclawKeys.health, targetKey],
+          });
+          await queryClient.invalidateQueries({
+            queryKey: [...openclawKeys.defaultModel, targetKey],
+          });
+        }
+      } else {
+        if (modelCatalog && Object.keys(modelCatalog).length > 0) {
+          const existingCatalog = (await openclawApi.getModelCatalog()) || {};
+          const mergedCatalog = { ...existingCatalog, ...modelCatalog };
+          await openclawApi.setModelCatalog(mergedCatalog);
+          await queryClient.invalidateQueries({
+            queryKey: [...openclawKeys.health, "local"],
+          });
+          modelsRegistered = true;
+        }
+
+        if (model) {
+          const existingDefault = await openclawApi.getDefaultModel();
+          if (!existingDefault?.primary) {
+            await openclawApi.setDefaultModel(model);
+            await queryClient.invalidateQueries({
+              queryKey: [...openclawKeys.health, "local"],
+            });
+          }
+        }
+      }
+
+      if (modelsRegistered) {
+        toast.success(
+          t("notifications.openclawModelsRegistered", {
+            defaultValue: "模型已注册到 /model 列表",
+          }),
+          { closeButton: true },
+        );
+      }
+    },
+    [queryClient, t, target],
+  );
 
   // Claude 插件同步逻辑
   const syncClaudePlugin = useCallback(
@@ -90,45 +166,11 @@ export function useProviderActions(
 
       // OpenClaw: register models to allowlist after adding provider
       if (
-        target.type === "local" &&
         activeApp === "openclaw" &&
         provider.suggestedDefaults
       ) {
-        const { model, modelCatalog } = provider.suggestedDefaults;
-        let modelsRegistered = false;
-
         try {
-          // 1. Merge model catalog (allowlist)
-          if (modelCatalog && Object.keys(modelCatalog).length > 0) {
-            const existingCatalog = (await openclawApi.getModelCatalog()) || {};
-            const mergedCatalog = { ...existingCatalog, ...modelCatalog };
-            await openclawApi.setModelCatalog(mergedCatalog);
-            await queryClient.invalidateQueries({
-              queryKey: [...openclawKeys.health, "local"],
-            });
-            modelsRegistered = true;
-          }
-
-          // 2. Set default model (only if not already set)
-          if (model) {
-            const existingDefault = await openclawApi.getDefaultModel();
-            if (!existingDefault?.primary) {
-              await openclawApi.setDefaultModel(model);
-              await queryClient.invalidateQueries({
-                queryKey: [...openclawKeys.health, "local"],
-              });
-            }
-          }
-
-          // Show success toast if models were registered
-          if (modelsRegistered) {
-            toast.success(
-              t("notifications.openclawModelsRegistered", {
-                defaultValue: "模型已注册到 /model 列表",
-              }),
-              { closeButton: true },
-            );
-          }
+          await registerOpenClawSuggestedDefaults(provider.suggestedDefaults);
         } catch (error) {
           // Log warning but don't block main flow - provider config is already saved
           console.warn(
@@ -138,7 +180,7 @@ export function useProviderActions(
         }
       }
     },
-    [addProviderMutation, activeApp, queryClient, t, target.type],
+    [addProviderMutation, activeApp, registerOpenClawSuggestedDefaults],
   );
 
   // 更新供应商

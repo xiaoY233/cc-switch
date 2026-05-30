@@ -62,6 +62,8 @@ const openclawApiGetModelCatalogMock = vi.fn();
 const openclawApiSetModelCatalogMock = vi.fn();
 const openclawApiGetDefaultModelMock = vi.fn();
 const openclawApiSetDefaultModelMock = vi.fn();
+const remoteApiGetOpenClawAgentsDefaultsMock = vi.fn();
+const remoteApiSetOpenClawAgentsDefaultsMock = vi.fn();
 const remoteApiSetOpenClawDefaultModelMock = vi.fn();
 
 vi.mock("@/lib/api", () => ({
@@ -86,6 +88,10 @@ vi.mock("@/lib/api", () => ({
       openclawApiSetDefaultModelMock(...args),
   },
   remoteApi: {
+    getOpenClawAgentsDefaults: (...args: unknown[]) =>
+      remoteApiGetOpenClawAgentsDefaultsMock(...args),
+    setOpenClawAgentsDefaults: (...args: unknown[]) =>
+      remoteApiSetOpenClawAgentsDefaultsMock(...args),
     setOpenClawDefaultModel: (...args: unknown[]) =>
       remoteApiSetOpenClawDefaultModelMock(...args),
   },
@@ -128,6 +134,8 @@ beforeEach(() => {
   openclawApiSetModelCatalogMock.mockReset();
   openclawApiGetDefaultModelMock.mockReset();
   openclawApiSetDefaultModelMock.mockReset();
+  remoteApiGetOpenClawAgentsDefaultsMock.mockReset();
+  remoteApiSetOpenClawAgentsDefaultsMock.mockReset();
   remoteApiSetOpenClawDefaultModelMock.mockReset();
   toastSuccessMock.mockReset();
   toastErrorMock.mockReset();
@@ -166,8 +174,18 @@ describe("useProviderActions", () => {
     expect(addProviderMutateAsync).toHaveBeenCalledWith(providerInput);
   });
 
-  it("should not write local OpenClaw defaults after adding provider to remote target", async () => {
+  it("should write remote OpenClaw defaults after adding provider to remote target", async () => {
     addProviderMutateAsync.mockResolvedValueOnce(undefined);
+    remoteApiGetOpenClawAgentsDefaultsMock.mockResolvedValueOnce({
+      models: {
+        "existing/model": {
+          alias: "Existing",
+        },
+      },
+    });
+    remoteApiSetOpenClawAgentsDefaultsMock.mockResolvedValueOnce({
+      warnings: [],
+    });
     const { wrapper } = createWrapper();
     const remoteTarget: ManagementTarget = {
       type: "remote",
@@ -216,6 +234,28 @@ describe("useProviderActions", () => {
     expect(openclawApiSetModelCatalogMock).not.toHaveBeenCalled();
     expect(openclawApiGetDefaultModelMock).not.toHaveBeenCalled();
     expect(openclawApiSetDefaultModelMock).not.toHaveBeenCalled();
+    expect(remoteApiGetOpenClawAgentsDefaultsMock).toHaveBeenCalledWith(
+      remoteTarget.profile,
+      remoteTarget.secret,
+    );
+    expect(remoteApiSetOpenClawAgentsDefaultsMock).toHaveBeenCalledWith(
+      remoteTarget.profile,
+      {
+        models: {
+          "existing/model": {
+            alias: "Existing",
+          },
+          "remote-openclaw/gpt-4.1": {
+            alias: "GPT 4.1",
+          },
+        },
+        model: {
+          primary: "remote-openclaw/gpt-4.1",
+          fallbacks: [],
+        },
+      },
+      remoteTarget.secret,
+    );
   });
 
   it("should update tray menu when calling updateProvider", async () => {
