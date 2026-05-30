@@ -205,7 +205,16 @@ export const providersApi = {
   async updateSortOrder(
     updates: ProviderSortUpdate[],
     appId: AppId,
+    target: ManagementTarget = { type: "local" },
   ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.updateProviderSortOrder(
+        target.profile,
+        appId,
+        updates,
+        target.secret,
+      );
+    }
     return await invoke("update_providers_sort_order", { updates, app: appId });
   },
 

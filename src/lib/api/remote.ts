@@ -10,7 +10,7 @@ import type {
   Provider,
 } from "@/types";
 import type { AppId } from "./types";
-import type { SwitchResult } from "./providers";
+import type { ProviderSortUpdate, SwitchResult } from "./providers";
 import type { Prompt } from "./prompts";
 import type {
   DiscoverableSkill,
@@ -192,6 +192,20 @@ export const remoteApi = {
     return invoke<boolean>("remote_import_providers", {
       profile,
       app,
+      secret,
+    });
+  },
+
+  updateProviderSortOrder(
+    profile: RemoteHostProfile,
+    app: AppId,
+    updates: ProviderSortUpdate[],
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_update_providers_sort_order", {
+      profile,
+      app,
+      updates,
       secret,
     });
   },

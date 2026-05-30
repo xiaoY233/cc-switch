@@ -10,7 +10,7 @@ use crate::services::skill::{
     DiscoverableSkill, ImportSkillSelection, SkillBackupEntry, SkillRepo, SkillUninstallResult,
     SkillUpdateInfo,
 };
-use crate::services::SwitchResult;
+use crate::services::{ProviderSortUpdate, SwitchResult};
 use indexmap::IndexMap;
 
 #[tauri::command]
@@ -245,6 +245,23 @@ pub fn remote_import_providers(
     run_helper_json(
         &profile,
         &["providers".to_string(), "import".to_string(), app],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_update_providers_sort_order(
+    profile: RemoteHostProfile,
+    app: String,
+    updates: Vec<ProviderSortUpdate>,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    let updates_json = serde_json::to_string(&updates).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &["providers".to_string(), "sort".to_string(), app, updates_json],
         secret.as_ref(),
     )
     .map_err(|e| e.to_string())

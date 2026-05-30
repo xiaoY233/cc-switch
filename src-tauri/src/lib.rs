@@ -1326,6 +1326,7 @@ pub fn run() {
             commands::remote_update_provider,
             commands::remote_delete_provider,
             commands::remote_import_providers,
+            commands::remote_update_providers_sort_order,
             commands::remote_get_openclaw_default_model,
             commands::remote_set_openclaw_default_model,
             commands::remote_get_openclaw_env,

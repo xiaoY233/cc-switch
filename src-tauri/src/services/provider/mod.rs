@@ -9,7 +9,7 @@ mod usage;
 
 use indexmap::IndexMap;
 use regex::Regex;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::app_config::AppType;
@@ -2621,7 +2621,7 @@ pub(crate) fn normalize_claude_models_in_value(settings: &mut Value) -> bool {
     changed
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ProviderSortUpdate {
     pub id: String,
     #[serde(rename = "sortIndex")]

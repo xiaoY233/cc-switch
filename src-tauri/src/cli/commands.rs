@@ -4,6 +4,7 @@ use crate::services::skill::{
     DiscoverableSkill, ImportSkillSelection, SkillBackupEntry, SkillRepo, SkillService,
     SkillUninstallResult, SkillUpdateInfo,
 };
+use crate::services::ProviderSortUpdate;
 use crate::{
     AppError, AppState, AppType, Database, McpServer, McpService, PromptService, Provider,
     ProviderService,
@@ -81,6 +82,14 @@ pub fn delete_provider(app: AppType, id: &str) -> Result<bool, String> {
     ProviderService::delete(&state, app, id)
         .map(|_| true)
         .map_err(|e| e.to_string())
+}
+
+pub fn sort_providers(app: AppType, updates_json: &str) -> Result<bool, String> {
+    let updates: Vec<ProviderSortUpdate> =
+        serde_json::from_str(updates_json).map_err(|e| e.to_string())?;
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    ProviderService::update_sort_order(&state, app, updates).map_err(|e| e.to_string())
 }
 
 pub fn import_providers(app: AppType) -> Result<bool, String> {

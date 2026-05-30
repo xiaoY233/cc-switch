@@ -7,6 +7,7 @@ import { useDragSort } from "@/hooks/useDragSort";
 import type { ManagementTarget } from "@/lib/api";
 
 const updateSortOrderMock = vi.fn();
+const updateTrayMenuMock = vi.fn();
 const toastSuccessMock = vi.fn();
 const toastErrorMock = vi.fn();
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -21,6 +22,7 @@ vi.mock("sonner", () => ({
 vi.mock("@/lib/api", () => ({
   providersApi: {
     updateSortOrder: (...args: unknown[]) => updateSortOrderMock(...args),
+    updateTrayMenu: (...args: unknown[]) => updateTrayMenuMock(...args),
   },
 }));
 
@@ -80,6 +82,7 @@ const remoteTarget: ManagementTarget = {
 describe("useDragSort", () => {
   beforeEach(() => {
     updateSortOrderMock.mockReset();
+    updateTrayMenuMock.mockReset();
     toastSuccessMock.mockReset();
     toastErrorMock.mockReset();
     consoleErrorSpy.mockClear();
@@ -127,9 +130,10 @@ describe("useDragSort", () => {
         { id: "c", sortIndex: 2 },
       ],
       "claude",
+      { type: "local" },
     );
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ["providers", "claude"],
+      queryKey: ["providers", "claude", "local"],
     });
     expect(toastSuccessMock).toHaveBeenCalledTimes(1);
     expect(toastErrorMock).not.toHaveBeenCalled();
@@ -172,8 +176,10 @@ describe("useDragSort", () => {
     expect(updateSortOrderMock).not.toHaveBeenCalled();
   });
 
-  it("should not call local sort API when target is remote", async () => {
-    const { wrapper } = createWrapper();
+  it("should persist sort order for remote targets", async () => {
+    updateSortOrderMock.mockResolvedValue(true);
+    const { wrapper, queryClient } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     const { result } = renderHook(
       () => useDragSort(mockProviders, "claude", remoteTarget),
@@ -189,8 +195,19 @@ describe("useDragSort", () => {
       } as any);
     });
 
-    expect(updateSortOrderMock).not.toHaveBeenCalled();
-    expect(toastSuccessMock).not.toHaveBeenCalled();
+    expect(updateSortOrderMock).toHaveBeenCalledWith(
+      [
+        { id: "a", sortIndex: 0 },
+        { id: "b", sortIndex: 1 },
+        { id: "c", sortIndex: 2 },
+      ],
+      "claude",
+      remoteTarget,
+    );
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["providers", "claude", "remote:remote-1"],
+    });
+    expect(toastSuccessMock).toHaveBeenCalledTimes(1);
     expect(toastErrorMock).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,9 @@ import { useTranslation } from "react-i18next";
 import type { Provider } from "@/types";
 import { providersApi, type AppId, type ManagementTarget } from "@/lib/api";
 
+const getProviderTargetKey = (target: ManagementTarget) =>
+  target.type === "remote" ? `remote:${target.profile.id}` : "local";
+
 export function useDragSort(
   providers: Record<string, Provider>,
   appId: AppId,
@@ -56,10 +59,6 @@ export function useDragSort(
 
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
-      if (target.type !== "local") {
-        return;
-      }
-
       const { active, over } = event;
       if (!over || active.id === over.id) {
         return;
@@ -83,22 +82,24 @@ export function useDragSort(
       }));
 
       try {
-        await providersApi.updateSortOrder(updates, appId);
+        await providersApi.updateSortOrder(updates, appId, target);
         await queryClient.invalidateQueries({
-          queryKey: ["providers", appId],
+          queryKey: ["providers", appId, getProviderTargetKey(target)],
         });
 
-        // 刷新故障转移队列（因为队列顺序依赖 sort_index）
-        await queryClient.invalidateQueries({
-          queryKey: ["failoverQueue", appId],
-        });
+        if (target.type === "local") {
+          // 刷新故障转移队列（因为队列顺序依赖 sort_index）
+          await queryClient.invalidateQueries({
+            queryKey: ["failoverQueue", appId],
+          });
 
-        // 更新托盘菜单以反映新的排序（失败不影响主操作）
-        try {
-          await providersApi.updateTrayMenu();
-        } catch (trayError) {
-          console.error("Failed to update tray menu after sort", trayError);
-          // 托盘菜单更新失败不影响排序成功
+          // 更新托盘菜单以反映新的排序（失败不影响主操作）
+          try {
+            await providersApi.updateTrayMenu();
+          } catch (trayError) {
+            console.error("Failed to update tray menu after sort", trayError);
+            // 托盘菜单更新失败不影响排序成功
+          }
         }
 
         toast.success(
@@ -116,7 +117,7 @@ export function useDragSort(
         );
       }
     },
-    [sortedProviders, appId, queryClient, t, target.type],
+    [sortedProviders, appId, queryClient, t, target],
   );
 
   return {
