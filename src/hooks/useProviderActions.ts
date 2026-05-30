@@ -85,6 +85,9 @@ export function useProviderActions(
           );
           const targetKey = getOpenClawTargetKey(target);
           await queryClient.invalidateQueries({
+            queryKey: [...openclawKeys.agentsDefaults, targetKey],
+          });
+          await queryClient.invalidateQueries({
             queryKey: [...openclawKeys.health, targetKey],
           });
           await queryClient.invalidateQueries({
@@ -99,6 +102,9 @@ export function useProviderActions(
           await queryClient.invalidateQueries({
             queryKey: [...openclawKeys.health, "local"],
           });
+          await queryClient.invalidateQueries({
+            queryKey: [...openclawKeys.agentsDefaults, "local"],
+          });
           modelsRegistered = true;
         }
 
@@ -108,6 +114,9 @@ export function useProviderActions(
             await openclawApi.setDefaultModel(model);
             await queryClient.invalidateQueries({
               queryKey: [...openclawKeys.health, "local"],
+            });
+            await queryClient.invalidateQueries({
+              queryKey: [...openclawKeys.agentsDefaults, "local"],
             });
           }
         }

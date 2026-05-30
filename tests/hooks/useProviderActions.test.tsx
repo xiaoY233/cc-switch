@@ -186,7 +186,8 @@ describe("useProviderActions", () => {
     remoteApiSetOpenClawAgentsDefaultsMock.mockResolvedValueOnce({
       warnings: [],
     });
-    const { wrapper } = createWrapper();
+    const { wrapper, queryClient } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
     const remoteTarget: ManagementTarget = {
       type: "remote",
       profile: {
@@ -256,6 +257,15 @@ describe("useProviderActions", () => {
       },
       remoteTarget.secret,
     );
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["openclaw", "agentsDefaults", "remote:remote-1"],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["openclaw", "defaultModel", "remote:remote-1"],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["openclaw", "health", "remote:remote-1"],
+    });
   });
 
   it("should update tray menu when calling updateProvider", async () => {
