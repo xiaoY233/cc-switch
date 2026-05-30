@@ -16,8 +16,44 @@ fn remote_profile_keeps_secrets_out_of_local_state() {
         updated_at: 1,
     };
 
-    let serialized = serde_json::to_string(&profile).expect("serialize profile");
-    assert!(!serialized.contains("api_key"));
-    assert!(!serialized.contains("providerSecret"));
-    assert!(serialized.contains("id_ed25519"));
+    let serialized = serde_json::to_value(&profile).expect("serialize profile");
+    let object = serialized
+        .as_object()
+        .expect("remote profile serializes to an object");
+
+    let mut keys = object.keys().map(String::as_str).collect::<Vec<_>>();
+    keys.sort_unstable();
+    assert_eq!(
+        keys,
+        vec![
+            "authMethod",
+            "createdAt",
+            "helperPath",
+            "host",
+            "id",
+            "name",
+            "port",
+            "updatedAt",
+            "username",
+        ],
+        "local remote profiles should only store connection metadata"
+    );
+
+    assert_eq!(
+        object.get("authMethod"),
+        Some(&serde_json::json!({
+            "type": "keyFile",
+            "path": "~/.ssh/id_ed25519",
+        }))
+    );
+
+    for secret_key in [
+        "apiKey",
+        "api_key",
+        "providerSecret",
+        "providerSecrets",
+        "providerApiKey",
+    ] {
+        assert_eq!(object.get(secret_key), None);
+    }
 }
