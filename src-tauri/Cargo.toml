@@ -15,6 +15,10 @@ name = "cc_switch_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 doctest = false
 
+[[bin]]
+name = "cc-switch-cli"
+path = "src/bin/cc-switch-cli.rs"
+
 [features]
 default = []
 test-hooks = []
