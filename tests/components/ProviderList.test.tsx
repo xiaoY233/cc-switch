@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ReactElement } from "react";
@@ -15,6 +15,7 @@ const useCurrentOmoProviderIdMock = vi.fn();
 const useCurrentOmoSlimProviderIdMock = vi.fn();
 const useOpenClawLiveProviderIdsMock = vi.fn();
 const useOpenClawDefaultModelMock = vi.fn();
+const importCurrentProviderMock = vi.fn();
 
 vi.mock("@/hooks/useDragSort", () => ({
   useDragSort: (...args: unknown[]) => useDragSortMock(...args),
@@ -119,6 +120,12 @@ vi.mock("@/hooks/useOpenClaw", () => ({
     useOpenClawDefaultModelMock(...args),
 }));
 
+vi.mock("@/lib/api/providers", () => ({
+  providersApi: {
+    importCurrent: (...args: unknown[]) => importCurrentProviderMock(...args),
+  },
+}));
+
 function createProvider(overrides: Partial<Provider> = {}): Provider {
   return {
     id: overrides.id ?? "provider-1",
@@ -168,6 +175,7 @@ beforeEach(() => {
   useCurrentOmoSlimProviderIdMock.mockReset();
   useOpenClawLiveProviderIdsMock.mockReset();
   useOpenClawDefaultModelMock.mockReset();
+  importCurrentProviderMock.mockReset();
 
   useAutoFailoverEnabledMock.mockReturnValue({ data: false });
   useFailoverQueueMock.mockReturnValue({ data: [] });
@@ -316,12 +324,13 @@ describe("ProviderList Component", () => {
     );
   });
 
-  it("should hide local import action and pass remote target to drag sorting", () => {
+  it("should import current config against the remote target from the empty state", async () => {
     useDragSortMock.mockReturnValueOnce({
       sortedProviders: [],
       sensors: [],
       handleDragEnd: vi.fn(),
     });
+    importCurrentProviderMock.mockResolvedValueOnce(true);
 
     renderWithQueryClient(
       <ProviderList
@@ -338,7 +347,14 @@ describe("ProviderList Component", () => {
       />,
     );
 
-    expect(screen.queryByText("provider.importCurrent")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("provider.importCurrent"));
+
+    await waitFor(() => {
+      expect(importCurrentProviderMock).toHaveBeenCalledWith(
+        "claude",
+        remoteTarget,
+      );
+    });
     expect(useDragSortMock).toHaveBeenCalledWith(
       {},
       "claude",

@@ -5,7 +5,8 @@ use crate::services::skill::{
     SkillUninstallResult, SkillUpdateInfo,
 };
 use crate::{
-    AppState, AppType, Database, McpServer, McpService, PromptService, Provider, ProviderService,
+    AppError, AppState, AppType, Database, McpServer, McpService, PromptService, Provider,
+    ProviderService,
 };
 use indexmap::IndexMap;
 use serde::Serialize;
@@ -80,6 +81,90 @@ pub fn delete_provider(app: AppType, id: &str) -> Result<bool, String> {
     ProviderService::delete(&state, app, id)
         .map(|_| true)
         .map_err(|e| e.to_string())
+}
+
+pub fn import_providers(app: AppType) -> Result<bool, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    match app {
+        AppType::OpenCode => crate::services::provider::import_opencode_providers_from_live(&state)
+            .map(|count| count > 0)
+            .or_else(live_config_missing_as_false),
+        AppType::OpenClaw => crate::services::provider::import_openclaw_providers_from_live(&state)
+            .map(|count| count > 0)
+            .or_else(live_config_missing_as_false),
+        AppType::Hermes => crate::services::provider::import_hermes_providers_from_live(&state)
+            .map(|count| count > 0)
+            .or_else(live_config_missing_as_false),
+        AppType::ClaudeDesktop => import_claude_desktop_providers_from_claude(&state),
+        _ => crate::commands::import_default_config_internal(&state, app)
+            .or_else(live_config_missing_as_false),
+    }
+}
+
+fn live_config_missing_as_false(error: AppError) -> Result<bool, String> {
+    match &error {
+        AppError::Localized { key, .. }
+            if matches!(
+                *key,
+                "claude.live.missing"
+                    | "codex.live.missing"
+                    | "gemini.live.missing"
+                    | "opencode.config.missing"
+                    | "openclaw.config.missing"
+                    | "hermes.config.missing"
+            ) =>
+        {
+            Ok(false)
+        }
+        _ => Err(error.to_string()),
+    }
+}
+
+fn import_claude_desktop_providers_from_claude(state: &AppState) -> Result<bool, String> {
+    let claude_providers = state
+        .db
+        .get_all_providers(AppType::Claude.as_str())
+        .map_err(|e| e.to_string())?;
+    let existing_ids = state
+        .db
+        .get_provider_ids(AppType::ClaudeDesktop.as_str())
+        .map_err(|e| e.to_string())?;
+
+    let mut imported = 0usize;
+    for provider in claude_providers.values() {
+        if existing_ids.contains(&provider.id) {
+            continue;
+        }
+
+        let mut desktop_provider = provider.clone();
+        desktop_provider.in_failover_queue = false;
+        let meta = desktop_provider.meta.get_or_insert_with(Default::default);
+
+        if crate::claude_desktop_config::is_compatible_direct_provider(provider)
+            && crate::commands::claude_provider_models_are_claude_safe(provider)
+        {
+            meta.claude_desktop_mode = Some(crate::provider::ClaudeDesktopMode::Direct);
+        } else if let Some(routes) = crate::commands::suggested_claude_desktop_routes(provider) {
+            meta.claude_desktop_mode = Some(crate::provider::ClaudeDesktopMode::Proxy);
+            meta.claude_desktop_model_routes = routes;
+        } else {
+            continue;
+        }
+
+        state
+            .db
+            .save_provider(AppType::ClaudeDesktop.as_str(), &desktop_provider)
+            .map_err(|e| e.to_string())?;
+        imported += 1;
+    }
+
+    let _ = state.db.ensure_official_seed_by_id(
+        crate::database::CLAUDE_DESKTOP_OFFICIAL_PROVIDER_ID,
+        AppType::ClaudeDesktop,
+    );
+
+    Ok(imported > 0)
 }
 
 pub fn get_openclaw_default_model(

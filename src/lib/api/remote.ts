@@ -184,6 +184,18 @@ export const remoteApi = {
     });
   },
 
+  importProviders(
+    profile: RemoteHostProfile,
+    app: AppId,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_import_providers", {
+      profile,
+      app,
+      secret,
+    });
+  },
+
   getOpenClawDefaultModel(
     profile: RemoteHostProfile,
     secret?: RemoteConnectionSecret,

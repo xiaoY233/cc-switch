@@ -108,7 +108,10 @@ pub fn switch_provider(
     switch_provider_internal(&state, app_type, &id).map_err(|e| e.to_string())
 }
 
-fn import_default_config_internal(state: &AppState, app_type: AppType) -> Result<bool, AppError> {
+pub(crate) fn import_default_config_internal(
+    state: &AppState,
+    app_type: AppType,
+) -> Result<bool, AppError> {
     let imported = ProviderService::import_default_config(state, app_type.clone())?;
 
     if imported {
@@ -219,7 +222,7 @@ pub fn import_claude_desktop_providers_from_claude(
     Ok(imported)
 }
 
-fn claude_provider_models_are_claude_safe(provider: &Provider) -> bool {
+pub(crate) fn claude_provider_models_are_claude_safe(provider: &Provider) -> bool {
     let Some(env) = provider
         .settings_config
         .get("env")

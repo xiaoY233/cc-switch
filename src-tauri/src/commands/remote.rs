@@ -236,6 +236,21 @@ pub fn remote_delete_provider(
 }
 
 #[tauri::command]
+pub fn remote_import_providers(
+    profile: RemoteHostProfile,
+    app: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &["providers".to_string(), "import".to_string(), app],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn remote_get_openclaw_default_model(
     profile: RemoteHostProfile,
     secret: Option<RemoteConnectionSecret>,

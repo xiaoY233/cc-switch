@@ -104,6 +104,17 @@ fn run_normalized(args: &[String]) -> Value {
             Err(err) => serde_json::to_value(types::err::<()>("invalid_app", err.to_string()))
                 .expect("serialize invalid app error"),
         },
+        [group, cmd, app] if group == "providers" && cmd == "import" => match app.parse() {
+            Ok(app_type) => match commands::import_providers(app_type) {
+                Ok(value) => serde_json::to_value(types::ok(value)).expect("serialize import"),
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("providers_import_failed", message))
+                        .expect("serialize provider import error")
+                }
+            },
+            Err(err) => serde_json::to_value(types::err::<()>("invalid_app", err.to_string()))
+                .expect("serialize invalid app error"),
+        },
         [group, cmd] if group == "openclaw" && cmd == "get-default-model" => {
             match commands::get_openclaw_default_model() {
                 Ok(value) => serde_json::to_value(types::ok(value))

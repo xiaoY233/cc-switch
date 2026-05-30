@@ -156,6 +156,36 @@ export const providersApi = {
     return await invoke("import_default_config", { app: appId });
   },
 
+  async importCurrent(
+    appId: AppId,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.importProviders(
+        target.profile,
+        appId,
+        target.secret,
+      );
+    }
+    if (appId === "opencode") {
+      const count = await providersApi.importOpenCodeFromLive();
+      return count > 0;
+    }
+    if (appId === "openclaw") {
+      const count = await providersApi.importOpenClawFromLive();
+      return count > 0;
+    }
+    if (appId === "hermes") {
+      const count = await providersApi.importHermesFromLive();
+      return count > 0;
+    }
+    if (appId === "claude-desktop") {
+      const count = await providersApi.importClaudeDesktopFromClaude();
+      return count > 0;
+    }
+    return providersApi.importDefault(appId);
+  },
+
   async importClaudeDesktopFromClaude(): Promise<number> {
     return await invoke("import_claude_desktop_providers_from_claude");
   },

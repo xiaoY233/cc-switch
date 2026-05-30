@@ -123,6 +123,35 @@ fn openclaw_sections_round_trip_through_json_cli() {
 }
 
 #[test]
+#[serial]
+fn providers_import_returns_stable_json_envelope() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let old_test_home = std::env::var_os("CC_SWITCH_TEST_HOME");
+    let old_home = std::env::var_os("HOME");
+    std::env::set_var("CC_SWITCH_TEST_HOME", temp.path());
+    std::env::set_var("HOME", temp.path());
+
+    let response = cc_switch_lib::cli::run(&[
+        "providers".to_string(),
+        "import".to_string(),
+        "claude".to_string(),
+    ]);
+
+    match old_test_home {
+        Some(value) => std::env::set_var("CC_SWITCH_TEST_HOME", value),
+        None => std::env::remove_var("CC_SWITCH_TEST_HOME"),
+    }
+    match old_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+
+    assert_eq!(response["ok"], true);
+    assert!(response["error"].is_null());
+    assert_eq!(response["data"], false);
+}
+
+#[test]
 fn unsupported_command_returns_stable_error_envelope() {
     let response = cc_switch_lib::cli::run(&["unknown".to_string()]);
 

@@ -263,25 +263,7 @@ export function ProviderList({
   // Import current live config as default provider
   const queryClient = useQueryClient();
   const importMutation = useMutation({
-    mutationFn: async (): Promise<boolean> => {
-      if (appId === "opencode") {
-        const count = await providersApi.importOpenCodeFromLive();
-        return count > 0;
-      }
-      if (appId === "openclaw") {
-        const count = await providersApi.importOpenClawFromLive();
-        return count > 0;
-      }
-      if (appId === "hermes") {
-        const count = await providersApi.importHermesFromLive();
-        return count > 0;
-      }
-      if (appId === "claude-desktop") {
-        const count = await providersApi.importClaudeDesktopFromClaude();
-        return count > 0;
-      }
-      return providersApi.importDefault(appId);
-    },
+    mutationFn: () => providersApi.importCurrent(appId, target),
     onSuccess: (imported) => {
       if (imported) {
         queryClient.invalidateQueries({ queryKey: ["providers", appId] });
@@ -412,7 +394,7 @@ export function ProviderList({
       <ProviderEmptyState
         appId={appId}
         onCreate={onCreate}
-        onImport={isLocalTarget ? () => importMutation.mutate() : undefined}
+        onImport={() => importMutation.mutate()}
       />
     );
   }
