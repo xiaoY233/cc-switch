@@ -28,6 +28,20 @@ fn ssh_args_include_port_identity_and_json_command() {
 }
 
 #[test]
+fn ssh_args_terminate_options_before_destination() {
+    let mut profile = profile();
+    profile.username = "-oProxyCommand=bad".to_string();
+
+    let args = build_ssh_args(&profile, &["status".to_string()]);
+    let destination_index = args
+        .iter()
+        .position(|arg| arg == "-oProxyCommand=bad@example.com")
+        .expect("destination");
+
+    assert_eq!(args[destination_index - 1], "--");
+}
+
+#[test]
 fn ssh_command_preserves_empty_and_space_helper_args() {
     let args = build_ssh_args(
         &profile(),
@@ -54,6 +68,19 @@ fn ssh_command_quotes_helper_path_with_spaces() {
     assert_eq!(
         args.last().expect("remote command"),
         "'/opt/cc switch/bin/cc-switch' --json status"
+    );
+}
+
+#[test]
+fn ssh_command_escapes_single_quote_and_metacharacters_in_helper_path() {
+    let mut profile = profile();
+    profile.helper_path = "/tmp/cc switch'; rm -rf /".to_string();
+
+    let args = build_ssh_args(&profile, &["status".to_string()]);
+
+    assert_eq!(
+        args.last().expect("remote command"),
+        "'/tmp/cc switch'\\''; rm -rf /' --json status"
     );
 }
 

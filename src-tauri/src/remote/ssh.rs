@@ -13,6 +13,7 @@ pub fn build_ssh_args(profile: &RemoteHostProfile, helper_args: &[String]) -> Ve
         args.push(path.clone());
     }
 
+    args.push("--".to_string());
     args.push(format!("{}@{}", profile.username, profile.host));
 
     let mut command = vec![
