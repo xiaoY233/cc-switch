@@ -1325,6 +1325,7 @@ pub fn run() {
             commands::remote_add_provider,
             commands::remote_update_provider,
             commands::remote_delete_provider,
+            commands::remote_set_openclaw_default_model,
             commands::remote_get_mcp_servers,
             commands::remote_upsert_mcp_server,
             commands::remote_delete_mcp_server,

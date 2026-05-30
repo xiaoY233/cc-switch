@@ -26,6 +26,7 @@ pub fn status_payload() -> StatusPayload {
         platform: std::env::consts::OS.to_string(),
         capabilities: vec![
             "providers".to_string(),
+            "openclaw".to_string(),
             "mcp".to_string(),
             "prompts".to_string(),
             "skills".to_string(),
@@ -79,6 +80,19 @@ pub fn delete_provider(app: AppType, id: &str) -> Result<bool, String> {
     ProviderService::delete(&state, app, id)
         .map(|_| true)
         .map_err(|e| e.to_string())
+}
+
+pub fn get_openclaw_default_model(
+) -> Result<Option<crate::openclaw_config::OpenClawDefaultModel>, String> {
+    crate::openclaw_config::get_default_model().map_err(|e| e.to_string())
+}
+
+pub fn set_openclaw_default_model(
+    model_json: &str,
+) -> Result<crate::openclaw_config::OpenClawWriteOutcome, String> {
+    let model: crate::openclaw_config::OpenClawDefaultModel =
+        serde_json::from_str(model_json).map_err(|e| e.to_string())?;
+    crate::openclaw_config::set_default_model(&model).map_err(|e| e.to_string())
 }
 
 pub fn list_mcp_servers() -> Result<IndexMap<String, McpServer>, String> {

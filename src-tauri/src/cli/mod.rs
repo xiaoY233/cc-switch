@@ -9,7 +9,10 @@ pub fn run(args: &[String]) -> Value {
 }
 
 fn normalize_args(args: &[String]) -> Vec<String> {
-    args.iter().filter(|arg| arg.as_str() != "--json").cloned().collect()
+    args.iter()
+        .filter(|arg| arg.as_str() != "--json")
+        .cloned()
+        .collect()
 }
 
 fn run_normalized(args: &[String]) -> Value {
@@ -101,6 +104,28 @@ fn run_normalized(args: &[String]) -> Value {
             Err(err) => serde_json::to_value(types::err::<()>("invalid_app", err.to_string()))
                 .expect("serialize invalid app error"),
         },
+        [group, cmd] if group == "openclaw" && cmd == "get-default-model" => {
+            match commands::get_openclaw_default_model() {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize openclaw default model"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "openclaw_get_default_model_failed",
+                    message,
+                ))
+                .expect("serialize openclaw default model error"),
+            }
+        }
+        [group, cmd, model_json] if group == "openclaw" && cmd == "set-default-model" => {
+            match commands::set_openclaw_default_model(model_json) {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize openclaw default model"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "openclaw_set_default_model_failed",
+                    message,
+                ))
+                .expect("serialize openclaw default model error"),
+            }
+        }
         [group, cmd] if group == "mcp" && cmd == "list" => match commands::list_mcp_servers() {
             Ok(value) => serde_json::to_value(types::ok(value)).expect("serialize mcp list"),
             Err(message) => serde_json::to_value(types::err::<()>("mcp_list_failed", message))
@@ -397,7 +422,7 @@ fn run_normalized(args: &[String]) -> Value {
         }
         _ => serde_json::to_value(types::err::<()>(
             "unsupported_command",
-            "Supported commands: status, providers, mcp, prompts, skills",
+            "Supported commands: status, providers, openclaw, mcp, prompts, skills",
         ))
         .expect("serialize error response"),
     }

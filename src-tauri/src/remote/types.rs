@@ -51,6 +51,7 @@ pub enum RemotePlatform {
 #[serde(rename_all = "kebab-case")]
 pub enum RemoteCapability {
     Providers,
+    Openclaw,
     Mcp,
     Prompts,
     Skills,

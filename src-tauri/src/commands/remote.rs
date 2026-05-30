@@ -3,9 +3,8 @@ use crate::prompt::Prompt;
 use crate::provider::Provider;
 use crate::remote::{
     build_helper_install_args, build_ssh_args, delete_profile, install_helper_json, load_profiles,
-    run_helper_json, upsert_profile,
-    validate_profile, RemoteCapability, RemoteConnectionSecret, RemoteHealth, RemoteHostProfile,
-    RemotePlatform,
+    run_helper_json, upsert_profile, validate_profile, RemoteCapability, RemoteConnectionSecret,
+    RemoteHealth, RemoteHostProfile, RemotePlatform,
 };
 use crate::services::skill::{
     DiscoverableSkill, ImportSkillSelection, SkillBackupEntry, SkillRepo, SkillUninstallResult,
@@ -117,6 +116,7 @@ fn parse_remote_platform(value: &str) -> RemotePlatform {
 fn parse_remote_capability(value: &str) -> Option<RemoteCapability> {
     match value {
         "providers" => Some(RemoteCapability::Providers),
+        "openclaw" => Some(RemoteCapability::Openclaw),
         "mcp" => Some(RemoteCapability::Mcp),
         "prompts" => Some(RemoteCapability::Prompts),
         "skills" => Some(RemoteCapability::Skills),
@@ -230,6 +230,26 @@ pub fn remote_delete_provider(
     run_helper_json(
         &profile,
         &["providers".to_string(), "delete".to_string(), app, id],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_set_openclaw_default_model(
+    profile: RemoteHostProfile,
+    model: crate::openclaw_config::OpenClawDefaultModel,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<crate::openclaw_config::OpenClawWriteOutcome, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    let model_json = serde_json::to_string(&model).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &[
+            "openclaw".to_string(),
+            "set-default-model".to_string(),
+            model_json,
+        ],
         secret.as_ref(),
     )
     .map_err(|e| e.to_string())

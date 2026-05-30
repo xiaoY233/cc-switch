@@ -62,6 +62,7 @@ const openclawApiGetModelCatalogMock = vi.fn();
 const openclawApiSetModelCatalogMock = vi.fn();
 const openclawApiGetDefaultModelMock = vi.fn();
 const openclawApiSetDefaultModelMock = vi.fn();
+const remoteApiSetOpenClawDefaultModelMock = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   providersApi: {
@@ -83,6 +84,10 @@ vi.mock("@/lib/api", () => ({
       openclawApiGetDefaultModelMock(...args),
     setDefaultModel: (...args: unknown[]) =>
       openclawApiSetDefaultModelMock(...args),
+  },
+  remoteApi: {
+    setOpenClawDefaultModel: (...args: unknown[]) =>
+      remoteApiSetOpenClawDefaultModelMock(...args),
   },
 }));
 
@@ -123,6 +128,7 @@ beforeEach(() => {
   openclawApiSetModelCatalogMock.mockReset();
   openclawApiGetDefaultModelMock.mockReset();
   openclawApiSetDefaultModelMock.mockReset();
+  remoteApiSetOpenClawDefaultModelMock.mockReset();
   toastSuccessMock.mockReset();
   toastErrorMock.mockReset();
   toastInfoMock.mockReset();
@@ -604,6 +610,55 @@ describe("useProviderActions", () => {
     });
     expect(toastSuccessMock).toHaveBeenCalledTimes(1);
     expect(toastSuccessMock.mock.calls[0]?.[1]).toEqual({ closeButton: true });
+  });
+
+  it("sets OpenClaw default model on remote target without writing local config", async () => {
+    remoteApiSetOpenClawDefaultModelMock.mockResolvedValueOnce({
+      backupPath: "/tmp/remote-openclaw-backup.json5",
+      warnings: [],
+    });
+    const remoteTarget: ManagementTarget = {
+      type: "remote",
+      profile: {
+        id: "remote-1",
+        name: "Remote 1",
+        host: "192.168.1.20",
+        port: 22,
+        username: "root",
+        authMethod: { type: "password" },
+        helperPath: "~/.local/bin/cc-switch-remote-helper",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      secret: { password: "secret" },
+    };
+
+    const { wrapper } = createWrapper();
+    const provider = createProvider({
+      settingsConfig: {
+        models: [{ id: "gpt-4.1" }, { id: "gpt-4.1-mini" }],
+      },
+    });
+
+    const { result } = renderHook(
+      () => useProviderActions("openclaw", false, false, remoteTarget),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.setAsDefaultModel(provider);
+    });
+
+    expect(remoteApiSetOpenClawDefaultModelMock).toHaveBeenCalledWith(
+      remoteTarget.profile,
+      {
+        primary: "provider-1/gpt-4.1",
+        fallbacks: ["provider-1/gpt-4.1-mini"],
+      },
+      remoteTarget.secret,
+    );
+    expect(openclawApiSetDefaultModelMock).not.toHaveBeenCalled();
+    expect(toastSuccessMock).toHaveBeenCalledTimes(1);
   });
 });
 it("clears loading flag when all mutations idle", () => {

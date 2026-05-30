@@ -6,6 +6,7 @@ import {
   providersApi,
   settingsApi,
   openclawApi,
+  remoteApi,
   type AppId,
   type ManagementTarget,
 } from "@/lib/api";
@@ -369,7 +370,15 @@ export function useProviderActions(
       };
 
       try {
-        await openclawApi.setDefaultModel(model);
+        if (target.type === "remote") {
+          await remoteApi.setOpenClawDefaultModel(
+            target.profile,
+            model,
+            target.secret,
+          );
+        } else {
+          await openclawApi.setDefaultModel(model);
+        }
         await queryClient.invalidateQueries({
           queryKey: openclawKeys.defaultModel,
         });
@@ -391,7 +400,7 @@ export function useProviderActions(
         toast.error(detail);
       }
     },
-    [queryClient, t],
+    [queryClient, t, target],
   );
 
   return {

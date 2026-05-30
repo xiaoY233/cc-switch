@@ -3,6 +3,7 @@ import type { McpServer, McpServersMap, Provider } from "@/types";
 import type { AppId } from "./types";
 import type { SwitchResult } from "./providers";
 import type { Prompt } from "./prompts";
+import type { OpenClawDefaultModel, OpenClawWriteOutcome } from "@/types";
 import type {
   DiscoverableSkill,
   ImportSkillSelection,
@@ -171,6 +172,18 @@ export const remoteApi = {
       profile,
       app,
       id,
+      secret,
+    });
+  },
+
+  setOpenClawDefaultModel(
+    profile: RemoteHostProfile,
+    model: OpenClawDefaultModel,
+    secret?: RemoteConnectionSecret,
+  ): Promise<OpenClawWriteOutcome> {
+    return invoke<OpenClawWriteOutcome>("remote_set_openclaw_default_model", {
+      profile,
+      model,
       secret,
     });
   },
