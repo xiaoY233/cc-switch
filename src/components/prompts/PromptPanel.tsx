@@ -19,6 +19,7 @@ const LOCAL_TARGET: ManagementTarget = { type: "local" };
 
 export interface PromptPanelHandle {
   openAdd: () => void;
+  openImport: () => Promise<void>;
 }
 
 const PromptPanel = React.forwardRef<PromptPanelHandle, PromptPanelProps>(
@@ -41,6 +42,7 @@ const PromptPanel = React.forwardRef<PromptPanelHandle, PromptPanelProps>(
       savePrompt,
       deletePrompt,
       toggleEnabled,
+      importFromFile,
     } = usePromptActions(appId, target);
 
     useEffect(() => {
@@ -70,6 +72,9 @@ const PromptPanel = React.forwardRef<PromptPanelHandle, PromptPanelProps>(
 
     React.useImperativeHandle(ref, () => ({
       openAdd: handleAdd,
+      openImport: async () => {
+        await importFromFile();
+      },
     }));
 
     const handleEdit = (id: string) => {
