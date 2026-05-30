@@ -1,15 +1,51 @@
-import { Activity, Download, RefreshCw, Terminal } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Download,
+  RefreshCw,
+  Terminal,
+} from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   remoteApi,
   type RemoteConnectionSecret,
   type RemoteHealth,
   type RemoteHostProfile,
 } from "@/lib/api";
+
+const EXPECTED_REMOTE_CAPABILITIES = [
+  {
+    id: "providers",
+    labelKey: "remote.capabilities.providers",
+    defaultLabel: "供应商",
+  },
+  {
+    id: "openclaw",
+    labelKey: "remote.capabilities.openclaw",
+    defaultLabel: "OpenClaw",
+  },
+  { id: "mcp", labelKey: "remote.capabilities.mcp", defaultLabel: "MCP" },
+  {
+    id: "prompts",
+    labelKey: "remote.capabilities.prompts",
+    defaultLabel: "提示词",
+  },
+  {
+    id: "skills",
+    labelKey: "remote.capabilities.skills",
+    defaultLabel: "技能",
+  },
+  {
+    id: "import-export",
+    labelKey: "remote.capabilities.importExport",
+    defaultLabel: "导入 / 导出",
+  },
+] as const;
 
 export function RemoteHealthPanel({
   profile,
@@ -22,6 +58,14 @@ export function RemoteHealthPanel({
   const [health, setHealth] = useState<RemoteHealth | null>(null);
   const [checking, setChecking] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const healthCanReportCapabilities =
+    health?.reachable === true && health.helperInstalled === true;
+  const capabilitySet = new Set(health?.capabilities ?? []);
+  const missingCapabilities = healthCanReportCapabilities
+    ? EXPECTED_REMOTE_CAPABILITIES.filter(
+        (capability) => !capabilitySet.has(capability.id),
+      )
+    : [];
 
   const handleCheck = async () => {
     if (!profile) return;
@@ -129,6 +173,54 @@ export function RemoteHealthPanel({
       {health?.lastError && (
         <div className="border-t border-border-default px-4 py-3 text-xs text-destructive">
           {health.lastError}
+        </div>
+      )}
+      {healthCanReportCapabilities && (
+        <div className="border-t border-border-default px-4 py-3">
+          <div className="mb-2 text-xs font-medium text-muted-foreground">
+            {t("remote.health.capabilities", { defaultValue: "能力" })}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {EXPECTED_REMOTE_CAPABILITIES.map((capability) => {
+              const available = capabilitySet.has(capability.id);
+              return (
+                <Badge
+                  key={capability.id}
+                  variant={available ? "secondary" : "outline"}
+                  className={cn(
+                    "border-border-default",
+                    !available &&
+                      "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300",
+                  )}
+                >
+                  {t(capability.labelKey, {
+                    defaultValue: capability.defaultLabel,
+                  })}
+                </Badge>
+              );
+            })}
+          </div>
+          {missingCapabilities.length > 0 && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <div>
+                <span className="font-medium">
+                  {t("remote.health.missingCapabilities", {
+                    defaultValue: "缺少能力",
+                  })}
+                </span>
+                <span className="ml-1">
+                  {missingCapabilities
+                    .map((capability) =>
+                      t(capability.labelKey, {
+                        defaultValue: capability.defaultLabel,
+                      }),
+                    )
+                    .join(", ")}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>

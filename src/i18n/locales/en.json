@@ -2717,7 +2717,17 @@
       "installSuccess": "Remote helper installed",
       "installFailed": "Failed to install remote helper: {{error}}",
       "check": "Check",
-      "platform": "Platform"
+      "platform": "Platform",
+      "capabilities": "Capabilities",
+      "missingCapabilities": "Missing capabilities"
+    },
+    "capabilities": {
+      "providers": "Providers",
+      "openclaw": "OpenClaw",
+      "mcp": "MCP",
+      "prompts": "Prompts",
+      "skills": "Skills",
+      "importExport": "Import / Export"
     }
   },
   "subscription": {
