@@ -84,6 +84,13 @@ import { AgentsPanel } from "@/components/agents/AgentsPanel";
 import { UniversalProviderPanel } from "@/components/universal";
 import { McpIcon } from "@/components/BrandIcons";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SessionManagerPage } from "@/components/sessions/SessionManagerPage";
 import {
   useDisableCurrentOmo,
@@ -1283,24 +1290,39 @@ function App() {
                 >
                   <Settings className="w-4 h-4" />
                 </Button>
-                <select
+                <Select
                   value={activeTargetKey}
-                  onChange={(event) => setActiveTargetKey(event.target.value)}
-                  className="h-8 max-w-[180px] rounded-lg border border-border bg-background px-2 text-xs text-foreground outline-none hover:bg-muted/50"
-                  title={t("remote.targetSelector", {
-                    defaultValue: "管理目标",
-                  })}
-                  style={{ WebkitAppRegion: "no-drag" } as any}
+                  onValueChange={setActiveTargetKey}
                 >
-                  <option value="local">
-                    {t("remote.localTarget", { defaultValue: "本地" })}
-                  </option>
-                  {remoteProfiles.map((profile) => (
-                    <option key={profile.id} value={`remote:${profile.id}`}>
-                      {profile.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    className="h-8 w-[190px] rounded-lg bg-card/70 px-2 text-xs shadow-sm hover:bg-muted/50"
+                    title={t("remote.targetSelector", {
+                      defaultValue: "管理目标",
+                    })}
+                    style={{ WebkitAppRegion: "no-drag" } as any}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="start" className="bg-card shadow-lg">
+                    <SelectItem value="local">
+                      <span className="inline-flex items-center gap-2">
+                        <LayoutDashboard className="h-3.5 w-3.5 text-muted-foreground" />
+                        {t("remote.localTarget", { defaultValue: "本地" })}
+                      </span>
+                    </SelectItem>
+                    {remoteProfiles.map((profile) => (
+                      <SelectItem
+                        key={profile.id}
+                        value={`remote:${profile.id}`}
+                      >
+                        <span className="inline-flex min-w-0 items-center gap-2">
+                          <Server className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{profile.name}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
                   variant="ghost"
                   size="icon"

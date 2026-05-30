@@ -22,6 +22,8 @@ import type {
 
 type RemoteAuthMode = RemoteAuthMethod["type"];
 
+const DEFAULT_HELPER_PATH = "~/.local/bin/cc-switch-remote-helper";
+
 const AUTH_OPTIONS: Array<{
   type: RemoteAuthMode;
   labelKey: string;
@@ -69,7 +71,7 @@ export function RemoteHostDialog({
   const [host, setHost] = useState("");
   const [port, setPort] = useState("22");
   const [username, setUsername] = useState("");
-  const [helperPath, setHelperPath] = useState("~/.local/bin/cc-switch");
+  const [helperPath, setHelperPath] = useState(DEFAULT_HELPER_PATH);
   const [authMode, setAuthMode] = useState<RemoteAuthMode>("sshAgent");
   const [keyPath, setKeyPath] = useState("~/.ssh/id_ed25519");
   const [password, setPassword] = useState("");
@@ -80,7 +82,7 @@ export function RemoteHostDialog({
     setHost(initialProfile?.host ?? "");
     setPort(String(initialProfile?.port ?? 22));
     setUsername(initialProfile?.username ?? "");
-    setHelperPath(initialProfile?.helperPath ?? "~/.local/bin/cc-switch");
+    setHelperPath(initialProfile?.helperPath ?? DEFAULT_HELPER_PATH);
     const authMethod = initialProfile?.authMethod;
     setAuthMode(authMethod?.type ?? "sshAgent");
     setKeyPath(
@@ -115,7 +117,7 @@ export function RemoteHostDialog({
           port: Number(port) || 22,
           username: username.trim(),
           authMethod,
-          helperPath: helperPath.trim() || "~/.local/bin/cc-switch",
+          helperPath: helperPath.trim() || DEFAULT_HELPER_PATH,
           createdAt: initialProfile?.createdAt ?? now,
           updatedAt: now,
         },

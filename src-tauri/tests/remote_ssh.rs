@@ -1,4 +1,6 @@
-use cc_switch_lib::remote::{build_ssh_args, RemoteAuthMethod, RemoteHostProfile};
+use cc_switch_lib::remote::{
+    build_helper_install_args, build_ssh_args, RemoteAuthMethod, RemoteHostProfile,
+};
 
 fn profile() -> RemoteHostProfile {
     RemoteHostProfile {
@@ -10,7 +12,7 @@ fn profile() -> RemoteHostProfile {
         auth_method: RemoteAuthMethod::KeyFile {
             path: "/Users/alice/.ssh/id_ed25519".to_string(),
         },
-        helper_path: "~/.local/bin/cc-switch".to_string(),
+        helper_path: "~/.local/bin/cc-switch-remote-helper".to_string(),
         created_at: 1,
         updated_at: 1,
     }
@@ -68,7 +70,7 @@ fn ssh_command_preserves_empty_and_space_helper_args() {
 
     assert_eq!(
         args.last().expect("remote command"),
-        "~/.local/bin/cc-switch --json '' 'two words' status"
+        "~/.local/bin/cc-switch-remote-helper --json '' 'two words' status"
     );
 }
 
@@ -104,7 +106,7 @@ fn ssh_command_escapes_single_quote_and_metacharacters_in_helper_args() {
 
     assert_eq!(
         args.last().expect("remote command"),
-        "~/.local/bin/cc-switch --json 'it'\\''s; $(rm -rf /) && ok'"
+        "~/.local/bin/cc-switch-remote-helper --json 'it'\\''s; $(rm -rf /) && ok'"
     );
 }
 
@@ -114,6 +116,32 @@ fn ssh_command_has_no_trailing_space_when_helper_args_are_empty() {
 
     assert_eq!(
         args.last().expect("remote command"),
-        "~/.local/bin/cc-switch --json"
+        "~/.local/bin/cc-switch-remote-helper --json"
     );
+}
+
+#[test]
+fn helper_install_args_install_cli_and_link_configured_helper_path() {
+    let args = build_helper_install_args(&profile());
+    let remote_command = args.last().expect("remote command");
+
+    assert!(args.contains(&"alice@example.com".to_string()));
+    assert!(remote_command.contains("cargo install --git https://github.com/farion1231/cc-switch"));
+    assert!(remote_command.contains("--bin cc-switch-cli"));
+    assert!(remote_command.contains("installed_path=\"$HOME/.local/bin/cc-switch-cli\""));
+    assert!(remote_command.contains("ln -sf \"$installed_path\" \"$helper_path\""));
+    assert!(remote_command.contains("\"$helper_path\" --json status"));
+}
+
+#[test]
+fn helper_install_args_quote_configured_helper_path() {
+    let mut profile = profile();
+    profile.helper_path = "/tmp/cc switch'; rm -rf /".to_string();
+
+    let args = build_helper_install_args(&profile);
+
+    assert!(args
+        .last()
+        .expect("remote command")
+        .contains("helper_path='/tmp/cc switch'\\''; rm -rf /'"));
 }

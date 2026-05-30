@@ -6,7 +6,9 @@ use crate::remote::types::{
 use serde::de::DeserializeOwned;
 use std::process::Command;
 
-pub fn build_ssh_args(profile: &RemoteHostProfile, helper_args: &[String]) -> Vec<String> {
+const HELPER_INSTALL_REPO: &str = "https://github.com/farion1231/cc-switch";
+
+fn build_ssh_base_args(profile: &RemoteHostProfile) -> Vec<String> {
     let mut args = vec![
         "-p".to_string(),
         profile.port.to_string(),
@@ -35,6 +37,11 @@ pub fn build_ssh_args(profile: &RemoteHostProfile, helper_args: &[String]) -> Ve
 
     args.push("--".to_string());
     args.push(format!("{}@{}", profile.username, profile.host));
+    args
+}
+
+pub fn build_ssh_args(profile: &RemoteHostProfile, helper_args: &[String]) -> Vec<String> {
+    let mut args = build_ssh_base_args(profile);
 
     let mut command = vec![
         shell_quote_helper_path(&profile.helper_path),
@@ -42,6 +49,34 @@ pub fn build_ssh_args(profile: &RemoteHostProfile, helper_args: &[String]) -> Ve
     ];
     command.extend(helper_args.iter().map(|arg| shell_quote(arg)));
     args.push(command.join(" "));
+    args
+}
+
+pub fn build_helper_install_args(profile: &RemoteHostProfile) -> Vec<String> {
+    let mut args = build_ssh_base_args(profile);
+    let helper_path = shell_quote_helper_path(&profile.helper_path);
+    let repo = shell_quote(HELPER_INSTALL_REPO);
+    let command = format!(
+        concat!(
+            "set -e; ",
+            "helper_path={helper_path}; ",
+            "installed_path=\"$HOME/.local/bin/cc-switch-cli\"; ",
+            "helper_dir=$(dirname \"$helper_path\"); ",
+            "mkdir -p \"$helper_dir\" ~/.local/bin; ",
+            "if ! command -v cargo >/dev/null 2>&1; then ",
+            "echo 'Rust/Cargo is required to install cc-switch remote helper' >&2; ",
+            "exit 127; ",
+            "fi; ",
+            "cargo install --git {repo} --bin cc-switch-cli --root ~/.local --locked; ",
+            "if [ \"$helper_path\" != \"$installed_path\" ]; then ",
+            "ln -sf \"$installed_path\" \"$helper_path\"; ",
+            "fi; ",
+            "\"$helper_path\" --json status"
+        ),
+        helper_path = helper_path,
+        repo = repo,
+    );
+    args.push(command);
     args
 }
 

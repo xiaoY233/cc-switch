@@ -40,8 +40,8 @@ export function RemoteHealthPanel({
   };
 
   return (
-    <section className="rounded-xl border border-border bg-card">
-      <div className="flex items-center justify-between border-b px-4 py-3">
+    <section className="glass overflow-hidden rounded-xl border border-white/10">
+      <div className="flex h-11 items-center justify-between border-b border-border-default px-4">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-semibold">
@@ -67,7 +67,7 @@ export function RemoteHealthPanel({
             : t("remote.health.check", { defaultValue: "检查" })}
         </Button>
       </div>
-      <div className="grid grid-cols-3 gap-3 p-4">
+      <div className="grid grid-cols-1 gap-0 sm:grid-cols-3">
         <Metric
           label={t("remote.fields.host", { defaultValue: "主机" })}
           value={profile?.host ?? "-"}
@@ -82,7 +82,7 @@ export function RemoteHealthPanel({
         />
       </div>
       {health?.lastError && (
-        <div className="border-t px-4 py-3 text-xs text-destructive">
+        <div className="border-t border-border-default px-4 py-3 text-xs text-destructive">
           {health.lastError}
         </div>
       )}
@@ -92,12 +92,14 @@ export function RemoteHealthPanel({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border bg-background px-3 py-2">
+    <div className="min-w-0 border-b border-border-default px-4 py-3 sm:border-b-0 sm:border-r sm:last:border-r-0">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Terminal className="h-3.5 w-3.5" />
         {label}
       </div>
-      <div className="mt-1 truncate text-sm font-medium">{value}</div>
+      <div className="mt-1 truncate text-sm font-medium text-foreground">
+        {value}
+      </div>
     </div>
   );
 }
