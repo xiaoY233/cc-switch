@@ -43,11 +43,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { ManagementTarget } from "@/lib/api/remote";
 
 interface UnifiedSkillsPanelProps {
   onOpenDiscovery: () => void;
   currentApp: AppId;
+  target?: ManagementTarget;
 }
+
+const LOCAL_TARGET: ManagementTarget = { type: "local" };
 
 export interface UnifiedSkillsPanelHandle {
   openDiscovery: () => void;
@@ -67,7 +71,7 @@ function formatSkillBackupDate(unixSeconds: number): string {
 const UnifiedSkillsPanel = React.forwardRef<
   UnifiedSkillsPanelHandle,
   UnifiedSkillsPanelProps
->(({ onOpenDiscovery, currentApp }, ref) => {
+>(({ onOpenDiscovery, currentApp, target = LOCAL_TARGET }, ref) => {
   const { t } = useTranslation();
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -80,26 +84,26 @@ const UnifiedSkillsPanel = React.forwardRef<
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
 
-  const { data: skills, isLoading } = useInstalledSkills();
+  const { data: skills, isLoading } = useInstalledSkills(target);
   const {
     data: skillBackups = [],
     refetch: refetchSkillBackups,
     isFetching: isFetchingSkillBackups,
-  } = useSkillBackups();
-  const deleteBackupMutation = useDeleteSkillBackup();
-  const toggleAppMutation = useToggleSkillApp();
-  const uninstallMutation = useUninstallSkill();
-  const restoreBackupMutation = useRestoreSkillBackup();
+  } = useSkillBackups(target);
+  const deleteBackupMutation = useDeleteSkillBackup(target);
+  const toggleAppMutation = useToggleSkillApp(target);
+  const uninstallMutation = useUninstallSkill(target);
+  const restoreBackupMutation = useRestoreSkillBackup(target);
   const { data: unmanagedSkills, refetch: scanUnmanaged } =
-    useScanUnmanagedSkills();
-  const importMutation = useImportSkillsFromApps();
+    useScanUnmanagedSkills(target);
+  const importMutation = useImportSkillsFromApps(target);
   const installFromZipMutation = useInstallSkillsFromZip();
   const {
     data: skillUpdates,
     refetch: checkUpdates,
     isFetching: isCheckingUpdates,
-  } = useCheckSkillUpdates();
-  const updateSkillMutation = useUpdateSkill();
+  } = useCheckSkillUpdates(target);
+  const updateSkillMutation = useUpdateSkill(target);
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
 
   const updatesMap = useMemo(() => {
@@ -196,6 +200,10 @@ const UnifiedSkillsPanel = React.forwardRef<
   };
 
   const handleInstallFromZip = async () => {
+    if (target.type === "remote") {
+      toast.info(t("remote.localOnly"));
+      return;
+    }
     try {
       const filePath = await skillsApi.openZipFileDialog();
       if (!filePath) return;

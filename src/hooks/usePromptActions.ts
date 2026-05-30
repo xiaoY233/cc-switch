@@ -2,8 +2,14 @@ import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { promptsApi, type Prompt, type AppId } from "@/lib/api";
+import type { ManagementTarget } from "@/lib/api/remote";
 
-export function usePromptActions(appId: AppId) {
+const LOCAL_TARGET: ManagementTarget = { type: "local" };
+
+export function usePromptActions(
+  appId: AppId,
+  target: ManagementTarget = LOCAL_TARGET,
+) {
   const { t } = useTranslation();
   const [prompts, setPrompts] = useState<Record<string, Prompt>>({});
   const [loading, setLoading] = useState(false);
@@ -14,12 +20,12 @@ export function usePromptActions(appId: AppId) {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await promptsApi.getPrompts(appId);
+      const data = await promptsApi.getPrompts(appId, target);
       setPrompts(data);
 
       // 同时加载当前文件内容
       try {
-        const content = await promptsApi.getCurrentFileContent(appId);
+        const content = await promptsApi.getCurrentFileContent(appId, target);
         setCurrentFileContent(content);
       } catch (error) {
         setCurrentFileContent(null);
@@ -29,12 +35,12 @@ export function usePromptActions(appId: AppId) {
     } finally {
       setLoading(false);
     }
-  }, [appId, t]);
+  }, [appId, target, t]);
 
   const savePrompt = useCallback(
     async (id: string, prompt: Prompt) => {
       try {
-        await promptsApi.upsertPrompt(appId, id, prompt);
+        await promptsApi.upsertPrompt(appId, id, prompt, target);
         await reload();
         toast.success(t("prompts.saveSuccess"), { closeButton: true });
       } catch (error) {
@@ -42,13 +48,13 @@ export function usePromptActions(appId: AppId) {
         throw error;
       }
     },
-    [appId, reload, t],
+    [appId, reload, target, t],
   );
 
   const deletePrompt = useCallback(
     async (id: string) => {
       try {
-        await promptsApi.deletePrompt(appId, id);
+        await promptsApi.deletePrompt(appId, id, target);
         await reload();
         toast.success(t("prompts.deleteSuccess"), { closeButton: true });
       } catch (error) {
@@ -56,13 +62,13 @@ export function usePromptActions(appId: AppId) {
         throw error;
       }
     },
-    [appId, reload, t],
+    [appId, reload, target, t],
   );
 
   const enablePrompt = useCallback(
     async (id: string) => {
       try {
-        await promptsApi.enablePrompt(appId, id);
+        await promptsApi.enablePrompt(appId, id, target);
         await reload();
         toast.success(t("prompts.enableSuccess"), { closeButton: true });
       } catch (error) {
@@ -70,7 +76,7 @@ export function usePromptActions(appId: AppId) {
         throw error;
       }
     },
-    [appId, reload, t],
+    [appId, reload, target, t],
   );
 
   const toggleEnabled = useCallback(
@@ -103,14 +109,19 @@ export function usePromptActions(appId: AppId) {
 
       try {
         if (enabled) {
-          await promptsApi.enablePrompt(appId, id);
+          await promptsApi.enablePrompt(appId, id, target);
           toast.success(t("prompts.enableSuccess"), { closeButton: true });
         } else {
           // 禁用提示词 - 需要后端支持
-          await promptsApi.upsertPrompt(appId, id, {
-            ...prompts[id],
-            enabled: false,
-          });
+          await promptsApi.upsertPrompt(
+            appId,
+            id,
+            {
+              ...prompts[id],
+              enabled: false,
+            },
+            target,
+          );
           toast.success(t("prompts.disableSuccess"), { closeButton: true });
         }
         await reload();
@@ -123,12 +134,12 @@ export function usePromptActions(appId: AppId) {
         throw error;
       }
     },
-    [appId, prompts, reload, t],
+    [appId, prompts, reload, target, t],
   );
 
   const importFromFile = useCallback(async () => {
     try {
-      const id = await promptsApi.importFromFile(appId);
+      const id = await promptsApi.importFromFile(appId, target);
       await reload();
       toast.success(t("prompts.importSuccess"), { closeButton: true });
       return id;
@@ -136,7 +147,7 @@ export function usePromptActions(appId: AppId) {
       toast.error(t("prompts.importFailed"));
       throw error;
     }
-  }, [appId, reload, t]);
+  }, [appId, reload, target, t]);
 
   return {
     prompts,

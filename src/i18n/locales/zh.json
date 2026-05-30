@@ -2679,6 +2679,7 @@
     "subtitle": "只保存连接信息；管理操作在现有页面按目标执行。",
     "targetSelector": "管理目标",
     "localTarget": "本地",
+    "localOnly": "此操作只支持本地目标",
     "manageServers": "远程服务器",
     "addServer": "新增服务器",
     "connections": "连接",

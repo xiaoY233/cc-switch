@@ -7,6 +7,7 @@ import type {
   McpStatus,
 } from "@/types";
 import type { AppId } from "./types";
+import { remoteApi, type ManagementTarget } from "./remote";
 
 export const mcpApi = {
   async getStatus(): Promise<McpStatus> {
@@ -91,21 +92,42 @@ export const mcpApi = {
   /**
    * 获取所有 MCP 服务器（统一结构）
    */
-  async getAllServers(): Promise<McpServersMap> {
+  async getAllServers(
+    target: ManagementTarget = { type: "local" },
+  ): Promise<McpServersMap> {
+    if (target.type === "remote") {
+      return await remoteApi.getMcpServers(target.profile, target.secret);
+    }
     return await invoke("get_mcp_servers");
   },
 
   /**
    * 添加或更新 MCP 服务器（统一结构）
    */
-  async upsertUnifiedServer(server: McpServer): Promise<void> {
+  async upsertUnifiedServer(
+    server: McpServer,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<void> {
+    if (target.type === "remote") {
+      return await remoteApi.upsertMcpServer(
+        target.profile,
+        server,
+        target.secret,
+      );
+    }
     return await invoke("upsert_mcp_server", { server });
   },
 
   /**
    * 删除 MCP 服务器
    */
-  async deleteUnifiedServer(id: string): Promise<boolean> {
+  async deleteUnifiedServer(
+    id: string,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.deleteMcpServer(target.profile, id, target.secret);
+    }
     return await invoke("delete_mcp_server", { id });
   },
 
@@ -116,14 +138,29 @@ export const mcpApi = {
     serverId: string,
     app: AppId,
     enabled: boolean,
+    target: ManagementTarget = { type: "local" },
   ): Promise<void> {
+    if (target.type === "remote") {
+      return await remoteApi.toggleMcpApp(
+        target.profile,
+        serverId,
+        app,
+        enabled,
+        target.secret,
+      );
+    }
     return await invoke("toggle_mcp_app", { serverId, app, enabled });
   },
 
   /**
    * 从所有应用导入 MCP 服务器
    */
-  async importFromApps(): Promise<number> {
+  async importFromApps(
+    target: ManagementTarget = { type: "local" },
+  ): Promise<number> {
+    if (target.type === "remote") {
+      return await remoteApi.importMcpFromApps(target.profile, target.secret);
+    }
     return await invoke("import_mcp_from_apps");
   },
 };

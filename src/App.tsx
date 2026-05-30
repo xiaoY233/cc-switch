@@ -939,6 +939,7 @@ function App() {
               open={true}
               onOpenChange={() => setCurrentView("providers")}
               appId={sharedFeatureApp}
+              target={managementTarget}
             />
           );
         case "hermesMemory":
@@ -965,6 +966,7 @@ function App() {
               currentApp={
                 sharedFeatureApp === "openclaw" ? "claude" : sharedFeatureApp
               }
+              target={managementTarget}
             />
           );
         case "skillsDiscovery":
@@ -974,6 +976,7 @@ function App() {
               initialApp={
                 sharedFeatureApp === "openclaw" ? "claude" : sharedFeatureApp
               }
+              target={managementTarget}
             />
           );
         case "mcp":
@@ -981,6 +984,7 @@ function App() {
             <UnifiedMcpPanel
               ref={mcpPanelRef}
               onOpenChange={() => setCurrentView("providers")}
+              target={managementTarget}
             />
           );
         case "agents":
@@ -1401,17 +1405,19 @@ function App() {
                       <History className="w-4 h-4 mr-2" />
                       {t("skills.restoreFromBackup.button")}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        unifiedSkillsPanelRef.current?.openInstallFromZip()
-                      }
-                      className="hover:bg-black/5 dark:hover:bg-white/5"
-                    >
-                      <FolderArchive className="w-4 h-4 mr-2" />
-                      {t("skills.installFromZip.button")}
-                    </Button>
+                    {managementTarget.type === "local" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          unifiedSkillsPanelRef.current?.openInstallFromZip()
+                        }
+                        className="hover:bg-black/5 dark:hover:bg-white/5"
+                      >
+                        <FolderArchive className="w-4 h-4 mr-2" />
+                        {t("skills.installFromZip.button")}
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"

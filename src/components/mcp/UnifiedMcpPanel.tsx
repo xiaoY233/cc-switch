@@ -21,10 +21,14 @@ import { MCP_APP_IDS } from "@/config/appConfig";
 import { AppCountBar } from "@/components/common/AppCountBar";
 import { AppToggleGroup } from "@/components/common/AppToggleGroup";
 import { ListItemRow } from "@/components/common/ListItemRow";
+import type { ManagementTarget } from "@/lib/api/remote";
 
 interface UnifiedMcpPanelProps {
   onOpenChange: (open: boolean) => void;
+  target?: ManagementTarget;
 }
+
+const LOCAL_TARGET: ManagementTarget = { type: "local" };
 
 export interface UnifiedMcpPanelHandle {
   openAdd: () => void;
@@ -34,7 +38,7 @@ export interface UnifiedMcpPanelHandle {
 const UnifiedMcpPanel = React.forwardRef<
   UnifiedMcpPanelHandle,
   UnifiedMcpPanelProps
->(({ onOpenChange: _onOpenChange }, ref) => {
+>(({ onOpenChange: _onOpenChange, target = LOCAL_TARGET }, ref) => {
   const { t } = useTranslation();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,10 +49,10 @@ const UnifiedMcpPanel = React.forwardRef<
     onConfirm: () => void;
   } | null>(null);
 
-  const { data: serversMap, isLoading } = useAllMcpServers();
-  const toggleAppMutation = useToggleMcpApp();
-  const deleteServerMutation = useDeleteMcpServer();
-  const importMutation = useImportMcpFromApps();
+  const { data: serversMap, isLoading } = useAllMcpServers(target);
+  const toggleAppMutation = useToggleMcpApp(target);
+  const deleteServerMutation = useDeleteMcpServer(target);
+  const importMutation = useImportMcpFromApps(target);
 
   const serverEntries = useMemo((): Array<[string, McpServer]> => {
     if (!serversMap) return [];
@@ -191,6 +195,7 @@ const UnifiedMcpPanel = React.forwardRef<
           }
           existingIds={serversMap ? Object.keys(serversMap) : []}
           defaultFormat="json"
+          target={target}
           onSave={async () => {
             setIsFormOpen(false);
             setEditingId(null);

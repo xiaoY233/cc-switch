@@ -34,11 +34,15 @@ import type {
   SkillRepo,
   SkillsShDiscoverableSkill,
 } from "@/lib/api/skills";
+import type { ManagementTarget } from "@/lib/api/remote";
 import { formatSkillError } from "@/lib/errors/skillErrorParser";
 
 interface SkillsPageProps {
   initialApp?: AppId;
+  target?: ManagementTarget;
 }
+
+const LOCAL_TARGET: ManagementTarget = { type: "local" };
 
 export interface SkillsPageHandle {
   refresh: () => void;
@@ -54,7 +58,7 @@ const SKILLSSH_PAGE_SIZE = 20;
  * 用于浏览和安装来自仓库或 skills.sh 的 Skills
  */
 export const SkillsPage = forwardRef<SkillsPageHandle, SkillsPageProps>(
-  ({ initialApp = "claude" }, ref) => {
+  ({ initialApp = "claude", target = LOCAL_TARGET }, ref) => {
     const { t } = useTranslation();
     const [repoManagerOpen, setRepoManagerOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -81,9 +85,9 @@ export const SkillsPage = forwardRef<SkillsPageHandle, SkillsPageProps>(
       isLoading: loadingDiscoverable,
       isFetching: fetchingDiscoverable,
       refetch: refetchDiscoverable,
-    } = useDiscoverableSkills();
-    const { data: installedSkills } = useInstalledSkills();
-    const { data: repos = [], refetch: refetchRepos } = useSkillRepos();
+    } = useDiscoverableSkills(target);
+    const { data: installedSkills } = useInstalledSkills(target);
+    const { data: repos = [], refetch: refetchRepos } = useSkillRepos(target);
 
     // skills.sh 搜索
     const {
@@ -113,9 +117,9 @@ export const SkillsPage = forwardRef<SkillsPageHandle, SkillsPageProps>(
     };
 
     // Mutations
-    const installMutation = useInstallSkill();
-    const addRepoMutation = useAddSkillRepo();
-    const removeRepoMutation = useRemoveSkillRepo();
+    const installMutation = useInstallSkill(target);
+    const addRepoMutation = useAddSkillRepo(target);
+    const removeRepoMutation = useRemoveSkillRepo(target);
 
     // 已安装的 skill key 集合（使用 directory + repoOwner + repoName 组合判断）
     const installedKeys = useMemo(() => {

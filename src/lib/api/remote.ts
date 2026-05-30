@@ -1,7 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Provider } from "@/types";
+import type { McpServer, McpServersMap, Provider } from "@/types";
 import type { AppId } from "./types";
 import type { SwitchResult } from "./providers";
+import type { Prompt } from "./prompts";
+import type {
+  DiscoverableSkill,
+  ImportSkillSelection,
+  InstalledSkill,
+  SkillBackupEntry,
+  SkillRepo,
+  SkillUninstallResult,
+  SkillUpdateInfo,
+  UnmanagedSkill,
+} from "./skills";
 
 export type RemoteAuthMethod =
   | { type: "sshAgent" }
@@ -149,6 +160,324 @@ export const remoteApi = {
       profile,
       app,
       id,
+      secret,
+    });
+  },
+
+  getMcpServers(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<McpServersMap> {
+    return invoke<McpServersMap>("remote_get_mcp_servers", {
+      profile,
+      secret,
+    });
+  },
+
+  upsertMcpServer(
+    profile: RemoteHostProfile,
+    server: McpServer,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_upsert_mcp_server", {
+      profile,
+      server,
+      secret,
+    });
+  },
+
+  deleteMcpServer(
+    profile: RemoteHostProfile,
+    id: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_delete_mcp_server", {
+      profile,
+      id,
+      secret,
+    });
+  },
+
+  toggleMcpApp(
+    profile: RemoteHostProfile,
+    serverId: string,
+    app: AppId,
+    enabled: boolean,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_toggle_mcp_app", {
+      profile,
+      serverId,
+      app,
+      enabled,
+      secret,
+    });
+  },
+
+  importMcpFromApps(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<number> {
+    return invoke<number>("remote_import_mcp_from_apps", {
+      profile,
+      secret,
+    });
+  },
+
+  getPrompts(
+    profile: RemoteHostProfile,
+    app: AppId,
+    secret?: RemoteConnectionSecret,
+  ): Promise<Record<string, Prompt>> {
+    return invoke<Record<string, Prompt>>("remote_get_prompts", {
+      profile,
+      app,
+      secret,
+    });
+  },
+
+  upsertPrompt(
+    profile: RemoteHostProfile,
+    app: AppId,
+    id: string,
+    prompt: Prompt,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_upsert_prompt", {
+      profile,
+      app,
+      id,
+      prompt,
+      secret,
+    });
+  },
+
+  deletePrompt(
+    profile: RemoteHostProfile,
+    app: AppId,
+    id: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_delete_prompt", {
+      profile,
+      app,
+      id,
+      secret,
+    });
+  },
+
+  enablePrompt(
+    profile: RemoteHostProfile,
+    app: AppId,
+    id: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_enable_prompt", {
+      profile,
+      app,
+      id,
+      secret,
+    });
+  },
+
+  importPromptFromFile(
+    profile: RemoteHostProfile,
+    app: AppId,
+    secret?: RemoteConnectionSecret,
+  ): Promise<string> {
+    return invoke<string>("remote_import_prompt_from_file", {
+      profile,
+      app,
+      secret,
+    });
+  },
+
+  getCurrentPromptFileContent(
+    profile: RemoteHostProfile,
+    app: AppId,
+    secret?: RemoteConnectionSecret,
+  ): Promise<string | null> {
+    return invoke<string | null>("remote_get_current_prompt_file_content", {
+      profile,
+      app,
+      secret,
+    });
+  },
+
+  getInstalledSkills(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<InstalledSkill[]> {
+    return invoke<InstalledSkill[]>("remote_get_installed_skills", {
+      profile,
+      secret,
+    });
+  },
+
+  getSkillBackups(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<SkillBackupEntry[]> {
+    return invoke<SkillBackupEntry[]>("remote_get_skill_backups", {
+      profile,
+      secret,
+    });
+  },
+
+  deleteSkillBackup(
+    profile: RemoteHostProfile,
+    backupId: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_delete_skill_backup", {
+      profile,
+      backupId,
+      secret,
+    });
+  },
+
+  installSkillUnified(
+    profile: RemoteHostProfile,
+    skill: DiscoverableSkill,
+    currentApp: AppId,
+    secret?: RemoteConnectionSecret,
+  ): Promise<InstalledSkill> {
+    return invoke<InstalledSkill>("remote_install_skill_unified", {
+      profile,
+      skill,
+      currentApp,
+      secret,
+    });
+  },
+
+  uninstallSkillUnified(
+    profile: RemoteHostProfile,
+    id: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<SkillUninstallResult> {
+    return invoke<SkillUninstallResult>("remote_uninstall_skill_unified", {
+      profile,
+      id,
+      secret,
+    });
+  },
+
+  restoreSkillBackup(
+    profile: RemoteHostProfile,
+    backupId: string,
+    currentApp: AppId,
+    secret?: RemoteConnectionSecret,
+  ): Promise<InstalledSkill> {
+    return invoke<InstalledSkill>("remote_restore_skill_backup", {
+      profile,
+      backupId,
+      currentApp,
+      secret,
+    });
+  },
+
+  toggleSkillApp(
+    profile: RemoteHostProfile,
+    id: string,
+    app: AppId,
+    enabled: boolean,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_toggle_skill_app", {
+      profile,
+      id,
+      app,
+      enabled,
+      secret,
+    });
+  },
+
+  scanUnmanagedSkills(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<UnmanagedSkill[]> {
+    return invoke<UnmanagedSkill[]>("remote_scan_unmanaged_skills", {
+      profile,
+      secret,
+    });
+  },
+
+  importSkillsFromApps(
+    profile: RemoteHostProfile,
+    imports: ImportSkillSelection[],
+    secret?: RemoteConnectionSecret,
+  ): Promise<InstalledSkill[]> {
+    return invoke<InstalledSkill[]>("remote_import_skills_from_apps", {
+      profile,
+      imports,
+      secret,
+    });
+  },
+
+  discoverAvailableSkills(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<DiscoverableSkill[]> {
+    return invoke<DiscoverableSkill[]>("remote_discover_available_skills", {
+      profile,
+      secret,
+    });
+  },
+
+  checkSkillUpdates(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<SkillUpdateInfo[]> {
+    return invoke<SkillUpdateInfo[]>("remote_check_skill_updates", {
+      profile,
+      secret,
+    });
+  },
+
+  updateSkill(
+    profile: RemoteHostProfile,
+    id: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<InstalledSkill> {
+    return invoke<InstalledSkill>("remote_update_skill", {
+      profile,
+      id,
+      secret,
+    });
+  },
+
+  getSkillRepos(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<SkillRepo[]> {
+    return invoke<SkillRepo[]>("remote_get_skill_repos", {
+      profile,
+      secret,
+    });
+  },
+
+  addSkillRepo(
+    profile: RemoteHostProfile,
+    repo: SkillRepo,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_add_skill_repo", {
+      profile,
+      repo,
+      secret,
+    });
+  },
+
+  removeSkillRepo(
+    profile: RemoteHostProfile,
+    owner: string,
+    name: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_remove_skill_repo", {
+      profile,
+      owner,
+      name,
       secret,
     });
   },

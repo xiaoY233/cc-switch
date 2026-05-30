@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { AppId } from "@/lib/api/types";
+import { remoteApi, type ManagementTarget } from "./remote";
 
 export type AppType =
   | "claude"
@@ -137,17 +138,37 @@ export const skillsApi = {
   // ========== 统一管理 API (v3.10.0+) ==========
 
   /** 获取所有已安装的 Skills */
-  async getInstalled(): Promise<InstalledSkill[]> {
+  async getInstalled(
+    target: ManagementTarget = { type: "local" },
+  ): Promise<InstalledSkill[]> {
+    if (target.type === "remote") {
+      return await remoteApi.getInstalledSkills(target.profile, target.secret);
+    }
     return await invoke("get_installed_skills");
   },
 
   /** 获取可恢复的 Skill 备份列表 */
-  async getBackups(): Promise<SkillBackupEntry[]> {
+  async getBackups(
+    target: ManagementTarget = { type: "local" },
+  ): Promise<SkillBackupEntry[]> {
+    if (target.type === "remote") {
+      return await remoteApi.getSkillBackups(target.profile, target.secret);
+    }
     return await invoke("get_skill_backups");
   },
 
   /** 删除 Skill 备份 */
-  async deleteBackup(backupId: string): Promise<boolean> {
+  async deleteBackup(
+    backupId: string,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.deleteSkillBackup(
+        target.profile,
+        backupId,
+        target.secret,
+      );
+    }
     return await invoke("delete_skill_backup", { backupId });
   },
 
@@ -155,12 +176,31 @@ export const skillsApi = {
   async installUnified(
     skill: DiscoverableSkill,
     currentApp: AppId,
+    target: ManagementTarget = { type: "local" },
   ): Promise<InstalledSkill> {
+    if (target.type === "remote") {
+      return await remoteApi.installSkillUnified(
+        target.profile,
+        skill,
+        currentApp,
+        target.secret,
+      );
+    }
     return await invoke("install_skill_unified", { skill, currentApp });
   },
 
   /** 卸载 Skill（统一卸载） */
-  async uninstallUnified(id: string): Promise<SkillUninstallResult> {
+  async uninstallUnified(
+    id: string,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<SkillUninstallResult> {
+    if (target.type === "remote") {
+      return await remoteApi.uninstallSkillUnified(
+        target.profile,
+        id,
+        target.secret,
+      );
+    }
     return await invoke("uninstall_skill_unified", { id });
   },
 
@@ -168,39 +208,94 @@ export const skillsApi = {
   async restoreBackup(
     backupId: string,
     currentApp: AppId,
+    target: ManagementTarget = { type: "local" },
   ): Promise<InstalledSkill> {
+    if (target.type === "remote") {
+      return await remoteApi.restoreSkillBackup(
+        target.profile,
+        backupId,
+        currentApp,
+        target.secret,
+      );
+    }
     return await invoke("restore_skill_backup", { backupId, currentApp });
   },
 
   /** 切换 Skill 的应用启用状态 */
-  async toggleApp(id: string, app: AppId, enabled: boolean): Promise<boolean> {
+  async toggleApp(
+    id: string,
+    app: AppId,
+    enabled: boolean,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.toggleSkillApp(
+        target.profile,
+        id,
+        app,
+        enabled,
+        target.secret,
+      );
+    }
     return await invoke("toggle_skill_app", { id, app, enabled });
   },
 
   /** 扫描未管理的 Skills */
-  async scanUnmanaged(): Promise<UnmanagedSkill[]> {
+  async scanUnmanaged(
+    target: ManagementTarget = { type: "local" },
+  ): Promise<UnmanagedSkill[]> {
+    if (target.type === "remote") {
+      return await remoteApi.scanUnmanagedSkills(target.profile, target.secret);
+    }
     return await invoke("scan_unmanaged_skills");
   },
 
   /** 从应用目录导入 Skills */
   async importFromApps(
     imports: ImportSkillSelection[],
+    target: ManagementTarget = { type: "local" },
   ): Promise<InstalledSkill[]> {
+    if (target.type === "remote") {
+      return await remoteApi.importSkillsFromApps(
+        target.profile,
+        imports,
+        target.secret,
+      );
+    }
     return await invoke("import_skills_from_apps", { imports });
   },
 
   /** 发现可安装的 Skills（从仓库获取） */
-  async discoverAvailable(): Promise<DiscoverableSkill[]> {
+  async discoverAvailable(
+    target: ManagementTarget = { type: "local" },
+  ): Promise<DiscoverableSkill[]> {
+    if (target.type === "remote") {
+      return await remoteApi.discoverAvailableSkills(
+        target.profile,
+        target.secret,
+      );
+    }
     return await invoke("discover_available_skills");
   },
 
   /** 检查 Skills 更新 */
-  async checkUpdates(): Promise<SkillUpdateInfo[]> {
+  async checkUpdates(
+    target: ManagementTarget = { type: "local" },
+  ): Promise<SkillUpdateInfo[]> {
+    if (target.type === "remote") {
+      return await remoteApi.checkSkillUpdates(target.profile, target.secret);
+    }
     return await invoke("check_skill_updates");
   },
 
   /** 更新单个 Skill */
-  async updateSkill(id: string): Promise<InstalledSkill> {
+  async updateSkill(
+    id: string,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<InstalledSkill> {
+    if (target.type === "remote") {
+      return await remoteApi.updateSkill(target.profile, id, target.secret);
+    }
     return await invoke("update_skill", { id });
   },
 
@@ -252,17 +347,40 @@ export const skillsApi = {
   // ========== 仓库管理 ==========
 
   /** 获取仓库列表 */
-  async getRepos(): Promise<SkillRepo[]> {
+  async getRepos(
+    target: ManagementTarget = { type: "local" },
+  ): Promise<SkillRepo[]> {
+    if (target.type === "remote") {
+      return await remoteApi.getSkillRepos(target.profile, target.secret);
+    }
     return await invoke("get_skill_repos");
   },
 
   /** 添加仓库 */
-  async addRepo(repo: SkillRepo): Promise<boolean> {
+  async addRepo(
+    repo: SkillRepo,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.addSkillRepo(target.profile, repo, target.secret);
+    }
     return await invoke("add_skill_repo", { repo });
   },
 
   /** 删除仓库 */
-  async removeRepo(owner: string, name: string): Promise<boolean> {
+  async removeRepo(
+    owner: string,
+    name: string,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.removeSkillRepo(
+        target.profile,
+        owner,
+        name,
+        target.secret,
+      );
+    }
     return await invoke("remove_skill_repo", { owner, name });
   },
 

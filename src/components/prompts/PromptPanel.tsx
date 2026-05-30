@@ -6,19 +6,23 @@ import { usePromptActions } from "@/hooks/usePromptActions";
 import PromptListItem from "./PromptListItem";
 import PromptFormPanel from "./PromptFormPanel";
 import { ConfirmDialog } from "../ConfirmDialog";
+import type { ManagementTarget } from "@/lib/api/remote";
 
 interface PromptPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   appId: AppId;
+  target?: ManagementTarget;
 }
+
+const LOCAL_TARGET: ManagementTarget = { type: "local" };
 
 export interface PromptPanelHandle {
   openAdd: () => void;
 }
 
 const PromptPanel = React.forwardRef<PromptPanelHandle, PromptPanelProps>(
-  ({ open, appId }, ref) => {
+  ({ open, appId, target = LOCAL_TARGET }, ref) => {
     const { t } = useTranslation();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -37,7 +41,7 @@ const PromptPanel = React.forwardRef<PromptPanelHandle, PromptPanelProps>(
       savePrompt,
       deletePrompt,
       toggleEnabled,
-    } = usePromptActions(appId);
+    } = usePromptActions(appId, target);
 
     useEffect(() => {
       if (open) reload();

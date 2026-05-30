@@ -19,5 +19,8 @@ fn unsupported_command_returns_stable_error_envelope() {
     assert_eq!(response["ok"], false);
     assert!(response["data"].is_null());
     assert_eq!(response["error"]["code"], "unsupported_command");
-    assert_eq!(response["error"]["message"], "Supported command: status");
+    assert_eq!(
+        response["error"]["message"],
+        "Supported commands: status, providers, mcp, prompts, skills"
+    );
 }

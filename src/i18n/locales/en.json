@@ -2674,6 +2674,47 @@
     "suggestedDefaults": "Apply Suggested Defaults",
     "suggestedDefaultsHint": "Use this preset's recommended default model configuration"
   },
+  "remote": {
+    "title": "Remote Servers",
+    "subtitle": "Only connection profiles are stored locally; management runs on the selected target through the existing pages.",
+    "targetSelector": "Management target",
+    "localTarget": "Local",
+    "localOnly": "This action is only available for the local target",
+    "manageServers": "Remote Servers",
+    "addServer": "Add Server",
+    "connections": "Connections",
+    "details": "Connection Details",
+    "address": "Address",
+    "defaultName": "Remote Server",
+    "saved": "Remote server saved",
+    "deleted": "Remote server deleted",
+    "dialog": {
+      "title": "Remote Server"
+    },
+    "fields": {
+      "name": "Name",
+      "host": "Host",
+      "username": "Username",
+      "port": "Port",
+      "helperPath": "Helper path",
+      "authentication": "Authentication",
+      "keyPath": "SSH key path",
+      "password": "Password"
+    },
+    "auth": {
+      "sshAgent": "SSH Agent",
+      "keyFile": "Key file",
+      "password": "Password"
+    },
+    "health": {
+      "title": "Health Check",
+      "ok": "Reachable",
+      "failed": "Failed",
+      "notChecked": "Not checked",
+      "check": "Check",
+      "platform": "Platform"
+    }
+  },
   "subscription": {
     "title": "Subscription Quota",
     "fiveHour": "5-Hour",

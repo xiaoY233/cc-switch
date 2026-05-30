@@ -24,6 +24,7 @@ import { parseSmartMcpJson } from "@/utils/formatters";
 import { useMcpValidation } from "./useMcpValidation";
 import { useUpsertMcpServer } from "@/hooks/useMcp";
 import { FullScreenPanel } from "@/components/common/FullScreenPanel";
+import type { ManagementTarget } from "@/lib/api/remote";
 
 interface McpFormModalProps {
   editingId?: string;
@@ -33,7 +34,10 @@ interface McpFormModalProps {
   existingIds?: string[];
   defaultFormat?: "json" | "toml";
   defaultEnabledApps?: AppId[];
+  target?: ManagementTarget;
 }
+
+const LOCAL_TARGET: ManagementTarget = { type: "local" };
 
 const McpFormModal: React.FC<McpFormModalProps> = ({
   editingId,
@@ -43,12 +47,13 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
   existingIds = [],
   defaultFormat = "json",
   defaultEnabledApps = ["claude", "codex", "gemini"],
+  target = LOCAL_TARGET,
 }) => {
   const { t } = useTranslation();
   const { formatTomlError, validateTomlConfig, validateJsonConfig } =
     useMcpValidation();
 
-  const upsertMutation = useUpsertMcpServer();
+  const upsertMutation = useUpsertMcpServer(target);
 
   const [formId, setFormId] = useState(
     () => editingId || initialData?.id || "",

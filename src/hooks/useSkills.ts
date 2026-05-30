@@ -10,40 +10,52 @@ import {
   type DiscoverableSkill,
   type ImportSkillSelection,
   type InstalledSkill,
+  type SkillRepo,
   type SkillUpdateInfo,
   type SkillsShSearchResult,
 } from "@/lib/api/skills";
 import type { AppId } from "@/lib/api/types";
+import type { ManagementTarget } from "@/lib/api/remote";
 import { mergeImportedSkills } from "@/hooks/useSkills.helpers";
+
+const LOCAL_TARGET: ManagementTarget = { type: "local" };
+
+const getTargetKey = (target: ManagementTarget) =>
+  target.type === "remote" ? `remote:${target.profile.id}` : "local";
 
 /**
  * 查询所有已安装的 Skills
  * 使用 staleTime: Infinity 和 placeholderData: keepPreviousData
  * 实现首次进入使用缓存，只有刷新时才重新获取
  */
-export function useInstalledSkills() {
+export function useInstalledSkills(target: ManagementTarget = LOCAL_TARGET) {
+  const targetKey = getTargetKey(target);
   return useQuery({
-    queryKey: ["skills", "installed"],
-    queryFn: () => skillsApi.getInstalled(),
+    queryKey: ["skills", "installed", targetKey],
+    queryFn: () => skillsApi.getInstalled(target),
     staleTime: Infinity,
     placeholderData: keepPreviousData,
   });
 }
 
-export function useSkillBackups() {
+export function useSkillBackups(target: ManagementTarget = LOCAL_TARGET) {
+  const targetKey = getTargetKey(target);
   return useQuery({
-    queryKey: ["skills", "backups"],
-    queryFn: () => skillsApi.getBackups(),
+    queryKey: ["skills", "backups", targetKey],
+    queryFn: () => skillsApi.getBackups(target),
     enabled: false,
   });
 }
 
-export function useDeleteSkillBackup() {
+export function useDeleteSkillBackup(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
+  const targetKey = getTargetKey(target);
   return useMutation({
-    mutationFn: (backupId: string) => skillsApi.deleteBackup(backupId),
+    mutationFn: (backupId: string) => skillsApi.deleteBackup(backupId, target),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["skills", "backups"] });
+      queryClient.invalidateQueries({
+        queryKey: ["skills", "backups", targetKey],
+      });
     },
   });
 }
@@ -53,10 +65,11 @@ export function useDeleteSkillBackup() {
  * 使用 staleTime: Infinity 和 placeholderData: keepPreviousData
  * 实现首次进入使用缓存，只有刷新时才重新获取
  */
-export function useDiscoverableSkills() {
+export function useDiscoverableSkills(target: ManagementTarget = LOCAL_TARGET) {
+  const targetKey = getTargetKey(target);
   return useQuery({
-    queryKey: ["skills", "discoverable"],
-    queryFn: () => skillsApi.discoverAvailable(),
+    queryKey: ["skills", "discoverable", targetKey],
+    queryFn: () => skillsApi.discoverAvailable(target),
     staleTime: Infinity,
     placeholderData: keepPreviousData,
   });
@@ -66,8 +79,9 @@ export function useDiscoverableSkills() {
  * 安装 Skill
  * 成功后直接更新缓存，不触发重新加载/刷新
  */
-export function useInstallSkill() {
+export function useInstallSkill(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
+  const targetKey = getTargetKey(target);
   return useMutation({
     mutationFn: ({
       skill,
@@ -75,12 +89,12 @@ export function useInstallSkill() {
     }: {
       skill: DiscoverableSkill;
       currentApp: AppId;
-    }) => skillsApi.installUnified(skill, currentApp),
+    }) => skillsApi.installUnified(skill, currentApp, target),
     onSuccess: (installedSkill, _vars, _ctx) => {
       const { skill } = _vars;
       // 直接更新 installed 缓存
       queryClient.setQueryData<InstalledSkill[]>(
-        ["skills", "installed"],
+        ["skills", "installed", targetKey],
         (oldData) => {
           if (!oldData) return [installedSkill];
           return [...oldData, installedSkill];
@@ -94,7 +108,7 @@ export function useInstallSkill() {
       const skillKey = `${installName}:${skill.repoOwner.toLowerCase()}:${skill.repoName.toLowerCase()}`;
 
       queryClient.setQueryData<DiscoverableSkill[]>(
-        ["skills", "discoverable"],
+        ["skills", "discoverable", targetKey],
         (oldData) => {
           if (!oldData) return oldData;
           return oldData.map((s) => {
@@ -113,17 +127,18 @@ export function useInstallSkill() {
  * 卸载 Skill
  * 成功后直接更新缓存，不触发重新加载/刷新
  */
-export function useUninstallSkill() {
+export function useUninstallSkill(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
+  const targetKey = getTargetKey(target);
   return useMutation({
     mutationFn: ({ id, skillKey }: { id: string; skillKey: string }) =>
       skillsApi
-        .uninstallUnified(id)
+        .uninstallUnified(id, target)
         .then((result) => ({ ...result, skillKey })),
     onSuccess: ({ skillKey }, _vars) => {
       // 直接更新 installed 缓存，移除该 skill
       queryClient.setQueryData<InstalledSkill[]>(
-        ["skills", "installed"],
+        ["skills", "installed", targetKey],
         (oldData) => {
           if (!oldData) return oldData;
           return oldData.filter((s) => s.id !== _vars.id);
@@ -132,7 +147,7 @@ export function useUninstallSkill() {
 
       // 更新 discoverable 缓存中对应技能的 installed 状态
       queryClient.setQueryData<DiscoverableSkill[]>(
-        ["skills", "discoverable"],
+        ["skills", "discoverable", targetKey],
         (oldData) => {
           if (!oldData) return oldData;
           return oldData.map((s) => {
@@ -147,8 +162,9 @@ export function useUninstallSkill() {
   });
 }
 
-export function useRestoreSkillBackup() {
+export function useRestoreSkillBackup(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
+  const targetKey = getTargetKey(target);
   return useMutation({
     mutationFn: ({
       backupId,
@@ -156,10 +172,14 @@ export function useRestoreSkillBackup() {
     }: {
       backupId: string;
       currentApp: AppId;
-    }) => skillsApi.restoreBackup(backupId, currentApp),
+    }) => skillsApi.restoreBackup(backupId, currentApp, target),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["skills", "installed"] });
-      queryClient.invalidateQueries({ queryKey: ["skills", "backups"] });
+      queryClient.invalidateQueries({
+        queryKey: ["skills", "installed", targetKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["skills", "backups", targetKey],
+      });
     },
   });
 }
@@ -167,8 +187,9 @@ export function useRestoreSkillBackup() {
 /**
  * 切换 Skill 在特定应用的启用状态
  */
-export function useToggleSkillApp() {
+export function useToggleSkillApp(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
+  const targetKey = getTargetKey(target);
   return useMutation({
     mutationFn: ({
       id,
@@ -178,9 +199,11 @@ export function useToggleSkillApp() {
       id: string;
       app: AppId;
       enabled: boolean;
-    }) => skillsApi.toggleApp(id, app, enabled),
+    }) => skillsApi.toggleApp(id, app, enabled, target),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["skills", "installed"] });
+      queryClient.invalidateQueries({
+        queryKey: ["skills", "installed", targetKey],
+      });
     },
   });
 }
@@ -188,10 +211,11 @@ export function useToggleSkillApp() {
 /**
  * 扫描未管理的 Skills
  */
-export function useScanUnmanagedSkills() {
+export function useScanUnmanagedSkills(target: ManagementTarget = LOCAL_TARGET) {
+  const targetKey = getTargetKey(target);
   return useQuery({
-    queryKey: ["skills", "unmanaged"],
-    queryFn: () => skillsApi.scanUnmanaged(),
+    queryKey: ["skills", "unmanaged", targetKey],
+    queryFn: () => skillsApi.scanUnmanaged(target),
     enabled: false, // 手动触发
   });
 }
@@ -200,19 +224,22 @@ export function useScanUnmanagedSkills() {
  * 从应用目录导入 Skills
  * 成功后直接更新缓存，不触发重新加载/刷新
  */
-export function useImportSkillsFromApps() {
+export function useImportSkillsFromApps(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
+  const targetKey = getTargetKey(target);
   return useMutation({
     mutationFn: (imports: ImportSkillSelection[]) =>
-      skillsApi.importFromApps(imports),
+      skillsApi.importFromApps(imports, target),
     onSuccess: (importedSkills) => {
       // 直接更新 installed 缓存
       queryClient.setQueryData<InstalledSkill[]>(
-        ["skills", "installed"],
+        ["skills", "installed", targetKey],
         (oldData) => mergeImportedSkills(oldData, importedSkills),
       );
       // 刷新 unmanaged 列表（已被导入的应该移除）
-      queryClient.invalidateQueries({ queryKey: ["skills", "unmanaged"] });
+      queryClient.invalidateQueries({
+        queryKey: ["skills", "unmanaged", targetKey],
+      });
     },
   });
 }
@@ -220,23 +247,29 @@ export function useImportSkillsFromApps() {
 /**
  * 获取仓库列表
  */
-export function useSkillRepos() {
+export function useSkillRepos(target: ManagementTarget = LOCAL_TARGET) {
+  const targetKey = getTargetKey(target);
   return useQuery({
-    queryKey: ["skills", "repos"],
-    queryFn: () => skillsApi.getRepos(),
+    queryKey: ["skills", "repos", targetKey],
+    queryFn: () => skillsApi.getRepos(target),
   });
 }
 
 /**
  * 添加仓库
  */
-export function useAddSkillRepo() {
+export function useAddSkillRepo(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
+  const targetKey = getTargetKey(target);
   return useMutation({
-    mutationFn: skillsApi.addRepo,
+    mutationFn: (repo: SkillRepo) => skillsApi.addRepo(repo, target),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["skills", "repos"] });
-      queryClient.invalidateQueries({ queryKey: ["skills", "discoverable"] });
+      queryClient.invalidateQueries({
+        queryKey: ["skills", "repos", targetKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["skills", "discoverable", targetKey],
+      });
     },
   });
 }
@@ -244,14 +277,19 @@ export function useAddSkillRepo() {
 /**
  * 删除仓库
  */
-export function useRemoveSkillRepo() {
+export function useRemoveSkillRepo(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
+  const targetKey = getTargetKey(target);
   return useMutation({
     mutationFn: ({ owner, name }: { owner: string; name: string }) =>
-      skillsApi.removeRepo(owner, name),
+      skillsApi.removeRepo(owner, name, target),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["skills", "repos"] });
-      queryClient.invalidateQueries({ queryKey: ["skills", "discoverable"] });
+      queryClient.invalidateQueries({
+        queryKey: ["skills", "repos", targetKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["skills", "discoverable", targetKey],
+      });
     },
   });
 }
@@ -288,10 +326,11 @@ export function useInstallSkillsFromZip() {
 /**
  * 检查 Skills 更新（手动触发）
  */
-export function useCheckSkillUpdates() {
+export function useCheckSkillUpdates(target: ManagementTarget = LOCAL_TARGET) {
+  const targetKey = getTargetKey(target);
   return useQuery({
-    queryKey: ["skills", "updates"],
-    queryFn: () => skillsApi.checkUpdates(),
+    queryKey: ["skills", "updates", targetKey],
+    queryFn: () => skillsApi.checkUpdates(target),
     enabled: false,
     staleTime: 5 * 60 * 1000,
   });
@@ -300,13 +339,14 @@ export function useCheckSkillUpdates() {
 /**
  * 更新单个 Skill
  */
-export function useUpdateSkill() {
+export function useUpdateSkill(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
+  const targetKey = getTargetKey(target);
   return useMutation({
-    mutationFn: (id: string) => skillsApi.updateSkill(id),
+    mutationFn: (id: string) => skillsApi.updateSkill(id, target),
     onSuccess: (updatedSkill) => {
       queryClient.setQueryData<InstalledSkill[]>(
-        ["skills", "installed"],
+        ["skills", "installed", targetKey],
         (oldData) => {
           if (!oldData) return [updatedSkill];
           return oldData.map((s) =>
@@ -315,7 +355,7 @@ export function useUpdateSkill() {
         },
       );
       queryClient.setQueryData<SkillUpdateInfo[]>(
-        ["skills", "updates"],
+        ["skills", "updates", targetKey],
         (oldData) => {
           if (!oldData) return oldData;
           return oldData.filter((u) => u.id !== updatedSkill.id);
