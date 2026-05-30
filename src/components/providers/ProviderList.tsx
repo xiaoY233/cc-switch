@@ -146,7 +146,8 @@ export function ProviderList({
 
   // OpenClaw: query default model to determine which provider is default
   const { data: openclawDefaultModel } = useOpenClawDefaultModel(
-    isLocalTarget && appId === "openclaw",
+    appId === "openclaw",
+    target,
   );
 
   const isProviderDefaultModel = useCallback(

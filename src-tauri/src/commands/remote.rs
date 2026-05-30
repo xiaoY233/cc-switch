@@ -236,6 +236,20 @@ pub fn remote_delete_provider(
 }
 
 #[tauri::command]
+pub fn remote_get_openclaw_default_model(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Option<crate::openclaw_config::OpenClawDefaultModel>, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &["openclaw".to_string(), "get-default-model".to_string()],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn remote_set_openclaw_default_model(
     profile: RemoteHostProfile,
     model: crate::openclaw_config::OpenClawDefaultModel,

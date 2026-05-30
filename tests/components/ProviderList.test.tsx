@@ -13,6 +13,8 @@ const useAutoFailoverEnabledMock = vi.fn();
 const useFailoverQueueMock = vi.fn();
 const useCurrentOmoProviderIdMock = vi.fn();
 const useCurrentOmoSlimProviderIdMock = vi.fn();
+const useOpenClawLiveProviderIdsMock = vi.fn();
+const useOpenClawDefaultModelMock = vi.fn();
 
 vi.mock("@/hooks/useDragSort", () => ({
   useDragSort: (...args: unknown[]) => useDragSortMock(...args),
@@ -110,6 +112,13 @@ vi.mock("@/lib/query/omo", () => ({
     useCurrentOmoSlimProviderIdMock(...args),
 }));
 
+vi.mock("@/hooks/useOpenClaw", () => ({
+  useOpenClawLiveProviderIds: (...args: unknown[]) =>
+    useOpenClawLiveProviderIdsMock(...args),
+  useOpenClawDefaultModel: (...args: unknown[]) =>
+    useOpenClawDefaultModelMock(...args),
+}));
+
 function createProvider(overrides: Partial<Provider> = {}): Provider {
   return {
     id: overrides.id ?? "provider-1",
@@ -157,11 +166,15 @@ beforeEach(() => {
   useFailoverQueueMock.mockReset();
   useCurrentOmoProviderIdMock.mockReset();
   useCurrentOmoSlimProviderIdMock.mockReset();
+  useOpenClawLiveProviderIdsMock.mockReset();
+  useOpenClawDefaultModelMock.mockReset();
 
   useAutoFailoverEnabledMock.mockReturnValue({ data: false });
   useFailoverQueueMock.mockReturnValue({ data: [] });
   useCurrentOmoProviderIdMock.mockReturnValue({ data: undefined });
   useCurrentOmoSlimProviderIdMock.mockReturnValue({ data: undefined });
+  useOpenClawLiveProviderIdsMock.mockReturnValue({ data: undefined });
+  useOpenClawDefaultModelMock.mockReturnValue({ data: undefined });
 
   useSortableMock.mockImplementation(({ id }: { id: string }) => ({
     setNodeRef: vi.fn(),
@@ -335,6 +348,40 @@ describe("ProviderList Component", () => {
     expect(useFailoverQueueMock).toHaveBeenCalledWith("claude", false);
     expect(useCurrentOmoProviderIdMock).toHaveBeenCalledWith(false);
     expect(useCurrentOmoSlimProviderIdMock).toHaveBeenCalledWith(false);
+  });
+
+  it("should read remote OpenClaw default model and mark the default provider", () => {
+    const providerA = createProvider({ id: "a", name: "A" });
+    const providerB = createProvider({ id: "b", name: "B" });
+    useDragSortMock.mockReturnValue({
+      sortedProviders: [providerA, providerB],
+      sensors: [],
+      handleDragEnd: vi.fn(),
+    });
+    useOpenClawDefaultModelMock.mockReturnValue({
+      data: { primary: "b/gpt-4.1" },
+    });
+
+    renderWithQueryClient(
+      <ProviderList
+        providers={{ a: providerA, b: providerB }}
+        currentProviderId=""
+        appId="openclaw"
+        target={remoteTarget}
+        onSwitch={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onDuplicate={vi.fn()}
+        onOpenWebsite={vi.fn()}
+      />,
+    );
+
+    expect(useOpenClawDefaultModelMock).toHaveBeenCalledWith(
+      true,
+      remoteTarget,
+    );
+    expect(providerCardRenderSpy.mock.calls[0][0].isDefaultModel).toBe(false);
+    expect(providerCardRenderSpy.mock.calls[1][0].isDefaultModel).toBe(true);
   });
 
   it("filters providers with the search input", () => {

@@ -176,6 +176,19 @@ export const remoteApi = {
     });
   },
 
+  getOpenClawDefaultModel(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<OpenClawDefaultModel | null> {
+    return invoke<OpenClawDefaultModel | null>(
+      "remote_get_openclaw_default_model",
+      {
+        profile,
+        secret,
+      },
+    );
+  },
+
   setOpenClawDefaultModel(
     profile: RemoteHostProfile,
     model: OpenClawDefaultModel,

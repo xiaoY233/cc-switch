@@ -1,11 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { openclawApi } from "@/lib/api/openclaw";
 import { providersApi } from "@/lib/api/providers";
+import { remoteApi, type ManagementTarget } from "@/lib/api/remote";
 import type {
   OpenClawEnvConfig,
   OpenClawToolsConfig,
   OpenClawAgentsDefaults,
 } from "@/types";
+
+const LOCAL_TARGET: ManagementTarget = { type: "local" };
+const getTargetKey = (target: ManagementTarget) =>
+  target.type === "remote" ? `remote:${target.profile.id}` : "local";
 
 /**
  * Centralized query keys for all OpenClaw-related queries.
@@ -41,10 +46,16 @@ export function useOpenClawLiveProviderIds(enabled: boolean) {
  * Query the default model from agents.defaults.model.
  * Used by ProviderList to show which provider is the default.
  */
-export function useOpenClawDefaultModel(enabled: boolean) {
+export function useOpenClawDefaultModel(
+  enabled: boolean,
+  target: ManagementTarget = LOCAL_TARGET,
+) {
   return useQuery({
-    queryKey: openclawKeys.defaultModel,
-    queryFn: () => openclawApi.getDefaultModel(),
+    queryKey: [...openclawKeys.defaultModel, getTargetKey(target)],
+    queryFn: () =>
+      target.type === "remote"
+        ? remoteApi.getOpenClawDefaultModel(target.profile, target.secret)
+        : openclawApi.getDefaultModel(),
     enabled,
   });
 }
