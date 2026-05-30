@@ -47,7 +47,12 @@ export const promptsApi = {
     target: ManagementTarget = { type: "local" },
   ): Promise<void> {
     if (target.type === "remote") {
-      return await remoteApi.deletePrompt(target.profile, app, id, target.secret);
+      return await remoteApi.deletePrompt(
+        target.profile,
+        app,
+        id,
+        target.secret,
+      );
     }
     return await invoke("delete_prompt", { app, id });
   },
@@ -58,7 +63,12 @@ export const promptsApi = {
     target: ManagementTarget = { type: "local" },
   ): Promise<void> {
     if (target.type === "remote") {
-      return await remoteApi.enablePrompt(target.profile, app, id, target.secret);
+      return await remoteApi.enablePrompt(
+        target.profile,
+        app,
+        id,
+        target.secret,
+      );
     }
     return await invoke("enable_prompt", { app, id });
   },

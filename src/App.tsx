@@ -364,8 +364,10 @@ function App() {
       currentView === "openclawEnv" ||
       currentView === "openclawTools" ||
       currentView === "openclawAgents");
-  const { data: openclawHealthWarnings = [] } =
-    useOpenClawHealth(isOpenClawView, managementTarget);
+  const { data: openclawHealthWarnings = [] } = useOpenClawHealth(
+    isOpenClawView,
+    managementTarget,
+  );
   const hasSkillsSupport = sharedFeatureApp !== "openclaw";
   const hasSessionSupport =
     sharedFeatureApp === "claude" ||
@@ -944,6 +946,7 @@ function App() {
               onOpenChange={() => setCurrentView("providers")}
               onImportSuccess={handleImportSuccess}
               defaultTab={settingsDefaultTab}
+              target={managementTarget}
             />
           );
         case "prompts":

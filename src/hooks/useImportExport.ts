@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { settingsApi } from "@/lib/api";
+import { remoteApi, settingsApi } from "@/lib/api";
+import type { ManagementTarget } from "@/lib/api";
 import { syncCurrentProvidersLiveSafe } from "@/utils/postChangeSync";
 
 export type ImportStatus =
@@ -13,6 +14,7 @@ export type ImportStatus =
 
 export interface UseImportExportOptions {
   onImportSuccess?: () => void | Promise<void>;
+  target?: ManagementTarget;
 }
 
 export interface UseImportExportResult {
@@ -32,7 +34,7 @@ export function useImportExport(
   options: UseImportExportOptions = {},
 ): UseImportExportResult {
   const { t } = useTranslation();
-  const { onImportSuccess } = options;
+  const { onImportSuccess, target = { type: "local" } } = options;
 
   const [selectedFile, setSelectedFile] = useState("");
   const [status, setStatus] = useState<ImportStatus>("idle");
@@ -82,7 +84,14 @@ export function useImportExport(
     setErrorMessage(null);
 
     try {
-      const result = await settingsApi.importConfigFromFile(selectedFile);
+      const result =
+        target.type === "remote"
+          ? await remoteApi.importConfigFromFile(
+              target.profile,
+              selectedFile,
+              target.secret,
+            )
+          : await settingsApi.importConfigFromFile(selectedFile);
       if (!result.success) {
         setStatus("error");
         const message =
@@ -101,7 +110,10 @@ export function useImportExport(
       // - 避免依赖 setTimeout（组件卸载会取消）
       void onImportSuccess?.();
 
-      const syncResult = await syncCurrentProvidersLiveSafe();
+      const syncResult =
+        target.type === "remote"
+          ? { ok: true as const }
+          : await syncCurrentProvidersLiveSafe();
       if (syncResult.ok) {
         setStatus("success");
         toast.success(
@@ -138,7 +150,7 @@ export function useImportExport(
     } finally {
       setIsImporting(false);
     }
-  }, [isImporting, onImportSuccess, selectedFile, t]);
+  }, [isImporting, onImportSuccess, selectedFile, t, target]);
 
   const exportConfig = useCallback(async () => {
     try {
@@ -155,7 +167,14 @@ export function useImportExport(
         return;
       }
 
-      const result = await settingsApi.exportConfigToFile(destination);
+      const result =
+        target.type === "remote"
+          ? await remoteApi.exportConfigToFile(
+              target.profile,
+              destination,
+              target.secret,
+            )
+          : await settingsApi.exportConfigToFile(destination);
       if (result.success) {
         const displayPath = result.filePath ?? destination;
         toast.success(
@@ -180,7 +199,7 @@ export function useImportExport(
         }),
       );
     }
-  }, [t]);
+  }, [t, target]);
 
   const resetStatus = useCallback(() => {
     setStatus("idle");

@@ -100,6 +100,35 @@ export const remoteApi = {
     return invoke<RemoteHealth>("remote_install_helper", { profile, secret });
   },
 
+  exportConfigToFile(
+    profile: RemoteHostProfile,
+    filePath: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<{ success: boolean; message: string; filePath?: string }> {
+    return invoke("remote_export_config_to_file", {
+      profile,
+      filePath,
+      secret,
+    });
+  },
+
+  importConfigFromFile(
+    profile: RemoteHostProfile,
+    filePath: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    backupId?: string;
+    warning?: string;
+  }> {
+    return invoke("remote_import_config_from_file", {
+      profile,
+      filePath,
+      secret,
+    });
+  },
+
   getProviders(
     profile: RemoteHostProfile,
     app: AppId,
@@ -297,14 +326,11 @@ export const remoteApi = {
     defaults: OpenClawAgentsDefaults,
     secret?: RemoteConnectionSecret,
   ): Promise<OpenClawWriteOutcome> {
-    return invoke<OpenClawWriteOutcome>(
-      "remote_set_openclaw_agents_defaults",
-      {
-        profile,
-        defaults,
-        secret,
-      },
-    );
+    return invoke<OpenClawWriteOutcome>("remote_set_openclaw_agents_defaults", {
+      profile,
+      defaults,
+      secret,
+    });
   },
 
   getMcpServers(

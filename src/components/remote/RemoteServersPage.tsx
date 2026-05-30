@@ -208,7 +208,10 @@ export function RemoteServersPage({
         </section>
 
         <div className="grid min-h-0 content-start gap-4 overflow-y-auto pb-24">
-          <RemoteHealthPanel profile={selectedProfile} secret={selectedSecret} />
+          <RemoteHealthPanel
+            profile={selectedProfile}
+            secret={selectedSecret}
+          />
 
           <section className="glass overflow-hidden rounded-xl border border-white/10">
             <div className="flex h-11 items-center border-b border-border-default px-4">

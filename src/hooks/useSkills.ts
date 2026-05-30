@@ -211,7 +211,9 @@ export function useToggleSkillApp(target: ManagementTarget = LOCAL_TARGET) {
 /**
  * 扫描未管理的 Skills
  */
-export function useScanUnmanagedSkills(target: ManagementTarget = LOCAL_TARGET) {
+export function useScanUnmanagedSkills(
+  target: ManagementTarget = LOCAL_TARGET,
+) {
   const targetKey = getTargetKey(target);
   return useQuery({
     queryKey: ["skills", "unmanaged", targetKey],
@@ -224,7 +226,9 @@ export function useScanUnmanagedSkills(target: ManagementTarget = LOCAL_TARGET) 
  * 从应用目录导入 Skills
  * 成功后直接更新缓存，不触发重新加载/刷新
  */
-export function useImportSkillsFromApps(target: ManagementTarget = LOCAL_TARGET) {
+export function useImportSkillsFromApps(
+  target: ManagementTarget = LOCAL_TARGET,
+) {
   const queryClient = useQueryClient();
   const targetKey = getTargetKey(target);
   return useMutation({

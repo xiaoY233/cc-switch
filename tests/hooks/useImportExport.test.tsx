@@ -19,6 +19,8 @@ const importConfigMock = vi.fn();
 const saveFileDialogMock = vi.fn();
 const exportConfigMock = vi.fn();
 const syncCurrentProvidersLiveMock = vi.fn();
+const remoteImportConfigMock = vi.fn();
+const remoteExportConfigMock = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   settingsApi: {
@@ -29,6 +31,11 @@ vi.mock("@/lib/api", () => ({
     syncCurrentProvidersLive: (...args: unknown[]) =>
       syncCurrentProvidersLiveMock(...args),
   },
+  remoteApi: {
+    importConfigFromFile: (...args: unknown[]) =>
+      remoteImportConfigMock(...args),
+    exportConfigToFile: (...args: unknown[]) => remoteExportConfigMock(...args),
+  },
 }));
 
 beforeEach(() => {
@@ -36,6 +43,8 @@ beforeEach(() => {
   importConfigMock.mockReset();
   saveFileDialogMock.mockReset();
   exportConfigMock.mockReset();
+  remoteImportConfigMock.mockReset();
+  remoteExportConfigMock.mockReset();
   toastSuccessMock.mockReset();
   toastErrorMock.mockReset();
   toastWarningMock.mockReset();
@@ -174,6 +183,93 @@ describe("useImportExport Hook", () => {
     expect(exportConfigMock).toHaveBeenCalledWith("/export.json");
     expect(toastSuccessMock).toHaveBeenCalledWith(
       expect.stringContaining("/backup/export.json"),
+      expect.objectContaining({ closeButton: true }),
+    );
+  });
+
+  it("should import selected SQL into the remote target without touching the local database", async () => {
+    const remoteTarget = {
+      type: "remote" as const,
+      profile: {
+        id: "host-1",
+        name: "Host 1",
+        host: "192.168.1.10",
+        port: 22,
+        username: "root",
+        authMethod: { type: "password" as const },
+        helperPath: "~/.local/bin/cc-switch-cli",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      secret: { password: "secret" },
+    };
+    openFileDialogMock.mockResolvedValue("/config.sql");
+    remoteImportConfigMock.mockResolvedValue({
+      success: true,
+      backupId: "remote-backup-1",
+    });
+
+    const { result } = renderHook(() =>
+      useImportExport({ target: remoteTarget }),
+    );
+
+    await act(async () => {
+      await result.current.selectImportFile();
+    });
+
+    await act(async () => {
+      await result.current.importConfig();
+    });
+
+    expect(remoteImportConfigMock).toHaveBeenCalledWith(
+      remoteTarget.profile,
+      "/config.sql",
+      remoteTarget.secret,
+    );
+    expect(importConfigMock).not.toHaveBeenCalled();
+    expect(syncCurrentProvidersLiveMock).not.toHaveBeenCalled();
+    expect(result.current.status).toBe("success");
+    expect(result.current.backupId).toBe("remote-backup-1");
+  });
+
+  it("should export the remote target database to a local file path", async () => {
+    const remoteTarget = {
+      type: "remote" as const,
+      profile: {
+        id: "host-1",
+        name: "Host 1",
+        host: "192.168.1.10",
+        port: 22,
+        username: "root",
+        authMethod: { type: "password" as const },
+        helperPath: "~/.local/bin/cc-switch-cli",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      secret: { password: "secret" },
+    };
+    saveFileDialogMock.mockResolvedValue("/exports/remote.sql");
+    remoteExportConfigMock.mockResolvedValue({
+      success: true,
+      filePath: "/exports/remote.sql",
+    });
+
+    const { result } = renderHook(() =>
+      useImportExport({ target: remoteTarget }),
+    );
+
+    await act(async () => {
+      await result.current.exportConfig();
+    });
+
+    expect(remoteExportConfigMock).toHaveBeenCalledWith(
+      remoteTarget.profile,
+      "/exports/remote.sql",
+      remoteTarget.secret,
+    );
+    expect(exportConfigMock).not.toHaveBeenCalled();
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      expect.stringContaining("/exports/remote.sql"),
       expect.objectContaining({ closeButton: true }),
     );
   });

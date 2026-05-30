@@ -115,6 +115,24 @@ fn run_normalized(args: &[String]) -> Value {
             Err(err) => serde_json::to_value(types::err::<()>("invalid_app", err.to_string()))
                 .expect("serialize invalid app error"),
         },
+        [group, cmd] if group == "import-export" && cmd == "export-sql" => {
+            match commands::export_database_sql() {
+                Ok(value) => serde_json::to_value(types::ok(value)).expect("serialize sql export"),
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("import_export_export_failed", message))
+                        .expect("serialize sql export error")
+                }
+            }
+        }
+        [group, cmd, encoded_sql] if group == "import-export" && cmd == "import-sql-b64" => {
+            match commands::import_database_sql_b64(encoded_sql) {
+                Ok(value) => serde_json::to_value(types::ok(value)).expect("serialize sql import"),
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("import_export_import_failed", message))
+                        .expect("serialize sql import error")
+                }
+            }
+        }
         [group, cmd, app, updates_json] if group == "providers" && cmd == "sort" => {
             match app.parse() {
                 Ok(app_type) => match commands::sort_providers(app_type, updates_json) {
@@ -512,7 +530,7 @@ fn run_normalized(args: &[String]) -> Value {
         }
         _ => serde_json::to_value(types::err::<()>(
             "unsupported_command",
-            "Supported commands: status, providers, openclaw, mcp, prompts, skills",
+            "Supported commands: status, providers, openclaw, mcp, prompts, skills, import-export",
         ))
         .expect("serialize error response"),
     }

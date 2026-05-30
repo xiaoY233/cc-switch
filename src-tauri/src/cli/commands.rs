@@ -11,7 +11,7 @@ use crate::{
 };
 use indexmap::IndexMap;
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::sync::Arc;
 
 #[derive(Debug, Serialize)]
@@ -109,6 +109,38 @@ pub fn import_providers(app: AppType) -> Result<bool, String> {
         _ => crate::commands::import_default_config_internal(&state, app)
             .or_else(live_config_missing_as_false),
     }
+}
+
+pub fn export_database_sql() -> Result<String, String> {
+    let db = Database::init().map_err(|e| e.to_string())?;
+    db.export_sql_string().map_err(|e| e.to_string())
+}
+
+pub fn import_database_sql_b64(encoded_sql: &str) -> Result<Value, String> {
+    let sql_bytes = {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        STANDARD.decode(encoded_sql).map_err(|e| e.to_string())?
+    };
+    let sql = String::from_utf8(sql_bytes).map_err(|e| e.to_string())?;
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let backup_id = db.import_sql_string(&sql).map_err(|e| e.to_string())?;
+    let sync_warning = {
+        let state = AppState::new(db);
+        ProviderService::sync_current_to_live(&state)
+            .and_then(|_| crate::settings::reload_settings())
+            .err()
+            .map(|e| e.to_string())
+    };
+
+    let mut payload = json!({
+        "success": true,
+        "message": "SQL imported successfully",
+        "backupId": backup_id
+    });
+    if let Some(warning) = sync_warning {
+        payload["warning"] = Value::String(warning);
+    }
+    Ok(payload)
 }
 
 fn live_config_missing_as_false(error: AppError) -> Result<bool, String> {

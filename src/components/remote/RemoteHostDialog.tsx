@@ -121,9 +121,7 @@ export function RemoteHostDialog({
           createdAt: initialProfile?.createdAt ?? now,
           updatedAt: now,
         },
-        authMethod.type === "password" && password
-          ? { password }
-          : undefined,
+        authMethod.type === "password" && password ? { password } : undefined,
       ),
     ).then(() => onOpenChange(false));
   };

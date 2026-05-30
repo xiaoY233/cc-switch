@@ -12,6 +12,8 @@ use crate::services::skill::{
 };
 use crate::services::{ProviderSortUpdate, SwitchResult};
 use indexmap::IndexMap;
+use serde_json::{json, Value};
+use std::path::PathBuf;
 
 #[tauri::command]
 pub fn remote_list_profiles() -> Result<Vec<RemoteHostProfile>, String> {
@@ -76,6 +78,59 @@ pub fn remote_install_helper(
         install_helper_json(&profile, secret.as_ref()).map_err(|e| e.to_string())?;
 
     Ok(remote_health_from_status(status))
+}
+
+#[tauri::command]
+pub fn remote_export_config_to_file(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] filePath: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Value, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    let sql: String = run_helper_json(
+        &profile,
+        &["import-export".to_string(), "export-sql".to_string()],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())?;
+
+    let target_path = PathBuf::from(&filePath);
+    if let Some(parent) = target_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    crate::config::atomic_write(&target_path, sql.as_bytes()).map_err(|e| e.to_string())?;
+
+    Ok(json!({
+        "success": true,
+        "message": "Remote SQL exported successfully",
+        "filePath": filePath
+    }))
+}
+
+#[tauri::command]
+pub fn remote_import_config_from_file(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] filePath: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Value, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    let source_path = PathBuf::from(&filePath);
+    let sql = std::fs::read_to_string(&source_path).map_err(|e| e.to_string())?;
+    let encoded = {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        STANDARD.encode(sql)
+    };
+
+    run_helper_json(
+        &profile,
+        &[
+            "import-export".to_string(),
+            "import-sql-b64".to_string(),
+            encoded,
+        ],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
 }
 
 fn remote_health_from_status(status: serde_json::Value) -> RemoteHealth {
@@ -261,7 +316,12 @@ pub fn remote_update_providers_sort_order(
     let updates_json = serde_json::to_string(&updates).map_err(|e| e.to_string())?;
     run_helper_json(
         &profile,
-        &["providers".to_string(), "sort".to_string(), app, updates_json],
+        &[
+            "providers".to_string(),
+            "sort".to_string(),
+            app,
+            updates_json,
+        ],
         secret.as_ref(),
     )
     .map_err(|e| e.to_string())

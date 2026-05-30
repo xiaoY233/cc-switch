@@ -174,10 +174,7 @@ export function useProviderActions(
       await addProviderMutation.mutateAsync(enhanced);
 
       // OpenClaw: register models to allowlist after adding provider
-      if (
-        activeApp === "openclaw" &&
-        provider.suggestedDefaults
-      ) {
+      if (activeApp === "openclaw" && provider.suggestedDefaults) {
         try {
           await registerOpenClawSuggestedDefaults(provider.suggestedDefaults);
         } catch (error) {
@@ -431,7 +428,10 @@ export function useProviderActions(
           await openclawApi.setDefaultModel(model);
         }
         await queryClient.invalidateQueries({
-          queryKey: [...openclawKeys.defaultModel, getOpenClawTargetKey(target)],
+          queryKey: [
+            ...openclawKeys.defaultModel,
+            getOpenClawTargetKey(target),
+          ],
         });
         await queryClient.invalidateQueries({
           queryKey: [...openclawKeys.health, getOpenClawTargetKey(target)],

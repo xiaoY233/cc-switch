@@ -1319,6 +1319,8 @@ pub fn run() {
             commands::remote_parse_helper_response,
             commands::remote_check_health,
             commands::remote_install_helper,
+            commands::remote_export_config_to_file,
+            commands::remote_import_config_from_file,
             commands::remote_get_providers,
             commands::remote_get_current_provider,
             commands::remote_switch_provider,

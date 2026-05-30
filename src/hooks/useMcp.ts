@@ -23,13 +23,12 @@ export function useAllMcpServers(target: ManagementTarget = LOCAL_TARGET) {
 /**
  * 添加或更新 MCP 服务器
  */
-export function useUpsertMcpServer(
-  target: ManagementTarget = LOCAL_TARGET,
-) {
+export function useUpsertMcpServer(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
   const targetKey = getTargetKey(target);
   return useMutation({
-    mutationFn: (server: McpServer) => mcpApi.upsertUnifiedServer(server, target),
+    mutationFn: (server: McpServer) =>
+      mcpApi.upsertUnifiedServer(server, target),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["mcp", "all", targetKey] });
     },
@@ -61,9 +60,7 @@ export function useToggleMcpApp(target: ManagementTarget = LOCAL_TARGET) {
 /**
  * 删除 MCP 服务器
  */
-export function useDeleteMcpServer(
-  target: ManagementTarget = LOCAL_TARGET,
-) {
+export function useDeleteMcpServer(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
   const targetKey = getTargetKey(target);
   return useMutation({
@@ -77,9 +74,7 @@ export function useDeleteMcpServer(
 /**
  * 从所有应用导入 MCP 服务器
  */
-export function useImportMcpFromApps(
-  target: ManagementTarget = LOCAL_TARGET,
-) {
+export function useImportMcpFromApps(target: ManagementTarget = LOCAL_TARGET) {
   const queryClient = useQueryClient();
   const targetKey = getTargetKey(target);
   return useMutation({

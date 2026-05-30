@@ -48,6 +48,7 @@ import { useInstalledSkills } from "@/hooks/useSkills";
 import { useSettings } from "@/hooks/useSettings";
 import { useImportExport } from "@/hooks/useImportExport";
 import { useTranslation } from "react-i18next";
+import type { ManagementTarget } from "@/lib/api";
 import type { SettingsFormState } from "@/hooks/useSettings";
 
 interface SettingsDialogProps {
@@ -55,6 +56,7 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void;
   onImportSuccess?: () => void | Promise<void>;
   defaultTab?: string;
+  target?: ManagementTarget;
 }
 
 export function SettingsPage({
@@ -62,6 +64,7 @@ export function SettingsPage({
   onOpenChange,
   onImportSuccess,
   defaultTab = "general",
+  target,
 }: SettingsDialogProps) {
   const { t } = useTranslation();
   const {
@@ -95,7 +98,7 @@ export function SettingsPage({
     exportConfig,
     clearSelection,
     resetStatus,
-  } = useImportExport({ onImportSuccess });
+  } = useImportExport({ onImportSuccess, target });
 
   const { data: installedSkills } = useInstalledSkills();
 
