@@ -2,7 +2,8 @@ use crate::app_config::{InstalledSkill, McpServer, UnmanagedSkill};
 use crate::prompt::Prompt;
 use crate::provider::Provider;
 use crate::remote::{
-    build_ssh_args, delete_profile, load_profiles, run_helper_json, upsert_profile,
+    build_helper_install_args, build_ssh_args, delete_profile, install_helper_json, load_profiles,
+    run_helper_json, upsert_profile,
     validate_profile, RemoteCapability, RemoteConnectionSecret, RemoteHealth, RemoteHostProfile,
     RemotePlatform,
 };
@@ -41,6 +42,14 @@ pub fn remote_build_status_command(profile: RemoteHostProfile) -> Result<Vec<Str
 }
 
 #[tauri::command]
+pub fn remote_build_helper_install_command(
+    profile: RemoteHostProfile,
+) -> Result<Vec<String>, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    Ok(build_helper_install_args(&profile))
+}
+
+#[tauri::command]
 pub fn remote_parse_helper_response(raw: String) -> Result<serde_json::Value, String> {
     serde_json::from_str(&raw).map_err(|e| format!("Invalid helper JSON: {e}"))
 }
@@ -55,7 +64,23 @@ pub fn remote_check_health(
         run_helper_json(&profile, &["status".to_string()], secret.as_ref())
             .map_err(|e| e.to_string())?;
 
-    Ok(RemoteHealth {
+    Ok(remote_health_from_status(status))
+}
+
+#[tauri::command]
+pub fn remote_install_helper(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<RemoteHealth, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    let status: serde_json::Value =
+        install_helper_json(&profile, secret.as_ref()).map_err(|e| e.to_string())?;
+
+    Ok(remote_health_from_status(status))
+}
+
+fn remote_health_from_status(status: serde_json::Value) -> RemoteHealth {
+    RemoteHealth {
         reachable: true,
         helper_installed: true,
         helper_version: status
@@ -78,7 +103,7 @@ pub fn remote_check_health(
             })
             .unwrap_or_default(),
         last_error: None,
-    })
+    }
 }
 
 fn parse_remote_platform(value: &str) -> RemotePlatform {
@@ -678,6 +703,16 @@ mod tests {
                 "/usr/local/bin/cc-switch-helper --json status",
             ]
         );
+    }
+
+    #[test]
+    fn builds_helper_install_command_after_validation() {
+        let args = remote_build_helper_install_command(valid_profile()).unwrap();
+        let command = args.last().expect("remote command");
+
+        assert!(command.contains("rustup.rs"));
+        assert!(command.contains("cargo install --git"));
+        assert!(command.contains("\"$helper_path\" --json status"));
     }
 
     #[test]

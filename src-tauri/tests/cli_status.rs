@@ -13,6 +13,15 @@ fn status_returns_stable_json_envelope() {
 }
 
 #[test]
+fn status_accepts_json_flag_for_remote_invocation() {
+    let response = cc_switch_lib::cli::run(&["--json".to_string(), "status".to_string()]);
+
+    assert_eq!(response["ok"], true);
+    assert_eq!(response["data"]["version"], env!("CARGO_PKG_VERSION"));
+    assert!(response["error"].is_null());
+}
+
+#[test]
 fn unsupported_command_returns_stable_error_envelope() {
     let response = cc_switch_lib::cli::run(&["unknown".to_string()]);
 

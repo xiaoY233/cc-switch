@@ -4,6 +4,7 @@ set -euo pipefail
 REPO="${CC_SWITCH_REPO:-xiaoY233/cc-switch}"
 VERSION="${1:-latest}"
 BIN_DIR="${CC_SWITCH_BIN_DIR:-$HOME/.local/bin}"
+BIN_NAME="${CC_SWITCH_BIN_NAME:-cc-switch-remote-helper}"
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 mkdir -p "$BIN_DIR"
@@ -50,6 +51,6 @@ if [ -z "$DOWNLOAD_URL" ]; then
   exit 1
 fi
 
-curl -fL "$DOWNLOAD_URL" -o "$BIN_DIR/cc-switch"
-chmod +x "$BIN_DIR/cc-switch"
-"$BIN_DIR/cc-switch" status
+curl -fL "$DOWNLOAD_URL" -o "$BIN_DIR/$BIN_NAME"
+chmod +x "$BIN_DIR/$BIN_NAME"
+"$BIN_DIR/$BIN_NAME" --json status

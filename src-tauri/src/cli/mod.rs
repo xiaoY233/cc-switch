@@ -4,6 +4,15 @@ pub mod types;
 use serde_json::Value;
 
 pub fn run(args: &[String]) -> Value {
+    let args = normalize_args(args);
+    run_normalized(&args)
+}
+
+fn normalize_args(args: &[String]) -> Vec<String> {
+    args.iter().filter(|arg| arg.as_str() != "--json").cloned().collect()
+}
+
+fn run_normalized(args: &[String]) -> Value {
     match args {
         [cmd] if cmd == "status" => serde_json::to_value(types::ok(commands::status_payload()))
             .expect("serialize status response"),

@@ -126,7 +126,13 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
     let remote_command = args.last().expect("remote command");
 
     assert!(args.contains(&"alice@example.com".to_string()));
-    assert!(remote_command.contains("cargo install --git https://github.com/farion1231/cc-switch"));
+    assert!(remote_command.contains("api.github.com/repos/xiaoY233/cc-switch/releases/latest"));
+    assert!(remote_command.contains("cc-switch-cli-.*-${asset_os}-${asset_arch}"));
+    assert!(remote_command.contains("curl -fL \"$download_url\" -o \"$helper_tmp\""));
+    assert!(remote_command.contains("rustup.rs"));
+    assert!(remote_command.contains(". \"$HOME/.cargo/env\""));
+    assert!(remote_command.contains("Rust/Cargo is required to install cc-switch remote helper"));
+    assert!(remote_command.contains("cargo install --git https://github.com/xiaoY233/cc-switch"));
     assert!(remote_command.contains("--bin cc-switch-cli"));
     assert!(remote_command.contains("installed_path=\"$HOME/.local/bin/cc-switch-cli\""));
     assert!(remote_command.contains("ln -sf \"$installed_path\" \"$helper_path\""));

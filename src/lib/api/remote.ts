@@ -73,11 +73,22 @@ export const remoteApi = {
     return invoke<string[]>("remote_build_status_command", { profile });
   },
 
+  buildHelperInstallCommand(profile: RemoteHostProfile): Promise<string[]> {
+    return invoke<string[]>("remote_build_helper_install_command", { profile });
+  },
+
   checkHealth(
     profile: RemoteHostProfile,
     secret?: RemoteConnectionSecret,
   ): Promise<RemoteHealth> {
     return invoke<RemoteHealth>("remote_check_health", { profile, secret });
+  },
+
+  installHelper(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<RemoteHealth> {
+    return invoke<RemoteHealth>("remote_install_helper", { profile, secret });
   },
 
   getProviders(

@@ -2674,6 +2674,52 @@
     "suggestedDefaults": "推奨デフォルト設定を適用",
     "suggestedDefaultsHint": "このプリセットの推奨デフォルトモデル設定を使用します"
   },
+  "remote": {
+    "title": "リモートサーバー",
+    "subtitle": "ローカルには接続情報のみを保存し、管理操作は既存ページで選択中の対象に対して実行します。",
+    "targetSelector": "管理対象",
+    "localTarget": "ローカル",
+    "localOnly": "この操作はローカル対象でのみ利用できます",
+    "manageServers": "リモートサーバー",
+    "addServer": "サーバーを追加",
+    "connections": "接続",
+    "details": "接続詳細",
+    "address": "アドレス",
+    "defaultName": "リモートサーバー",
+    "saved": "リモートサーバーを保存しました",
+    "deleted": "リモートサーバーを削除しました",
+    "dialog": {
+      "title": "リモートサーバー"
+    },
+    "fields": {
+      "name": "名前",
+      "host": "ホスト",
+      "username": "ユーザー名",
+      "port": "ポート",
+      "helperPath": "Helper パス",
+      "authentication": "認証方式",
+      "keyPath": "SSH キーパス",
+      "password": "パスワード",
+      "passwordSavedForSession": "このセッションで入力済み"
+    },
+    "auth": {
+      "sshAgent": "SSH Agent",
+      "keyFile": "キーファイル",
+      "password": "パスワード"
+    },
+    "health": {
+      "title": "ヘルスチェック",
+      "ok": "接続可能",
+      "failed": "失敗",
+      "notChecked": "未確認",
+      "install": "Helper をインストール",
+      "installing": "インストール中",
+      "installSuccess": "リモート Helper をインストールしました",
+      "installFailed": "リモート Helper のインストールに失敗しました: {{error}}",
+      "check": "確認",
+      "platform": "プラットフォーム"
+    }
+  },
   "subscription": {
     "title": "サブスクリプションクォータ",
     "fiveHour": "5時間",

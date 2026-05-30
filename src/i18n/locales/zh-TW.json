@@ -2620,6 +2620,52 @@
     "suggestedDefaults": "套用建議預設設定",
     "suggestedDefaultsHint": "使用此預設推薦的預設模型設定"
   },
+  "remote": {
+    "title": "遠端伺服器",
+    "subtitle": "只儲存連線資訊；管理操作會在既有頁面依目標執行。",
+    "targetSelector": "管理目標",
+    "localTarget": "本機",
+    "localOnly": "此操作只支援本機目標",
+    "manageServers": "遠端伺服器",
+    "addServer": "新增伺服器",
+    "connections": "連線",
+    "details": "連線詳情",
+    "address": "位址",
+    "defaultName": "遠端伺服器",
+    "saved": "遠端伺服器已儲存",
+    "deleted": "遠端伺服器已刪除",
+    "dialog": {
+      "title": "遠端伺服器"
+    },
+    "fields": {
+      "name": "名稱",
+      "host": "主機",
+      "username": "使用者名稱",
+      "port": "連接埠",
+      "helperPath": "Helper 路徑",
+      "authentication": "驗證方式",
+      "keyPath": "SSH 金鑰路徑",
+      "password": "密碼",
+      "passwordSavedForSession": "本次工作階段已填寫"
+    },
+    "auth": {
+      "sshAgent": "SSH Agent",
+      "keyFile": "金鑰檔案",
+      "password": "密碼"
+    },
+    "health": {
+      "title": "健康檢查",
+      "ok": "可連線",
+      "failed": "失敗",
+      "notChecked": "未檢查",
+      "install": "安裝 Helper",
+      "installing": "安裝中",
+      "installSuccess": "遠端 Helper 已安裝",
+      "installFailed": "安裝遠端 Helper 失敗: {{error}}",
+      "check": "檢查",
+      "platform": "平台"
+    }
+  },
   "subscription": {
     "title": "訂閱額度",
     "fiveHour": "5 小時",

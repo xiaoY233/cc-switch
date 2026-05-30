@@ -1,6 +1,7 @@
-import { Activity, RefreshCw, Terminal } from "lucide-react";
+import { Activity, Download, RefreshCw, Terminal } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ export function RemoteHealthPanel({
   const { t } = useTranslation();
   const [health, setHealth] = useState<RemoteHealth | null>(null);
   const [checking, setChecking] = useState(false);
+  const [installing, setInstalling] = useState(false);
 
   const handleCheck = async () => {
     if (!profile) return;
@@ -39,6 +41,36 @@ export function RemoteHealthPanel({
     }
   };
 
+  const handleInstall = async () => {
+    if (!profile) return;
+    setInstalling(true);
+    try {
+      const result = await remoteApi.installHelper(profile, secret);
+      setHealth(result);
+      toast.success(
+        t("remote.health.installSuccess", {
+          defaultValue: "远程 Helper 已安装",
+        }),
+      );
+    } catch (error) {
+      const message = String(error);
+      setHealth({
+        reachable: false,
+        helperInstalled: false,
+        capabilities: [],
+        lastError: message,
+      });
+      toast.error(
+        t("remote.health.installFailed", {
+          defaultValue: "安装远程 Helper 失败: {{error}}",
+          error: message,
+        }),
+      );
+    } finally {
+      setInstalling(false);
+    }
+  };
+
   return (
     <section className="glass overflow-hidden rounded-xl border border-white/10">
       <div className="flex h-11 items-center justify-between border-b border-border-default px-4">
@@ -55,17 +87,30 @@ export function RemoteHealthPanel({
               : t("remote.health.notChecked", { defaultValue: "未检查" })}
           </Badge>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!profile || checking}
-          onClick={() => void handleCheck()}
-        >
-          <RefreshCw className="mr-2 h-4 w-4" />
-          {checking
-            ? t("common.loading", { defaultValue: "加载中" })
-            : t("remote.health.check", { defaultValue: "检查" })}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!profile || checking || installing}
+            onClick={() => void handleInstall()}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {installing
+              ? t("remote.health.installing", { defaultValue: "安装中" })
+              : t("remote.health.install", { defaultValue: "安装 Helper" })}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!profile || checking || installing}
+            onClick={() => void handleCheck()}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            {checking
+              ? t("common.loading", { defaultValue: "加载中" })
+              : t("remote.health.check", { defaultValue: "检查" })}
+          </Button>
+        </div>
       </div>
       <div className="grid grid-cols-1 gap-0 sm:grid-cols-3">
         <Metric

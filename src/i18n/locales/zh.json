@@ -2712,6 +2712,10 @@
       "ok": "可连接",
       "failed": "失败",
       "notChecked": "未检查",
+      "install": "安装 Helper",
+      "installing": "安装中",
+      "installSuccess": "远程 Helper 已安装",
+      "installFailed": "安装远程 Helper 失败: {{error}}",
       "check": "检查",
       "platform": "平台"
     }

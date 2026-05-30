@@ -6,7 +6,8 @@ use crate::remote::types::{
 use serde::de::DeserializeOwned;
 use std::process::Command;
 
-const HELPER_INSTALL_REPO: &str = "https://github.com/farion1231/cc-switch";
+const HELPER_INSTALL_REPO: &str = "https://github.com/xiaoY233/cc-switch";
+const HELPER_RELEASE_REPO: &str = "xiaoY233/cc-switch";
 
 fn build_ssh_base_args(profile: &RemoteHostProfile) -> Vec<String> {
     let mut args = vec![
@@ -56,6 +57,7 @@ pub fn build_helper_install_args(profile: &RemoteHostProfile) -> Vec<String> {
     let mut args = build_ssh_base_args(profile);
     let helper_path = shell_quote_helper_path(&profile.helper_path);
     let repo = shell_quote(HELPER_INSTALL_REPO);
+    let release_repo = shell_quote(HELPER_RELEASE_REPO);
     let command = format!(
         concat!(
             "set -e; ",
@@ -63,11 +65,43 @@ pub fn build_helper_install_args(profile: &RemoteHostProfile) -> Vec<String> {
             "installed_path=\"$HOME/.local/bin/cc-switch-cli\"; ",
             "helper_dir=$(dirname \"$helper_path\"); ",
             "mkdir -p \"$helper_dir\" ~/.local/bin; ",
+            "asset_os=$(uname -s); ",
+            "case \"$asset_os\" in Linux) asset_os=Linux ;; Darwin) asset_os=macOS ;; *) asset_os= ;; esac; ",
+            "asset_arch=$(uname -m); ",
+            "case \"$asset_arch\" in x86_64|amd64) asset_arch=x86_64 ;; arm64|aarch64) asset_arch=arm64 ;; *) asset_arch= ;; esac; ",
+            "if [ \"$asset_os\" = macOS ]; then asset_arch=universal; fi; ",
+            "if [ -n \"$asset_os\" ] && [ -n \"$asset_arch\" ] && command -v curl >/dev/null 2>&1; then ",
+            "api_url=https://api.github.com/repos/{release_repo}/releases/latest; ",
+            "asset_pattern=\"cc-switch-cli-.*-${{asset_os}}-${{asset_arch}}$\"; ",
+            "download_url=$(curl -fsSL \"$api_url\" | grep -E '\"browser_download_url\":' | sed -E 's/.*\"browser_download_url\": \"([^\"]+)\".*/\\1/' | grep -E \"$asset_pattern\" | head -1 || true); ",
+            "if [ -n \"$download_url\" ]; then ",
+            "helper_tmp=$(mktemp); ",
+            "curl -fL \"$download_url\" -o \"$helper_tmp\" 1>&2; ",
+            "chmod +x \"$helper_tmp\"; ",
+            "mv \"$helper_tmp\" \"$helper_path\"; ",
+            "\"$helper_path\" --json status; ",
+            "exit 0; ",
+            "fi; ",
+            "fi; ",
+            "if ! command -v cargo >/dev/null 2>&1; then ",
+            "if [ -f \"$HOME/.cargo/env\" ]; then . \"$HOME/.cargo/env\"; fi; ",
+            "fi; ",
+            "if ! command -v cargo >/dev/null 2>&1; then ",
+            "if command -v rustup >/dev/null 2>&1; then ",
+            "rustup default stable 1>&2; ",
+            "elif command -v curl >/dev/null 2>&1; then ",
+            "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal 1>&2; ",
+            ". \"$HOME/.cargo/env\"; ",
+            "elif command -v wget >/dev/null 2>&1; then ",
+            "wget -qO- https://sh.rustup.rs | sh -s -- -y --profile minimal 1>&2; ",
+            ". \"$HOME/.cargo/env\"; ",
+            "fi; ",
+            "fi; ",
             "if ! command -v cargo >/dev/null 2>&1; then ",
             "echo 'Rust/Cargo is required to install cc-switch remote helper' >&2; ",
             "exit 127; ",
             "fi; ",
-            "cargo install --git {repo} --bin cc-switch-cli --root ~/.local --locked; ",
+            "cargo install --git {repo} --bin cc-switch-cli --root ~/.local --locked 1>&2; ",
             "if [ \"$helper_path\" != \"$installed_path\" ]; then ",
             "ln -sf \"$installed_path\" \"$helper_path\"; ",
             "fi; ",
@@ -75,6 +109,7 @@ pub fn build_helper_install_args(profile: &RemoteHostProfile) -> Vec<String> {
         ),
         helper_path = helper_path,
         repo = repo,
+        release_repo = release_repo,
     );
     args.push(command);
     args
@@ -85,8 +120,25 @@ pub fn run_helper_json<T: DeserializeOwned>(
     helper_args: &[String],
     secret: Option<&RemoteConnectionSecret>,
 ) -> Result<T, AppError> {
+    let stdout = run_ssh_command(profile, build_ssh_args(profile, helper_args), secret)?;
+    parse_helper_json(&stdout)
+}
+
+pub fn install_helper_json<T: DeserializeOwned>(
+    profile: &RemoteHostProfile,
+    secret: Option<&RemoteConnectionSecret>,
+) -> Result<T, AppError> {
+    let stdout = run_ssh_command(profile, build_helper_install_args(profile), secret)?;
+    parse_helper_json(&stdout)
+}
+
+fn run_ssh_command(
+    profile: &RemoteHostProfile,
+    args: Vec<String>,
+    secret: Option<&RemoteConnectionSecret>,
+) -> Result<String, AppError> {
     let mut command = Command::new("ssh");
-    command.args(build_ssh_args(profile, helper_args));
+    command.args(args);
 
     let _askpass = configure_password_auth(profile, secret, &mut command)?;
     let output = command
@@ -102,9 +154,18 @@ pub fn run_helper_json<T: DeserializeOwned>(
         }));
     }
 
-    let stdout = String::from_utf8(output.stdout)
-        .map_err(|e| AppError::Message(format!("Remote helper returned invalid UTF-8: {e}")))?;
-    let envelope: RemoteCommandResponse<T> = serde_json::from_str(stdout.trim())
+    String::from_utf8(output.stdout)
+        .map_err(|e| AppError::Message(format!("Remote helper returned invalid UTF-8: {e}")))
+}
+
+fn parse_helper_json<T: DeserializeOwned>(stdout: &str) -> Result<T, AppError> {
+    let json_line = stdout
+        .lines()
+        .rev()
+        .find(|line| !line.trim().is_empty())
+        .unwrap_or(stdout)
+        .trim();
+    let envelope: RemoteCommandResponse<T> = serde_json::from_str(json_line)
         .map_err(|e| AppError::Message(format!("Remote helper returned invalid JSON: {e}")))?;
 
     if envelope.ok {
