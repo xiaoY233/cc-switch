@@ -52,9 +52,13 @@ export function RemoteHostDialog({
   open,
   onOpenChange,
   onSave,
+  initialProfile,
+  initialSecret,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialProfile?: RemoteHostProfile;
+  initialSecret?: RemoteConnectionSecret;
   onSave: (
     profile: RemoteHostProfile,
     secret?: RemoteConnectionSecret,
@@ -72,15 +76,18 @@ export function RemoteHostDialog({
 
   useEffect(() => {
     if (!open) return;
-    setName("");
-    setHost("");
-    setPort("22");
-    setUsername("");
-    setHelperPath("~/.local/bin/cc-switch");
-    setAuthMode("sshAgent");
-    setKeyPath("~/.ssh/id_ed25519");
-    setPassword("");
-  }, [open]);
+    setName(initialProfile?.name ?? "");
+    setHost(initialProfile?.host ?? "");
+    setPort(String(initialProfile?.port ?? 22));
+    setUsername(initialProfile?.username ?? "");
+    setHelperPath(initialProfile?.helperPath ?? "~/.local/bin/cc-switch");
+    const authMethod = initialProfile?.authMethod;
+    setAuthMode(authMethod?.type ?? "sshAgent");
+    setKeyPath(
+      authMethod?.type === "keyFile" ? authMethod.path : "~/.ssh/id_ed25519",
+    );
+    setPassword(initialSecret?.password ?? "");
+  }, [open, initialProfile, initialSecret]);
 
   const buildAuthMethod = (): RemoteAuthMethod => {
     if (authMode === "keyFile") {
@@ -95,10 +102,11 @@ export function RemoteHostDialog({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const now = Date.now();
+    const authMethod = buildAuthMethod();
     void Promise.resolve(
       onSave(
         {
-          id: `remote-${now}`,
+          id: initialProfile?.id ?? `remote-${now}`,
           name:
             name.trim() ||
             host.trim() ||
@@ -106,12 +114,14 @@ export function RemoteHostDialog({
           host: host.trim(),
           port: Number(port) || 22,
           username: username.trim(),
-          authMethod: buildAuthMethod(),
+          authMethod,
           helperPath: helperPath.trim() || "~/.local/bin/cc-switch",
-          createdAt: now,
+          createdAt: initialProfile?.createdAt ?? now,
           updatedAt: now,
         },
-        authMode === "password" ? { password } : undefined,
+        authMethod.type === "password" && password
+          ? { password }
+          : undefined,
       ),
     ).then(() => onOpenChange(false));
   };
@@ -224,7 +234,14 @@ export function RemoteHostDialog({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   type="password"
-                  required
+                  placeholder={
+                    initialSecret?.password
+                      ? t("remote.fields.passwordSavedForSession", {
+                          defaultValue: "本次会话已填写",
+                        })
+                      : undefined
+                  }
+                  required={!initialSecret?.password}
                 />
               </Field>
             )}

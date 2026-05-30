@@ -2699,7 +2699,8 @@
       "helperPath": "Helper 路径",
       "authentication": "认证方式",
       "keyPath": "SSH 密钥路径",
-      "password": "密码"
+      "password": "密码",
+      "passwordSavedForSession": "本次会话已填写"
     },
     "auth": {
       "sshAgent": "SSH Agent",

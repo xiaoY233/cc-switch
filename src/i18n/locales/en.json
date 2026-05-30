@@ -2699,7 +2699,8 @@
       "helperPath": "Helper path",
       "authentication": "Authentication",
       "keyPath": "SSH key path",
-      "password": "Password"
+      "password": "Password",
+      "passwordSavedForSession": "Filled for this session"
     },
     "auth": {
       "sshAgent": "SSH Agent",

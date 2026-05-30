@@ -268,14 +268,21 @@ function App() {
       const next = current.filter((item) => item.id !== profile.id);
       return [profile, ...next];
     });
-    if (secret?.password) {
-      setRemoteSecrets((current) => ({
-        ...current,
-        [profile.id]: secret,
-      }));
-    }
+    setRemoteSecrets((current) => {
+      const next = { ...current };
+      if (profile.authMethod.type === "password" && secret?.password) {
+        next[profile.id] = secret;
+      } else {
+        delete next[profile.id];
+      }
+      return next;
+    });
     setActiveTargetKey(`remote:${profile.id}`);
     setCurrentView("providers");
+  };
+
+  const handleRemoteProfileActivated = (profileId: string | null) => {
+    setActiveTargetKey(profileId ? `remote:${profileId}` : "local");
   };
 
   useEffect(() => {
@@ -954,7 +961,9 @@ function App() {
                   ? remoteSecrets[activeRemoteProfile.id]
                   : undefined
               }
+              secrets={remoteSecrets}
               onProfileSaved={handleRemoteProfileSaved}
+              onProfileActivated={handleRemoteProfileActivated}
               onProfilesChanged={setRemoteProfiles}
             />
           );

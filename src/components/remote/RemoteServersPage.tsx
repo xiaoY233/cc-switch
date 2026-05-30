@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   CheckCircle2,
   KeyRound,
+  Pencil,
   LockKeyhole,
   Plus,
   Server,
@@ -25,20 +26,26 @@ export function RemoteServersPage({
   profiles,
   activeProfileId,
   activeSecret,
+  secrets,
   onProfileSaved,
+  onProfileActivated,
   onProfilesChanged,
 }: {
   profiles: RemoteHostProfile[];
   activeProfileId?: string;
   activeSecret?: RemoteConnectionSecret;
+  secrets?: Record<string, RemoteConnectionSecret>;
   onProfileSaved: (
     profile: RemoteHostProfile,
     secret?: RemoteConnectionSecret,
   ) => void;
+  onProfileActivated?: (profileId: string | null) => void;
   onProfilesChanged: (profiles: RemoteHostProfile[]) => void;
 }) {
   const { t } = useTranslation();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingProfile, setEditingProfile] =
+    useState<RemoteHostProfile | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(
     activeProfileId ?? null,
   );
@@ -50,6 +57,24 @@ export function RemoteServersPage({
       ),
     [profiles, selectedId, activeProfileId],
   );
+  const selectedSecret =
+    selectedProfile && secrets
+      ? secrets[selectedProfile.id]
+      : selectedProfile?.id === activeProfileId
+        ? activeSecret
+        : undefined;
+
+  const openCreateDialog = () => {
+    setEditingProfile(null);
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (profile: RemoteHostProfile) => {
+    setEditingProfile(profile);
+    setSelectedId(profile.id);
+    onProfileActivated?.(profile.id);
+    setDialogOpen(true);
+  };
 
   const handleSave = async (
     profile: RemoteHostProfile,
@@ -60,6 +85,7 @@ export function RemoteServersPage({
     onProfilesChanged(next);
     onProfileSaved(saved, secret);
     setSelectedId(profile.id);
+    onProfileActivated?.(profile.id);
     toast.success(t("remote.saved", { defaultValue: "远程服务器已保存" }));
   };
 
@@ -67,10 +93,17 @@ export function RemoteServersPage({
     await remoteApi.deleteProfile(id);
     const next = await remoteApi.listProfiles();
     onProfilesChanged(next);
-    if (selectedId === id) {
-      setSelectedId(next[0]?.id ?? null);
+    if (selectedId === id || activeProfileId === id) {
+      const nextId = next[0]?.id ?? null;
+      setSelectedId(nextId);
+      onProfileActivated?.(nextId);
     }
     toast.success(t("remote.deleted", { defaultValue: "远程服务器已删除" }));
+  };
+
+  const handleSelect = (profile: RemoteHostProfile) => {
+    setSelectedId(profile.id);
+    onProfileActivated?.(profile.id);
   };
 
   return (
@@ -87,7 +120,7 @@ export function RemoteServersPage({
               })}
             </p>
           </div>
-          <Button size="sm" onClick={() => setDialogOpen(true)}>
+          <Button size="sm" onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" />
             {t("remote.addServer", { defaultValue: "新增服务器" })}
           </Button>
@@ -112,7 +145,7 @@ export function RemoteServersPage({
             {profiles.length === 0 ? (
               <button
                 type="button"
-                onClick={() => setDialogOpen(true)}
+                onClick={openCreateDialog}
                 className="m-3 flex items-center gap-3 rounded-lg border border-dashed p-4 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
               >
                 <Plus className="h-4 w-4" />
@@ -130,7 +163,7 @@ export function RemoteServersPage({
                 >
                   <button
                     type="button"
-                    onClick={() => setSelectedId(profile.id)}
+                    onClick={() => handleSelect(profile)}
                     className="flex min-w-0 flex-1 items-start gap-3 text-left"
                   >
                     <AuthIcon authMethod={profile.authMethod} />
@@ -156,6 +189,16 @@ export function RemoteServersPage({
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                    onClick={() => openEditDialog(profile)}
+                    title={t("common.edit", { defaultValue: "编辑" })}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 opacity-0 group-hover:opacity-100"
                     onClick={() => void handleDelete(profile.id)}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -167,7 +210,7 @@ export function RemoteServersPage({
         </section>
 
         <div className="grid content-start gap-4">
-          <RemoteHealthPanel profile={selectedProfile} secret={activeSecret} />
+          <RemoteHealthPanel profile={selectedProfile} secret={selectedSecret} />
 
           <section className="rounded-xl border border-border bg-card">
             <div className="border-b px-4 py-3">
@@ -207,7 +250,14 @@ export function RemoteServersPage({
 
       <RemoteHostDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setEditingProfile(null);
+        }}
+        initialProfile={editingProfile ?? undefined}
+        initialSecret={
+          editingProfile && secrets ? secrets[editingProfile.id] : undefined
+        }
         onSave={handleSave}
       />
     </div>
