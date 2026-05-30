@@ -91,7 +91,7 @@ describe("RemoteServersPage", () => {
       { password: "session-password" },
     );
     expect(onProfilesChanged).toHaveBeenCalledWith([]);
-    expect(onProfileActivated).toHaveBeenCalledWith("remote-saved");
+    expect(onProfileActivated).not.toHaveBeenCalled();
   });
 
   it("keeps the dialog open and reports an error when saving the remote profile fails", async () => {

@@ -84,7 +84,6 @@ export function RemoteServersPage({
     onProfilesChanged(next);
     onProfileSaved(saved, secret);
     setSelectedId(saved.id);
-    onProfileActivated?.(saved.id);
     toast.success(t("remote.saved", { defaultValue: "远程服务器已保存" }));
   };
 
