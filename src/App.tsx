@@ -1335,6 +1335,7 @@ function App() {
 
           <div className="flex flex-1 min-w-0 items-center justify-end gap-1.5">
             {currentView === "providers" &&
+              managementTarget.type === "local" &&
               activeApp !== "opencode" &&
               activeApp !== "openclaw" &&
               activeApp !== "hermes" && (

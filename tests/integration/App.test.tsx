@@ -10,6 +10,7 @@ import {
   setLiveProviderIds,
   setProviders,
   setRemoteProfiles,
+  setSettings,
 } from "../msw/state";
 import { emitTauriEvent } from "../msw/tauriMocks";
 
@@ -154,6 +155,18 @@ vi.mock("@/components/UpdateBadge", () => ({
   UpdateBadge: ({ onClick }: any) => (
     <button onClick={onClick}>update-badge</button>
   ),
+}));
+
+vi.mock("@/components/proxy/ProxyToggle", () => ({
+  ProxyToggle: () => <div data-testid="proxy-toggle" />,
+}));
+
+vi.mock("@/components/proxy/FailoverToggle", () => ({
+  FailoverToggle: () => <div data-testid="failover-toggle" />,
+}));
+
+vi.mock("@/components/proxy/ClaudeDesktopRouteToggle", () => ({
+  ClaudeDesktopRouteToggle: () => <div data-testid="desktop-route-toggle" />,
 }));
 
 vi.mock("@/components/settings/SettingsPage", () => ({
@@ -464,5 +477,43 @@ describe("App integration with MSW", () => {
     );
     expect(updateTrayMenuSpy).not.toHaveBeenCalled();
     updateTrayMenuSpy.mockRestore();
+  });
+
+  it("hides local runtime controls while managing a remote target", async () => {
+    localStorage.setItem("cc-switch-last-app", "claude");
+    localStorage.setItem("cc-switch-last-view", "providers");
+    setSettings({
+      enableLocalProxy: true,
+      enableFailoverToggle: true,
+      firstRunNoticeConfirmed: true,
+    });
+    setRemoteProfiles([
+      {
+        id: "remote-1",
+        name: "Remote 1",
+        host: "192.168.1.20",
+        port: 22,
+        username: "root",
+        authMethod: { type: "password" },
+        helperPath: "~/.local/bin/cc-switch-remote-helper",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+
+    const { default: App } = await import("@/App");
+    renderApp(App);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("proxy-toggle")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("failover-toggle")).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByText("Remote 1"));
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("proxy-toggle")).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("failover-toggle")).not.toBeInTheDocument();
   });
 });
