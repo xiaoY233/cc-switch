@@ -253,7 +253,9 @@ fn helper_install_defaults_to_git_build_before_release_asset_fallback() {
         .expect("release fallback");
 
     assert!(git_index < release_index);
-    assert!(remote_command.contains("Git remote helper install failed; falling back to release asset"));
+    assert!(
+        remote_command.contains("Git remote helper install failed; falling back to release asset")
+    );
 }
 
 #[test]

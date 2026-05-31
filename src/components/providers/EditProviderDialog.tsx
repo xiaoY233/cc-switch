@@ -141,14 +141,7 @@ export function EditProviderDialog({
     return () => {
       cancelled = true;
     };
-  }, [
-    open,
-    provider?.id,
-    appId,
-    hasLoadedLive,
-    isProxyTakeover,
-    target,
-  ]); // 只依赖 provider.id，不依赖整个 provider 对象
+  }, [open, provider?.id, appId, hasLoadedLive, isProxyTakeover, target]); // 只依赖 provider.id，不依赖整个 provider 对象
 
   const initialSettingsConfig = useMemo(() => {
     return (liveSettings ?? provider?.settingsConfig ?? {}) as Record<
