@@ -224,6 +224,7 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
     assert!(remote_command.contains("Rust/Cargo is required to install cc-switch remote helper"));
     assert!(remote_command.contains("cargo install --git https://github.com/xiaoY233/cc-switch"));
     assert!(remote_command.contains("--bin cc-switch-cli"));
+    assert!(remote_command.contains("--force"));
     assert!(remote_command.contains("installed_path=\"$HOME/.local/bin/cc-switch-cli\""));
     assert!(remote_command.contains("ln -sf \"$installed_path\" \"$helper_path\""));
     assert!(remote_command.contains("\"$helper_path\" --json status"));

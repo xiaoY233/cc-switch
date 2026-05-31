@@ -105,7 +105,7 @@ pub fn build_helper_install_args(profile: &RemoteHostProfile) -> Vec<String> {
             "echo 'Rust/Cargo is required to install cc-switch remote helper' >&2; ",
             "exit 127; ",
             "fi; ",
-            "cargo install --git {repo} --bin cc-switch-cli --root ~/.local --locked 1>&2; ",
+            "cargo install --git {repo} --bin cc-switch-cli --root ~/.local --locked --force 1>&2; ",
             "if [ \"$helper_path\" != \"$installed_path\" ]; then ",
             "ln -sf \"$installed_path\" \"$helper_path\"; ",
             "fi; ",
