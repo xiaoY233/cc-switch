@@ -221,6 +221,9 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
     assert!(remote_command.contains("wget -qO- \"$1\""));
     assert!(remote_command.contains("fetch_url_to_file()"));
     assert!(remote_command.contains("wget -qO \"$2\" \"$1\""));
+    assert!(remote_command.contains("verify_helper_status()"));
+    assert!(remote_command.contains("grep -q '\"openclaw\"'"));
+    assert!(remote_command.contains("cc-switch remote helper is missing required capabilities"));
     assert!(remote_command.contains("cc-switch-cli-.*-${asset_os}-${asset_arch}"));
     assert!(remote_command.contains("fetch_url_to_file \"$download_url\" \"$helper_tmp\""));
     assert!(remote_command.contains("rustup.rs"));
@@ -231,7 +234,7 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
     assert!(remote_command.contains("--force"));
     assert!(remote_command.contains("installed_path=\"$HOME/.local/bin/cc-switch-cli\""));
     assert!(remote_command.contains("ln -sf \"$installed_path\" \"$helper_path\""));
-    assert!(remote_command.contains("\"$helper_path\" --json status"));
+    assert!(remote_command.contains("verify_helper_status"));
 }
 
 #[test]
