@@ -47,6 +47,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { settingsApi } from "@/lib/api/settings";
+import { extractErrorMessage } from "@/utils/errorUtils";
 
 interface ProviderListProps {
   providers: Record<string, Provider>;
@@ -69,6 +70,7 @@ interface ProviderListProps {
   activeProviderId?: string; // 代理当前实际使用的供应商 ID（用于故障转移模式下标注绿色边框）
   onSetAsDefault?: (provider: Provider) => void; // OpenClaw: set as default model
   target?: ManagementTarget;
+  loadError?: unknown;
 }
 
 export function ProviderList({
@@ -92,6 +94,7 @@ export function ProviderList({
   activeProviderId,
   onSetAsDefault,
   target = { type: "local" },
+  loadError,
 }: ProviderListProps) {
   const { t } = useTranslation();
   const isLocalTarget = target.type === "local";
@@ -385,6 +388,22 @@ export function ProviderList({
             className="w-full border border-dashed rounded-lg h-28 border-muted-foreground/40 bg-muted/40"
           />
         ))}
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="flex items-center gap-2 font-medium">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {t("provider.remoteLoadFailed", {
+            defaultValue: "远程供应商加载失败",
+          })}
+        </div>
+        <p className="mt-2 text-xs leading-relaxed">
+          {extractErrorMessage(loadError)}
+        </p>
       </div>
     );
   }

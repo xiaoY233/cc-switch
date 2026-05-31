@@ -12,3 +12,9 @@ export function shouldReadLocalLiveConfig(
 ): boolean {
   return target.type === "local" && !isProxyTakeover;
 }
+
+const LOCAL_ONLY_VIEWS = new Set(["sessions", "workspace"]);
+
+export function isRemoteSafeView(view: string): boolean {
+  return !LOCAL_ONLY_VIEWS.has(view);
+}

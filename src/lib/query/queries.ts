@@ -48,6 +48,43 @@ export interface ProvidersQueryData {
   currentProviderId: string;
 }
 
+interface ProviderQueryReaders {
+  getAll: typeof providersApi.getAll;
+  getCurrent: typeof providersApi.getCurrent;
+}
+
+export async function loadProvidersQueryData(
+  appId: AppId,
+  target: ManagementTarget,
+  readers: ProviderQueryReaders = providersApi,
+): Promise<ProvidersQueryData> {
+  let providers: Record<string, Provider> = {};
+  let currentProviderId = "";
+
+  try {
+    providers = await readers.getAll(appId, target);
+  } catch (error) {
+    if (target.type === "remote") {
+      throw error;
+    }
+    console.error("获取供应商列表失败:", error);
+  }
+
+  try {
+    currentProviderId = await readers.getCurrent(appId, target);
+  } catch (error) {
+    if (target.type === "remote") {
+      throw error;
+    }
+    console.error("获取当前供应商失败:", error);
+  }
+
+  return {
+    providers: sortProviders(providers),
+    currentProviderId,
+  };
+}
+
 export interface UseProvidersQueryOptions {
   isProxyRunning?: boolean; // 代理服务是否运行中
   target?: ManagementTarget;
@@ -68,25 +105,7 @@ export const useProvidersQuery = (
     // 这样可以自动反映后端熔断器自动禁用代理目标的变更
     refetchInterval: isProxyRunning ? 10000 : false,
     queryFn: async () => {
-      let providers: Record<string, Provider> = {};
-      let currentProviderId = "";
-
-      try {
-        providers = await providersApi.getAll(appId, target);
-      } catch (error) {
-        console.error("获取供应商列表失败:", error);
-      }
-
-      try {
-        currentProviderId = await providersApi.getCurrent(appId, target);
-      } catch (error) {
-        console.error("获取当前供应商失败:", error);
-      }
-
-      return {
-        providers: sortProviders(providers),
-        currentProviderId,
-      };
+      return loadProvidersQueryData(appId, target);
     },
   });
 };

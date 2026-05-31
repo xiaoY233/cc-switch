@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getManagementTargetKey,
+  isRemoteSafeView,
   shouldReadLocalLiveConfig,
 } from "@/lib/managementTarget";
 import type { ManagementTarget } from "@/lib/api";
@@ -31,5 +32,12 @@ describe("management target helpers", () => {
     expect(shouldReadLocalLiveConfig({ type: "local" }, false)).toBe(true);
     expect(shouldReadLocalLiveConfig({ type: "local" }, true)).toBe(false);
     expect(shouldReadLocalLiveConfig(remoteTarget, false)).toBe(false);
+  });
+
+  it("keeps local-only views out of remote target navigation", () => {
+    expect(isRemoteSafeView("providers")).toBe(true);
+    expect(isRemoteSafeView("openclawEnv")).toBe(true);
+    expect(isRemoteSafeView("workspace")).toBe(false);
+    expect(isRemoteSafeView("sessions")).toBe(false);
   });
 });

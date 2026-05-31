@@ -56,6 +56,7 @@ import { extractErrorMessage } from "@/utils/errorUtils";
 import { isTextEditableTarget } from "@/utils/domUtils";
 import { deepClone } from "@/utils/deepClone";
 import { cn } from "@/lib/utils";
+import { isRemoteSafeView } from "@/lib/managementTarget";
 import {
   isWindows,
   isLinux,
@@ -274,6 +275,7 @@ function App() {
     }
     return { type: "local" };
   }, [activeRemoteProfile, remoteSecrets]);
+  const isRemoteTarget = managementTarget.type === "remote";
 
   const handleManagementTargetChange = (targetKey: string) => {
     if (targetKey === "local") {
@@ -360,6 +362,12 @@ function App() {
     }
   }, [sharedFeatureApp, currentView]);
 
+  useEffect(() => {
+    if (isRemoteTarget && !isRemoteSafeView(currentView)) {
+      setCurrentView("providers");
+    }
+  }, [currentView, isRemoteTarget]);
+
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [usageProvider, setUsageProvider] = useState<Provider | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
@@ -397,7 +405,12 @@ function App() {
     return target?.provider_id;
   }, [proxyStatus?.active_targets, activeApp]);
 
-  const { data, isLoading, refetch } = useProvidersQuery(activeApp, {
+  const {
+    data,
+    isLoading,
+    error: providerLoadError,
+    refetch,
+  } = useProvidersQuery(activeApp, {
     isProxyRunning,
     target: managementTarget,
   });
@@ -1103,6 +1116,7 @@ function App() {
                       isProxyTakeover={
                         isProxyRunning && isCurrentAppTakeoverActive
                       }
+                      loadError={providerLoadError}
                       activeProviderId={activeProviderId}
                       target={managementTarget}
                       onSwitch={switchProvider}
@@ -1607,15 +1621,17 @@ function App() {
                             </>
                           ) : activeApp === "openclaw" ? (
                             <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setCurrentView("workspace")}
-                                className="text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 w-8 px-2"
-                                title={t("workspace.manage")}
-                              >
-                                <FolderOpen className="w-4 h-4" />
-                              </Button>
+                              {!isRemoteTarget && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setCurrentView("workspace")}
+                                  className="text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 w-8 px-2"
+                                  title={t("workspace.manage")}
+                                >
+                                  <FolderOpen className="w-4 h-4" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1643,15 +1659,17 @@ function App() {
                               >
                                 <Cpu className="w-4 h-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setCurrentView("sessions")}
-                                className="text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 w-8 px-2"
-                                title={t("sessionManager.title")}
-                              >
-                                <History className="w-4 h-4" />
-                              </Button>
+                              {!isRemoteTarget && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setCurrentView("sessions")}
+                                  className="text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 w-8 px-2"
+                                  title={t("sessionManager.title")}
+                                >
+                                  <History className="w-4 h-4" />
+                                </Button>
+                              )}
                             </>
                           ) : (
                             <>
