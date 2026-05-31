@@ -217,8 +217,12 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
 
     assert!(args.contains(&"alice@example.com".to_string()));
     assert!(remote_command.contains("api.github.com/repos/xiaoY233/cc-switch/releases/latest"));
+    assert!(remote_command.contains("fetch_url_to_stdout()"));
+    assert!(remote_command.contains("wget -qO- \"$1\""));
+    assert!(remote_command.contains("fetch_url_to_file()"));
+    assert!(remote_command.contains("wget -qO \"$2\" \"$1\""));
     assert!(remote_command.contains("cc-switch-cli-.*-${asset_os}-${asset_arch}"));
-    assert!(remote_command.contains("curl -fL \"$download_url\" -o \"$helper_tmp\""));
+    assert!(remote_command.contains("fetch_url_to_file \"$download_url\" \"$helper_tmp\""));
     assert!(remote_command.contains("rustup.rs"));
     assert!(remote_command.contains(". \"$HOME/.cargo/env\""));
     assert!(remote_command.contains("Rust/Cargo is required to install cc-switch remote helper"));
