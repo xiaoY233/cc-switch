@@ -121,7 +121,10 @@ export function RemoteServersPage({
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[360px_minmax(0,1fr)]">
-        <section className="glass flex min-h-0 flex-col overflow-hidden rounded-xl border border-white/10">
+        <section
+          data-testid="remote-server-list-panel"
+          className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border-default bg-card shadow-sm"
+        >
           <div className="flex h-11 shrink-0 items-center justify-between border-b border-border-default px-4">
             <div className="flex min-w-0 items-center gap-2">
               <Server className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -211,7 +214,10 @@ export function RemoteServersPage({
             secret={selectedSecret}
           />
 
-          <section className="glass overflow-hidden rounded-xl border border-white/10">
+          <section
+            data-testid="remote-server-details-panel"
+            className="overflow-hidden rounded-xl border border-border-default bg-card shadow-sm"
+          >
             <div className="flex h-11 items-center border-b border-border-default px-4">
               <h2 className="text-sm font-semibold">
                 {t("remote.details", { defaultValue: "连接详情" })}

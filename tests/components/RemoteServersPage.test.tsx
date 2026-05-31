@@ -158,4 +158,34 @@ describe("RemoteServersPage", () => {
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(onProfileActivated).not.toHaveBeenCalled();
   });
+
+  it("uses project card panels instead of standalone glass panels", () => {
+    render(
+      <RemoteServersPage
+        profiles={[]}
+        onProfileSaved={vi.fn()}
+        onProfileActivated={vi.fn()}
+        onProfilesChanged={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("remote-server-list-panel")).toHaveClass(
+      "bg-card",
+      "border-border-default",
+      "shadow-sm",
+    );
+    expect(screen.getByTestId("remote-server-list-panel")).not.toHaveClass(
+      "glass",
+    );
+    expect(screen.getByTestId("remote-server-details-panel")).toHaveClass(
+      "bg-card",
+      "border-border-default",
+      "shadow-sm",
+    );
+    expect(screen.getByTestId("remote-health-panel")).toHaveClass(
+      "bg-card",
+      "border-border-default",
+      "shadow-sm",
+    );
+  });
 });

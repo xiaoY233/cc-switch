@@ -116,7 +116,10 @@ export function RemoteHealthPanel({
   };
 
   return (
-    <section className="glass overflow-hidden rounded-xl border border-white/10">
+    <section
+      data-testid="remote-health-panel"
+      className="overflow-hidden rounded-xl border border-border-default bg-card shadow-sm"
+    >
       <div className="flex h-11 items-center justify-between border-b border-border-default px-4">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-muted-foreground" />
