@@ -29,7 +29,7 @@ impl Default for RemoteHelperInstallSource {
             git_repo: HELPER_INSTALL_REPO.to_string(),
             git_branch: None,
             release_repo: HELPER_RELEASE_REPO.to_string(),
-            local_source_dir: default_local_source_dir(),
+            local_source_dir: None,
         }
     }
 }
@@ -43,8 +43,7 @@ impl RemoteHelperInstallSource {
             release_repo: env_string(HELPER_RELEASE_REPO_ENV).unwrap_or(default.release_repo),
             local_source_dir: env_string(HELPER_LOCAL_SOURCE_DIR_ENV)
                 .map(PathBuf::from)
-                .filter(|path| is_valid_local_source_dir(path))
-                .or(default.local_source_dir),
+                .filter(|path| is_valid_local_source_dir(path)),
         }
     }
 }
@@ -148,24 +147,31 @@ pub fn build_helper_install_args_with_source(
             "echo 'cc-switch remote helper is missing required capabilities; install a helper build that includes providers, openclaw, mcp, prompts, skills, and import-export' >&2; ",
             "return 64; ",
             "}}; ",
+            "link_installed_helper() {{ ",
+            "if [ \"$helper_path\" != \"$installed_path\" ]; then ln -sf \"$installed_path\" \"$helper_path\"; fi; ",
+            "}}; ",
+            "try_release_asset_install() {{ ",
             "asset_os=$(uname -s); ",
             "case \"$asset_os\" in Linux) asset_os=Linux ;; Darwin) asset_os=macOS ;; *) asset_os= ;; esac; ",
             "asset_arch=$(uname -m); ",
             "case \"$asset_arch\" in x86_64|amd64) asset_arch=x86_64 ;; arm64|aarch64) asset_arch=arm64 ;; *) asset_arch= ;; esac; ",
             "if [ \"$asset_os\" = macOS ]; then asset_arch=universal; fi; ",
-            "if [ -n \"$asset_os\" ] && [ -n \"$asset_arch\" ]; then ",
+            "if [ -z \"$asset_os\" ] || [ -z \"$asset_arch\" ]; then return 1; fi; ",
             "api_url=https://api.github.com/repos/{release_repo}/releases/latest; ",
             "asset_pattern=\"cc-switch-cli-.*-${{asset_os}}-${{asset_arch}}$\"; ",
             "download_url=$(fetch_url_to_stdout \"$api_url\" | grep -E '\"browser_download_url\":' | sed -E 's/.*\"browser_download_url\": \"([^\"]+)\".*/\\1/' | grep -E \"$asset_pattern\" | head -1 || true); ",
-            "if [ -n \"$download_url\" ]; then ",
+            "if [ -z \"$download_url\" ]; then return 1; fi; ",
             "helper_tmp=$(mktemp); ",
             "fetch_url_to_file \"$download_url\" \"$helper_tmp\" 1>&2; ",
             "chmod +x \"$helper_tmp\"; ",
             "mv \"$helper_tmp\" \"$helper_path\"; ",
+            "return 0; ",
+            "}}; ",
+            "finish_cargo_install() {{ ",
+            "link_installed_helper; ",
             "verify_helper_status; ",
             "exit 0; ",
-            "fi; ",
-            "fi; ",
+            "}}; ",
             "if ! command -v cargo >/dev/null 2>&1; then ",
             "if [ -f \"$HOME/.cargo/env\" ]; then . \"$HOME/.cargo/env\"; fi; ",
             "fi; ",
@@ -189,11 +195,7 @@ pub fn build_helper_install_args_with_source(
             "source_dir=$(mktemp -d); ",
             "if tar -xzf - -C \"$source_dir\" && cargo install --path \"$source_dir/src-tauri\" --bin cc-switch-cli --root ~/.local --locked --force 1>&2; then ",
             "rm -rf \"$source_dir\"; ",
-            "if [ \"$helper_path\" != \"$installed_path\" ]; then ",
-            "ln -sf \"$installed_path\" \"$helper_path\"; ",
-            "fi; ",
-            "verify_helper_status; ",
-            "exit 0; ",
+            "finish_cargo_install; ",
             "fi; ",
             "rm -rf \"$source_dir\"; ",
             "echo 'Local source remote helper install failed; falling back to git install' >&2; ",
@@ -201,11 +203,16 @@ pub fn build_helper_install_args_with_source(
             "echo 'tar is required for local source remote helper install; falling back to git install' >&2; ",
             "fi; ",
             "fi; ",
-            "cargo install --git {repo}{branch_args} --bin cc-switch-cli --root ~/.local --locked --force 1>&2; ",
-            "if [ \"$helper_path\" != \"$installed_path\" ]; then ",
-            "ln -sf \"$installed_path\" \"$helper_path\"; ",
+            "if cargo install --git {repo}{branch_args} --bin cc-switch-cli --root ~/.local --locked --force 1>&2; then ",
+            "finish_cargo_install; ",
             "fi; ",
-            "verify_helper_status"
+            "echo 'Git remote helper install failed; falling back to release asset' >&2; ",
+            "if try_release_asset_install; then ",
+            "verify_helper_status; ",
+            "exit 0; ",
+            "fi; ",
+            "echo 'No compatible cc-switch remote helper release asset found' >&2; ",
+            "exit 1"
         ),
         helper_path = helper_path,
         repo = repo,
@@ -299,14 +306,6 @@ fn run_ssh_command_with_input(
 
     String::from_utf8(output.stdout)
         .map_err(|e| AppError::Message(format!("Remote helper returned invalid UTF-8: {e}")))
-}
-
-fn default_local_source_dir() -> Option<PathBuf> {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    manifest_dir
-        .parent()
-        .map(Path::to_path_buf)
-        .filter(|path| is_valid_local_source_dir(path))
 }
 
 fn is_valid_local_source_dir(path: &Path) -> bool {

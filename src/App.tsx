@@ -333,8 +333,6 @@ function App() {
       }
       return next;
     });
-    setActiveTargetKey(`remote:${profile.id}`);
-    setCurrentView("providers");
   };
 
   const handleRemoteProfileActivated = (profileId: string | null) => {

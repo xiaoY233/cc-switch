@@ -206,6 +206,8 @@ const renderApp = (AppComponent: ComponentType) => {
 
 describe("App integration with MSW", () => {
   beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
     resetProviderState();
     toastSuccessMock.mockReset();
     toastErrorMock.mockReset();
@@ -480,6 +482,42 @@ describe("App integration with MSW", () => {
     await waitFor(() =>
       expect(screen.getByTestId("provider-target")).toHaveTextContent("remote"),
     );
+  });
+
+  it("keeps the user on remote server management after saving a profile", async () => {
+    localStorage.setItem("cc-switch-last-view", "remoteServers");
+    setSettings({ firstRunNoticeConfirmed: true });
+    setRemoteProfiles([]);
+
+    const { default: App } = await import("@/App");
+    renderApp(App);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("remote-server-list-panel")).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: "新增服务器" })[0]);
+    fireEvent.change(screen.getByLabelText("名称"), {
+      target: { value: "测试服务器" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("10.0.0.10"), {
+      target: { value: "192.0.2.10" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("deploy"), {
+      target: { value: "root" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("remote-server-list-panel")).toBeInTheDocument(),
+    );
+    expect(screen.getAllByText("测试服务器").length).toBeGreaterThan(0);
+    expect(localStorage.getItem("cc-switch-last-view")).toBe("remoteServers");
+    expect(screen.queryByTestId("provider-target")).not.toBeInTheDocument();
   });
 
   it("does not refresh the local tray after remote import success", async () => {

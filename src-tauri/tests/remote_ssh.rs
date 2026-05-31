@@ -239,6 +239,24 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
 }
 
 #[test]
+fn helper_install_defaults_to_git_build_before_release_asset_fallback() {
+    let source = RemoteHelperInstallSource::default();
+    assert_eq!(source.local_source_dir, None);
+
+    let args = build_helper_install_args_with_source(&profile(), &source);
+    let remote_command = args.last().expect("remote command");
+    let git_index = remote_command
+        .find("if cargo install --git https://github.com/xiaoY233/cc-switch")
+        .expect("git install command");
+    let release_index = remote_command
+        .find("if try_release_asset_install; then")
+        .expect("release fallback");
+
+    assert!(git_index < release_index);
+    assert!(remote_command.contains("Git remote helper install failed; falling back to release asset"));
+}
+
+#[test]
 fn helper_install_args_quote_configured_helper_path() {
     let mut profile = profile();
     profile.helper_path = "/tmp/cc switch'; rm -rf /".to_string();

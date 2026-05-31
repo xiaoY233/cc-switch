@@ -1,4 +1,5 @@
 import { http, HttpResponse } from "msw";
+import type { RemoteHostProfile } from "@/lib/api/remote";
 import type { AppId } from "@/lib/api/types";
 import type { McpServer, Provider, Settings } from "@/types";
 import {
@@ -19,6 +20,7 @@ import {
   updateSortOrder,
   getSettings,
   setSettings,
+  setRemoteProfiles,
   getAppConfigDirOverride,
   setAppConfigDirOverrideState,
   getMcpConfig,
@@ -86,6 +88,21 @@ export const handlers = [
   http.post(`${TAURI_ENDPOINT}/remote_list_profiles`, () =>
     success(getRemoteProfiles()),
   ),
+
+  http.post(`${TAURI_ENDPOINT}/remote_save_profile`, async ({ request }) => {
+    const { profile } = await withJson<{ profile: RemoteHostProfile }>(
+      request,
+    );
+    const saved = {
+      ...profile,
+      id: profile.id || `remote-${Date.now()}`,
+    };
+    setRemoteProfiles([
+      saved,
+      ...getRemoteProfiles().filter((item) => item.id !== saved.id),
+    ]);
+    return success(saved);
+  }),
 
   http.post(`${TAURI_ENDPOINT}/remote_get_providers`, async ({ request }) => {
     const { app } = await withJson<{ app: AppId }>(request);
