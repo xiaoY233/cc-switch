@@ -61,21 +61,143 @@ export type ManagementTarget =
       secret?: RemoteConnectionSecret;
     };
 
+export const REMOTE_PROFILE_PREVIEW_STORAGE_KEY =
+  "cc-switch-preview-remote-hosts";
+
+type RemoteProfileStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+function getPreviewStorage(): RemoteProfileStorage | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage ?? null;
+}
+
+export function validateRemoteProfile(profile: RemoteHostProfile): void {
+  if (!profile.id.trim()) {
+    throw new Error("Remote profile id is required");
+  }
+  if (!profile.host.trim()) {
+    throw new Error("Remote host is required");
+  }
+  if (!profile.username.trim()) {
+    throw new Error("Remote username is required");
+  }
+  if (!profile.port) {
+    throw new Error("Remote SSH port is required");
+  }
+  if (
+    profile.authMethod.type === "keyFile" &&
+    !profile.authMethod.path.trim()
+  ) {
+    throw new Error("Remote SSH key path is required");
+  }
+}
+
+export function loadPreviewRemoteProfiles(
+  storage: RemoteProfileStorage | null = getPreviewStorage(),
+): RemoteHostProfile[] {
+  if (!storage) return [];
+  const raw = storage.getItem(REMOTE_PROFILE_PREVIEW_STORAGE_KEY);
+  if (!raw?.trim()) return [];
+  try {
+    const profiles = JSON.parse(raw) as RemoteHostProfile[];
+    if (!Array.isArray(profiles)) return [];
+    return profiles.filter((profile) => {
+      try {
+        validateRemoteProfile(profile);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    return [];
+  }
+}
+
+export function savePreviewRemoteProfile(
+  profile: RemoteHostProfile,
+  storage: RemoteProfileStorage | null = getPreviewStorage(),
+): RemoteHostProfile {
+  validateRemoteProfile(profile);
+  if (!storage) return profile;
+  const profiles = loadPreviewRemoteProfiles(storage);
+  const next = [profile, ...profiles.filter((item) => item.id !== profile.id)];
+  storage.setItem(REMOTE_PROFILE_PREVIEW_STORAGE_KEY, JSON.stringify(next));
+  return profile;
+}
+
+export function deletePreviewRemoteProfile(
+  id: string,
+  storage: RemoteProfileStorage | null = getPreviewStorage(),
+): boolean {
+  if (!storage) return false;
+  const profiles = loadPreviewRemoteProfiles(storage);
+  const next = profiles.filter((profile) => profile.id !== id);
+  if (next.length === profiles.length) return false;
+  if (next.length === 0) {
+    storage.removeItem(REMOTE_PROFILE_PREVIEW_STORAGE_KEY);
+  } else {
+    storage.setItem(REMOTE_PROFILE_PREVIEW_STORAGE_KEY, JSON.stringify(next));
+  }
+  return true;
+}
+
+function isTauriUnavailableError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return (
+    message.includes("reading 'invoke'") ||
+    message.includes("__TAURI_INTERNALS__") ||
+    message.includes("__TAURI__") ||
+    message.includes("not allowed on this window") ||
+    message.includes("Tauri API is not available")
+  );
+}
+
+async function invokeWithPreviewFallback<T>(
+  command: string,
+  args: Record<string, unknown>,
+  preview: () => T,
+): Promise<T> {
+  try {
+    return await invoke<T>(command, args);
+  } catch (error) {
+    if (isTauriUnavailableError(error)) {
+      return preview();
+    }
+    throw error;
+  }
+}
+
 export const remoteApi = {
   listProfiles(): Promise<RemoteHostProfile[]> {
-    return invoke<RemoteHostProfile[]>("remote_list_profiles");
+    return invokeWithPreviewFallback(
+      "remote_list_profiles",
+      {},
+      loadPreviewRemoteProfiles,
+    );
   },
 
   saveProfile(profile: RemoteHostProfile): Promise<RemoteHostProfile> {
-    return invoke<RemoteHostProfile>("remote_save_profile", { profile });
+    return invokeWithPreviewFallback("remote_save_profile", { profile }, () =>
+      savePreviewRemoteProfile(profile),
+    );
   },
 
   deleteProfile(id: string): Promise<boolean> {
-    return invoke<boolean>("remote_delete_profile", { id });
+    return invokeWithPreviewFallback("remote_delete_profile", { id }, () =>
+      deletePreviewRemoteProfile(id),
+    );
   },
 
   validateProfile(profile: RemoteHostProfile): Promise<boolean> {
-    return invoke<boolean>("remote_validate_profile", { profile });
+    return invokeWithPreviewFallback(
+      "remote_validate_profile",
+      { profile },
+      () => {
+        validateRemoteProfile(profile);
+        return true;
+      },
+    );
   },
 
   buildStatusCommand(profile: RemoteHostProfile): Promise<string[]> {
