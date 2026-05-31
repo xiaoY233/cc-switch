@@ -157,6 +157,60 @@ fn providers_sort_returns_stable_json_envelope() {
 
 #[test]
 #[serial]
+fn providers_update_preserves_existing_secret_when_payload_contains_redacted_sentinel() {
+    let (list_response, update_response, stored_token) = with_temp_home(|| {
+        let add_response = cc_switch_lib::cli::run(&[
+            "providers".to_string(),
+            "add".to_string(),
+            "claude".to_string(),
+            r#"{"id":"remote-provider","name":"Remote Provider","settingsConfig":{"env":{"ANTHROPIC_AUTH_TOKEN":"sk-original","ANTHROPIC_BASE_URL":"https://api.anthropic.com"}}}"#
+                .to_string(),
+            "false".to_string(),
+        ]);
+        assert_eq!(add_response["ok"], true);
+
+        let list_response = cc_switch_lib::cli::run(&[
+            "providers".to_string(),
+            "list".to_string(),
+            "claude".to_string(),
+        ]);
+        assert_eq!(list_response["ok"], true, "{list_response}");
+        let mut provider = list_response["data"]["remote-provider"].clone();
+        assert_eq!(provider["id"], "remote-provider", "{list_response}");
+        assert_eq!(
+            provider["settingsConfig"]["env"]["ANTHROPIC_AUTH_TOKEN"],
+            "[redacted]"
+        );
+
+        provider["name"] = serde_json::Value::String("Remote Secret Renamed".to_string());
+        let update_response = cc_switch_lib::cli::run(&[
+            "providers".to_string(),
+            "update".to_string(),
+            "claude".to_string(),
+            serde_json::to_string(&provider).expect("provider json"),
+            "-".to_string(),
+        ]);
+
+        let stored = cc_switch_lib::Database::init()
+            .expect("database")
+            .get_provider_by_id("remote-provider", "claude")
+            .expect("load provider")
+            .expect("stored provider");
+        let stored_token = stored.settings_config["env"]["ANTHROPIC_AUTH_TOKEN"]
+            .as_str()
+            .expect("stored token")
+            .to_string();
+
+        (list_response, update_response, stored_token)
+    });
+
+    assert_eq!(list_response["ok"], true);
+    assert_eq!(update_response["ok"], true);
+    assert_eq!(stored_token, "sk-original");
+}
+
+#[test]
+#[serial]
 fn import_export_round_trips_database_sql_through_json_cli() {
     let (export_response, import_response) = with_temp_home(|| {
         let seed_response = cc_switch_lib::cli::run(&[

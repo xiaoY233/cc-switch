@@ -14,6 +14,8 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
+const REDACTED_SECRET_SENTINEL: &str = "[redacted]";
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatusPayload {
@@ -42,7 +44,7 @@ pub fn list_providers(app: AppType) -> Result<serde_json::Value, String> {
     let state = AppState::new(db);
     let providers = ProviderService::list(&state, app).map_err(|e| e.to_string())?;
     let mut value = serde_json::to_value(providers).map_err(|e| e.to_string())?;
-    redact_secret_values(&mut value);
+    redact_provider_map_secret_values(&mut value);
     Ok(value)
 }
 
@@ -70,9 +72,18 @@ pub fn update_provider(
     provider_json: &str,
     original_id: Option<&str>,
 ) -> Result<bool, String> {
-    let provider: Provider = serde_json::from_str(provider_json).map_err(|e| e.to_string())?;
+    let mut provider: Provider = serde_json::from_str(provider_json).map_err(|e| e.to_string())?;
     let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
     let state = AppState::new(db);
+    let provider_id = original_id.unwrap_or(provider.id.as_str());
+    if let Some(existing_provider) = state
+        .db
+        .get_provider_by_id(provider_id, app.as_str())
+        .map_err(|e| e.to_string())?
+    {
+        restore_redacted_secret_values(&existing_provider, &mut provider)
+            .map_err(|e| e.to_string())?;
+    }
     ProviderService::update(&state, app, original_id, provider).map_err(|e| e.to_string())
 }
 
@@ -435,12 +446,23 @@ pub fn remove_skill_repo(owner: &str, name: &str) -> Result<bool, String> {
     Ok(true)
 }
 
+fn redact_provider_map_secret_values(value: &mut Value) {
+    match value {
+        Value::Object(providers) => {
+            for provider in providers.values_mut() {
+                redact_secret_values(provider);
+            }
+        }
+        _ => redact_secret_values(value),
+    }
+}
+
 fn redact_secret_values(value: &mut Value) {
     match value {
         Value::Object(map) => {
             for (key, child) in map.iter_mut() {
                 if is_secret_key(key) {
-                    *child = Value::String("[redacted]".to_string());
+                    *child = Value::String(REDACTED_SECRET_SENTINEL.to_string());
                 } else {
                     redact_secret_values(child);
                 }
@@ -464,6 +486,43 @@ fn is_secret_key(key: &str) -> bool {
         || normalized.contains("secret")
         || normalized.contains("password")
         || normalized.contains("credential")
+}
+
+fn restore_redacted_secret_values(
+    existing_provider: &Provider,
+    provider: &mut Provider,
+) -> Result<(), serde_json::Error> {
+    let existing = serde_json::to_value(existing_provider)?;
+    let mut incoming = serde_json::to_value(&provider)?;
+    merge_redacted_secret_values(&existing, &mut incoming);
+    *provider = serde_json::from_value(incoming)?;
+    Ok(())
+}
+
+fn merge_redacted_secret_values(existing: &Value, incoming: &mut Value) {
+    match (existing, incoming) {
+        (Value::Object(existing_map), Value::Object(incoming_map)) => {
+            for (key, incoming_child) in incoming_map.iter_mut() {
+                if is_secret_key(key) && is_redacted_sentinel(incoming_child) {
+                    if let Some(existing_child) = existing_map.get(key) {
+                        *incoming_child = existing_child.clone();
+                    }
+                } else if let Some(existing_child) = existing_map.get(key) {
+                    merge_redacted_secret_values(existing_child, incoming_child);
+                }
+            }
+        }
+        (Value::Array(existing_items), Value::Array(incoming_items)) => {
+            for (existing_child, incoming_child) in existing_items.iter().zip(incoming_items) {
+                merge_redacted_secret_values(existing_child, incoming_child);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn is_redacted_sentinel(value: &Value) -> bool {
+    value.as_str() == Some(REDACTED_SECRET_SENTINEL)
 }
 
 #[cfg(test)]
@@ -495,18 +554,45 @@ mod tests {
 
         assert_eq!(
             value["provider"]["settingsConfig"]["env"]["ANTHROPIC_AUTH_TOKEN"],
-            "[redacted]"
+            REDACTED_SECRET_SENTINEL
         );
         assert_eq!(
             value["provider"]["settingsConfig"]["env"]["OPENAI_API_KEY"],
-            "[redacted]"
+            REDACTED_SECRET_SENTINEL
         );
         assert_eq!(
             value["provider"]["meta"]["usage_script"]["accessToken"],
-            "[redacted]"
+            REDACTED_SECRET_SENTINEL
         );
         assert_eq!(
             value["provider"]["settingsConfig"]["env"]["ANTHROPIC_BASE_URL"],
+            "https://example.com"
+        );
+    }
+
+    #[test]
+    fn provider_map_redaction_does_not_treat_provider_ids_as_secret_keys() {
+        let mut value = json!({
+            "secret-provider": {
+                "id": "secret-provider",
+                "settingsConfig": {
+                    "env": {
+                        "ANTHROPIC_AUTH_TOKEN": "sk-secret",
+                        "ANTHROPIC_BASE_URL": "https://example.com"
+                    }
+                }
+            }
+        });
+
+        redact_provider_map_secret_values(&mut value);
+
+        assert_eq!(value["secret-provider"]["id"], "secret-provider");
+        assert_eq!(
+            value["secret-provider"]["settingsConfig"]["env"]["ANTHROPIC_AUTH_TOKEN"],
+            REDACTED_SECRET_SENTINEL
+        );
+        assert_eq!(
+            value["secret-provider"]["settingsConfig"]["env"]["ANTHROPIC_BASE_URL"],
             "https://example.com"
         );
     }
