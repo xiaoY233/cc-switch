@@ -1,6 +1,7 @@
 use cc_switch_lib::remote::{
-    build_helper_install_args, build_ssh_args, run_helper_json, RemoteAuthMethod,
-    RemoteConnectionSecret, RemoteHostProfile,
+    build_helper_install_args, build_helper_install_args_with_source, build_ssh_args,
+    run_helper_json, RemoteAuthMethod, RemoteConnectionSecret, RemoteHelperInstallSource,
+    RemoteHostProfile,
 };
 #[cfg(unix)]
 use serial_test::serial;
@@ -248,4 +249,21 @@ fn helper_install_args_quote_configured_helper_path() {
         .last()
         .expect("remote command")
         .contains("helper_path='/tmp/cc switch'\\''; rm -rf /'"));
+}
+
+#[test]
+fn helper_install_args_accept_custom_source_branch() {
+    let source = RemoteHelperInstallSource {
+        git_repo: "https://github.com/acme/cc-switch".to_string(),
+        git_branch: Some("remote-helper".to_string()),
+        release_repo: "acme/cc-switch".to_string(),
+    };
+
+    let args = build_helper_install_args_with_source(&profile(), &source);
+    let remote_command = args.last().expect("remote command");
+
+    assert!(remote_command.contains("api.github.com/repos/acme/cc-switch/releases/latest"));
+    assert!(remote_command.contains(
+        "cargo install --git https://github.com/acme/cc-switch --branch remote-helper --bin cc-switch-cli"
+    ));
 }

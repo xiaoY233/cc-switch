@@ -8,6 +8,37 @@ use std::process::Command;
 
 const HELPER_INSTALL_REPO: &str = "https://github.com/xiaoY233/cc-switch";
 const HELPER_RELEASE_REPO: &str = "xiaoY233/cc-switch";
+const HELPER_INSTALL_REPO_ENV: &str = "CC_SWITCH_REMOTE_HELPER_INSTALL_REPO";
+const HELPER_INSTALL_BRANCH_ENV: &str = "CC_SWITCH_REMOTE_HELPER_INSTALL_BRANCH";
+const HELPER_RELEASE_REPO_ENV: &str = "CC_SWITCH_REMOTE_HELPER_RELEASE_REPO";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteHelperInstallSource {
+    pub git_repo: String,
+    pub git_branch: Option<String>,
+    pub release_repo: String,
+}
+
+impl Default for RemoteHelperInstallSource {
+    fn default() -> Self {
+        Self {
+            git_repo: HELPER_INSTALL_REPO.to_string(),
+            git_branch: None,
+            release_repo: HELPER_RELEASE_REPO.to_string(),
+        }
+    }
+}
+
+impl RemoteHelperInstallSource {
+    pub fn from_env() -> Self {
+        let default = Self::default();
+        Self {
+            git_repo: env_string(HELPER_INSTALL_REPO_ENV).unwrap_or(default.git_repo),
+            git_branch: env_string(HELPER_INSTALL_BRANCH_ENV),
+            release_repo: env_string(HELPER_RELEASE_REPO_ENV).unwrap_or(default.release_repo),
+        }
+    }
+}
 
 fn build_ssh_base_args(profile: &RemoteHostProfile) -> Vec<String> {
     let mut args = vec![
@@ -58,10 +89,22 @@ pub fn build_ssh_args(profile: &RemoteHostProfile, helper_args: &[String]) -> Ve
 }
 
 pub fn build_helper_install_args(profile: &RemoteHostProfile) -> Vec<String> {
+    build_helper_install_args_with_source(profile, &RemoteHelperInstallSource::from_env())
+}
+
+pub fn build_helper_install_args_with_source(
+    profile: &RemoteHostProfile,
+    source: &RemoteHelperInstallSource,
+) -> Vec<String> {
     let mut args = build_ssh_base_args(profile);
     let helper_path = shell_quote_helper_path(&profile.helper_path);
-    let repo = shell_quote(HELPER_INSTALL_REPO);
-    let release_repo = shell_quote(HELPER_RELEASE_REPO);
+    let repo = shell_quote(&source.git_repo);
+    let release_repo = shell_quote(&source.release_repo);
+    let branch_args = source
+        .git_branch
+        .as_deref()
+        .map(|branch| format!(" --branch {}", shell_quote(branch)))
+        .unwrap_or_default();
     let command = format!(
         concat!(
             "set -e; ",
@@ -127,7 +170,7 @@ pub fn build_helper_install_args(profile: &RemoteHostProfile) -> Vec<String> {
             "echo 'Rust/Cargo is required to install cc-switch remote helper' >&2; ",
             "exit 127; ",
             "fi; ",
-            "cargo install --git {repo} --bin cc-switch-cli --root ~/.local --locked --force 1>&2; ",
+            "cargo install --git {repo}{branch_args} --bin cc-switch-cli --root ~/.local --locked --force 1>&2; ",
             "if [ \"$helper_path\" != \"$installed_path\" ]; then ",
             "ln -sf \"$installed_path\" \"$helper_path\"; ",
             "fi; ",
@@ -136,6 +179,7 @@ pub fn build_helper_install_args(profile: &RemoteHostProfile) -> Vec<String> {
         helper_path = helper_path,
         repo = repo,
         release_repo = release_repo,
+        branch_args = branch_args,
     );
     args.push(command);
     args
@@ -209,6 +253,13 @@ fn parse_helper_json<T: DeserializeOwned>(stdout: &str) -> Result<T, AppError> {
         });
         Err(AppError::Message(format!("{code}: {message}")))
     }
+}
+
+fn env_string(key: &str) -> Option<String> {
+    std::env::var(key)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 #[cfg(unix)]
