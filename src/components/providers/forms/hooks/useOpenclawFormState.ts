@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo } from "react";
 import type { OpenClawModel, OpenClawProviderConfig } from "@/types";
-import type { AppId } from "@/lib/api";
+import type { AppId, ManagementTarget } from "@/lib/api";
 import { useProvidersQuery } from "@/lib/query/queries";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 import { OPENCLAW_DEFAULT_CONFIG } from "../helpers/opencodeFormUtils";
 
 interface UseOpenclawFormStateParams {
@@ -10,6 +11,7 @@ interface UseOpenclawFormStateParams {
   };
   appId: AppId;
   providerId?: string;
+  target?: ManagementTarget;
   onSettingsConfigChange: (config: string) => void;
   getSettingsConfig: () => string;
 }
@@ -55,11 +57,14 @@ export function useOpenclawFormState({
   initialData,
   appId,
   providerId,
+  target = LOCAL_MANAGEMENT_TARGET,
   onSettingsConfigChange,
   getSettingsConfig,
 }: UseOpenclawFormStateParams): OpenclawFormState {
   // Query existing providers for duplicate key checking
-  const { data: openclawProvidersData } = useProvidersQuery("openclaw");
+  const { data: openclawProvidersData } = useProvidersQuery("openclaw", {
+    target,
+  });
   const existingOpenclawKeys = useMemo(() => {
     if (!openclawProvidersData?.providers) return [];
     return Object.keys(openclawProvidersData.providers).filter(

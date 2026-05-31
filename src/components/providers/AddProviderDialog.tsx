@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FullScreenPanel } from "@/components/common/FullScreenPanel";
 import type { Provider, CustomEndpoint, UniversalProvider } from "@/types";
-import type { AppId } from "@/lib/api";
+import type { AppId, ManagementTarget } from "@/lib/api";
 import { universalProvidersApi } from "@/lib/api";
 import {
   ProviderForm,
@@ -19,6 +19,7 @@ import { codexProviderPresets } from "@/config/codexProviderPresets";
 import { geminiProviderPresets } from "@/config/geminiProviderPresets";
 import { claudeDesktopProviderPresets } from "@/config/claudeDesktopProviderPresets";
 import { extractCodexBaseUrl } from "@/utils/providerConfigUtils";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 import type { OpenClawSuggestedDefaults } from "@/config/openclawProviderPresets";
 import type { UniversalProviderPreset } from "@/config/universalProviderPresets";
 
@@ -26,6 +27,7 @@ interface AddProviderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   appId: AppId;
+  target?: ManagementTarget;
   onSubmit: (
     provider: Omit<Provider, "id"> & {
       providerKey?: string;
@@ -38,11 +40,13 @@ export function AddProviderDialog({
   open,
   onOpenChange,
   appId,
+  target = LOCAL_MANAGEMENT_TARGET,
   onSubmit,
 }: AddProviderDialogProps) {
   const { t } = useTranslation();
   // OpenCode and OpenClaw don't support universal providers
   const showUniversalTab =
+    target.type === "local" &&
     appId !== "opencode" &&
     appId !== "openclaw" &&
     appId !== "hermes" &&
@@ -332,6 +336,7 @@ export function AddProviderDialog({
               onSubmit={handleSubmit}
               onCancel={() => onOpenChange(false)}
               onSubmittingChange={setIsFormSubmitting}
+              target={target}
               showButtons={false}
             />
           </TabsContent>
@@ -348,6 +353,7 @@ export function AddProviderDialog({
           onSubmit={handleSubmit}
           onCancel={() => onOpenChange(false)}
           onSubmittingChange={setIsFormSubmitting}
+          target={target}
           showButtons={false}
         />
       )}

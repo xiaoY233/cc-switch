@@ -1735,6 +1735,7 @@ function App() {
         open={isAddOpen}
         onOpenChange={setIsAddOpen}
         appId={activeApp}
+        target={managementTarget}
         onSubmit={addProvider}
       />
 
@@ -1748,6 +1749,7 @@ function App() {
         }}
         onSubmit={handleEditProvider}
         appId={activeApp}
+        target={managementTarget}
         isProxyTakeover={isProxyRunning && isCurrentAppTakeoverActive}
       />
 

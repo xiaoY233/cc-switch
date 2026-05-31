@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { providersApi } from "@/lib/api";
+import { providersApi, type ManagementTarget } from "@/lib/api";
 import { useProvidersQuery } from "@/lib/query/queries";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 import type { OpenCodeProviderConfig } from "@/types";
 import { OPENCODE_PRESET_MODEL_VARIANTS } from "@/config/opencodeProviderPresets";
 import { parseOpencodeConfigStrict } from "../helpers/opencodeFormUtils";
@@ -10,6 +11,7 @@ import { parseOpencodeConfigStrict } from "../helpers/opencodeFormUtils";
 interface UseOmoModelSourceParams {
   isOmoCategory: boolean;
   providerId?: string;
+  target?: ManagementTarget;
 }
 
 interface OmoModelBuild {
@@ -42,10 +44,14 @@ export interface OmoModelSourceResult {
 export function useOmoModelSource({
   isOmoCategory,
   providerId,
+  target = LOCAL_MANAGEMENT_TARGET,
 }: UseOmoModelSourceParams): OmoModelSourceResult {
   const { t } = useTranslation();
+  const isLocalTarget = target.type === "local";
 
-  const { data: opencodeProvidersData } = useProvidersQuery("opencode");
+  const { data: opencodeProvidersData } = useProvidersQuery("opencode", {
+    target,
+  });
   const existingOpencodeKeys = useMemo(() => {
     if (!opencodeProvidersData?.providers) return [];
     return Object.keys(opencodeProvidersData.providers).filter(
@@ -61,9 +67,9 @@ export function useOmoModelSource({
 
   useEffect(() => {
     let active = true;
-    if (!isOmoCategory) {
+    if (!isOmoCategory || !isLocalTarget) {
       setEnabledOpencodeProviderIds(null);
-      setOmoLiveIdsLoadFailed(false);
+      setOmoLiveIdsLoadFailed(!isLocalTarget);
       return () => {
         active = false;
       };
@@ -93,7 +99,7 @@ export function useOmoModelSource({
     return () => {
       active = false;
     };
-  }, [isOmoCategory]);
+  }, [isOmoCategory, isLocalTarget]);
 
   const omoModelBuild = useMemo<OmoModelBuild>(() => {
     const empty: OmoModelBuild = {
@@ -112,7 +118,7 @@ export function useOmoModelSource({
       return empty;
     }
 
-    const shouldFilterByLive = !omoLiveIdsLoadFailed;
+    const shouldFilterByLive = isLocalTarget && !omoLiveIdsLoadFailed;
     if (shouldFilterByLive && enabledOpencodeProviderIds === null) {
       return empty;
     }
@@ -224,10 +230,11 @@ export function useOmoModelSource({
       variantsMap,
       presetMetaMap,
       parseFailedProviders,
-      usedFallbackSource: omoLiveIdsLoadFailed,
+      usedFallbackSource: isLocalTarget && omoLiveIdsLoadFailed,
     };
   }, [
     isOmoCategory,
+    isLocalTarget,
     opencodeProvidersData?.providers,
     enabledOpencodeProviderIds,
     omoLiveIdsLoadFailed,

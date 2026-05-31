@@ -8,7 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Form, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { providerSchema, type ProviderFormData } from "@/lib/schemas/provider";
-import { providersApi, settingsApi, type AppId } from "@/lib/api";
+import {
+  providersApi,
+  settingsApi,
+  type AppId,
+  type ManagementTarget,
+} from "@/lib/api";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 import type {
   ProviderCategory,
   ProviderMeta,
@@ -219,6 +225,7 @@ export interface ProviderFormProps {
   onUniversalPresetSelect?: (preset: UniversalProviderPreset) => void;
   onManageUniversalProviders?: () => void;
   onSubmittingChange?: (isSubmitting: boolean) => void;
+  target?: ManagementTarget;
   initialData?: {
     name?: string;
     websiteUrl?: string;
@@ -249,6 +256,7 @@ function ProviderFormFull({
   onUniversalPresetSelect,
   onManageUniversalProviders,
   onSubmittingChange,
+  target = LOCAL_MANAGEMENT_TARGET,
   initialData,
   showButtons = true,
 }: ProviderFormProps) {
@@ -258,6 +266,7 @@ function ProviderFormFull({
 
   const { t } = useTranslation();
   const isEditMode = Boolean(initialData);
+  const isLocalTarget = target.type === "local";
   const queryClient = useQueryClient();
   const { data: settingsData } = useSettingsQuery();
   const showCommonConfigNotice =
@@ -775,7 +784,11 @@ function ProviderFormFull({
     omoModelVariantsMap,
     omoPresetMetaMap,
     existingOpencodeKeys,
-  } = useOmoModelSource({ isOmoCategory: isAnyOmoCategory, providerId });
+  } = useOmoModelSource({
+    isOmoCategory: isAnyOmoCategory,
+    providerId,
+    target,
+  });
 
   const {
     data: opencodeLiveProviderIds = [],
@@ -783,7 +796,7 @@ function ProviderFormFull({
   } = useQuery({
     queryKey: ["opencodeLiveProviderIds"],
     queryFn: () => providersApi.getOpenCodeLiveProviderIds(),
-    enabled: appId === "opencode" && !isAnyOmoCategory,
+    enabled: isLocalTarget && appId === "opencode" && !isAnyOmoCategory,
   });
 
   const opencodeForm = useOpencodeFormState({
@@ -811,25 +824,27 @@ function ProviderFormFull({
     initialData,
     appId,
     providerId,
+    target,
     onSettingsConfigChange: (config) => form.setValue("settingsConfig", config),
     getSettingsConfig: () => form.getValues("settingsConfig"),
   });
   const {
     data: openclawLiveProviderIds = [],
     isLoading: isOpenclawLiveProviderIdsLoading,
-  } = useOpenClawLiveProviderIds(appId === "openclaw");
+  } = useOpenClawLiveProviderIds(isLocalTarget && appId === "openclaw");
 
   const hermesForm = useHermesFormState({
     initialData,
     appId,
     providerId,
+    target,
     onSettingsConfigChange: (config) => form.setValue("settingsConfig", config),
     getSettingsConfig: () => form.getValues("settingsConfig"),
   });
   const {
     data: hermesLiveProviderIds = [],
     isLoading: isHermesLiveProviderIdsLoading,
-  } = useHermesLiveProviderIds(appId === "hermes");
+  } = useHermesLiveProviderIds(isLocalTarget && appId === "hermes");
 
   const additiveExistingProviderKeys = useMemo(() => {
     if (appId === "opencode" && !isAnyOmoCategory) {

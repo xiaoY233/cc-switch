@@ -8,7 +8,17 @@ import {
   ProviderForm,
   type ProviderFormValues,
 } from "@/components/providers/forms/ProviderForm";
-import { openclawApi, providersApi, vscodeApi, type AppId } from "@/lib/api";
+import {
+  openclawApi,
+  providersApi,
+  vscodeApi,
+  type AppId,
+  type ManagementTarget,
+} from "@/lib/api";
+import {
+  LOCAL_MANAGEMENT_TARGET,
+  shouldReadLocalLiveConfig,
+} from "@/lib/managementTarget";
 
 interface EditProviderDialogProps {
   open: boolean;
@@ -19,6 +29,7 @@ interface EditProviderDialogProps {
     originalId?: string;
   }) => Promise<void> | void;
   appId: AppId;
+  target?: ManagementTarget;
   isProxyTakeover?: boolean; // 代理接管模式下不读取 live（避免显示被接管后的代理配置）
 }
 
@@ -28,6 +39,7 @@ export function EditProviderDialog({
   onOpenChange,
   onSubmit,
   appId,
+  target = LOCAL_MANAGEMENT_TARGET,
   isProxyTakeover = false,
 }: EditProviderDialogProps) {
   const { t } = useTranslation();
@@ -56,9 +68,9 @@ export function EditProviderDialog({
         return;
       }
 
-      // 代理接管模式：Live 配置已被代理改写，读取 live 会导致编辑界面展示代理地址/占位符等内容
-      // 因此直接回退到 SSOT（数据库）配置，避免用户困惑与误保存
-      if (isProxyTakeover) {
+      // Live 配置只属于本地目标。远程目标必须使用远端 helper 返回的
+      // SSOT 数据，避免把本地 openclaw.json / VSCode 配置混进远端编辑。
+      if (!shouldReadLocalLiveConfig(target, isProxyTakeover)) {
         if (!cancelled) {
           setLiveSettings(null);
           setHasLoadedLive(true);
@@ -129,7 +141,14 @@ export function EditProviderDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, provider?.id, appId, hasLoadedLive, isProxyTakeover]); // 只依赖 provider.id，不依赖整个 provider 对象
+  }, [
+    open,
+    provider?.id,
+    appId,
+    hasLoadedLive,
+    isProxyTakeover,
+    target,
+  ]); // 只依赖 provider.id，不依赖整个 provider 对象
 
   const initialSettingsConfig = useMemo(() => {
     return (liveSettings ?? provider?.settingsConfig ?? {}) as Record<
@@ -226,6 +245,7 @@ export function EditProviderDialog({
         onCancel={() => onOpenChange(false)}
         onSubmittingChange={setIsFormSubmitting}
         initialData={initialData}
+        target={target}
         showButtons={false}
       />
     </FullScreenPanel>

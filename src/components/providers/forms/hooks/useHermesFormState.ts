@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
-import type { AppId } from "@/lib/api";
+import type { AppId, ManagementTarget } from "@/lib/api";
 import { useProvidersQuery } from "@/lib/query/queries";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 import {
   HERMES_DEFAULT_API_MODE,
   type HermesApiMode,
@@ -14,6 +15,7 @@ interface UseHermesFormStateParams {
   };
   appId: AppId;
   providerId?: string;
+  target?: ManagementTarget;
   onSettingsConfigChange: (config: string) => void;
   getSettingsConfig: () => string;
 }
@@ -75,10 +77,13 @@ export function useHermesFormState({
   initialData,
   appId,
   providerId,
+  target = LOCAL_MANAGEMENT_TARGET,
   onSettingsConfigChange,
   getSettingsConfig,
 }: UseHermesFormStateParams): HermesFormState {
-  const { data: hermesProvidersData } = useProvidersQuery("hermes");
+  const { data: hermesProvidersData } = useProvidersQuery("hermes", {
+    target,
+  });
   const existingHermesKeys = useMemo(() => {
     if (!hermesProvidersData?.providers) return [];
     return Object.keys(hermesProvidersData.providers).filter(
