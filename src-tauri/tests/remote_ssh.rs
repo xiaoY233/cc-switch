@@ -257,6 +257,7 @@ fn helper_install_args_accept_custom_source_branch() {
         git_repo: "https://github.com/acme/cc-switch".to_string(),
         git_branch: Some("remote-helper".to_string()),
         release_repo: "acme/cc-switch".to_string(),
+        local_source_dir: None,
     };
 
     let args = build_helper_install_args_with_source(&profile(), &source);
@@ -266,4 +267,78 @@ fn helper_install_args_accept_custom_source_branch() {
     assert!(remote_command.contains(
         "cargo install --git https://github.com/acme/cc-switch --branch remote-helper --bin cc-switch-cli"
     ));
+}
+
+#[test]
+fn helper_install_args_accept_local_source_dir_before_git_fallback() {
+    let source = RemoteHelperInstallSource {
+        git_repo: "https://github.com/acme/cc-switch".to_string(),
+        git_branch: Some("remote-helper".to_string()),
+        release_repo: "acme/cc-switch".to_string(),
+        local_source_dir: Some("/Users/alice/cc-switch".into()),
+    };
+
+    let args = build_helper_install_args_with_source(&profile(), &source);
+    let remote_command = args.last().expect("remote command");
+
+    assert!(remote_command.contains("source_dir=$(mktemp -d)"));
+    assert!(remote_command.contains("tar -xzf - -C \"$source_dir\""));
+    assert!(remote_command.contains("cargo install --path \"$source_dir/src-tauri\" --bin cc-switch-cli --root ~/.local --locked --force"));
+    assert!(remote_command.contains("rm -rf \"$source_dir\""));
+    assert!(remote_command.contains("cargo install --git https://github.com/acme/cc-switch --branch remote-helper --bin cc-switch-cli"));
+}
+
+#[test]
+#[cfg(unix)]
+#[serial]
+fn install_helper_streams_local_source_archive_to_ssh_stdin() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let source_dir = dir.path().join("source");
+    fs::create_dir_all(source_dir.join("src-tauri/src")).expect("source dirs");
+    fs::write(
+        source_dir.join("src-tauri/Cargo.toml"),
+        "[package]\nname='unit'\n",
+    )
+    .expect("write cargo toml");
+    fs::write(source_dir.join("src-tauri/src/lib.rs"), "").expect("write lib");
+
+    let stdin_path = dir.path().join("stdin.tgz");
+    let ssh_path = dir.path().join("ssh");
+    fs::write(
+        &ssh_path,
+        format!(
+            r#"#!/bin/sh
+set -eu
+cat > "{}"
+test -s "{}"
+printf '%s\n' '{{"ok":true,"data":{{"version":"test","platform":"linux","capabilities":["providers","openclaw","mcp","prompts","skills","import-export"]}},"error":null}}'
+"#,
+            stdin_path.display(),
+            stdin_path.display()
+        ),
+    )
+    .expect("write fake ssh");
+    let mut permissions = fs::metadata(&ssh_path)
+        .expect("fake ssh metadata")
+        .permissions();
+    permissions.set_mode(0o700);
+    fs::set_permissions(&ssh_path, permissions).expect("chmod fake ssh");
+
+    let old_path = std::env::var_os("PATH").unwrap_or_default();
+    let old_source = std::env::var_os("CC_SWITCH_REMOTE_HELPER_LOCAL_SOURCE_DIR");
+    let new_path = format!("{}:{}", dir.path().display(), old_path.to_string_lossy());
+    std::env::set_var("PATH", new_path);
+    std::env::set_var("CC_SWITCH_REMOTE_HELPER_LOCAL_SOURCE_DIR", &source_dir);
+
+    let status: serde_json::Value =
+        cc_switch_lib::remote::install_helper_json(&profile(), None).expect("install helper");
+
+    std::env::set_var("PATH", old_path);
+    match old_source {
+        Some(value) => std::env::set_var("CC_SWITCH_REMOTE_HELPER_LOCAL_SOURCE_DIR", value),
+        None => std::env::remove_var("CC_SWITCH_REMOTE_HELPER_LOCAL_SOURCE_DIR"),
+    }
+
+    assert_eq!(status["version"], "test");
+    assert!(fs::metadata(stdin_path).expect("stdin archive").len() > 0);
 }

@@ -4,19 +4,23 @@ use crate::remote::types::{
     RemoteHostProfile,
 };
 use serde::de::DeserializeOwned;
-use std::process::Command;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 const HELPER_INSTALL_REPO: &str = "https://github.com/xiaoY233/cc-switch";
 const HELPER_RELEASE_REPO: &str = "xiaoY233/cc-switch";
 const HELPER_INSTALL_REPO_ENV: &str = "CC_SWITCH_REMOTE_HELPER_INSTALL_REPO";
 const HELPER_INSTALL_BRANCH_ENV: &str = "CC_SWITCH_REMOTE_HELPER_INSTALL_BRANCH";
 const HELPER_RELEASE_REPO_ENV: &str = "CC_SWITCH_REMOTE_HELPER_RELEASE_REPO";
+const HELPER_LOCAL_SOURCE_DIR_ENV: &str = "CC_SWITCH_REMOTE_HELPER_LOCAL_SOURCE_DIR";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RemoteHelperInstallSource {
     pub git_repo: String,
     pub git_branch: Option<String>,
     pub release_repo: String,
+    pub local_source_dir: Option<PathBuf>,
 }
 
 impl Default for RemoteHelperInstallSource {
@@ -25,6 +29,7 @@ impl Default for RemoteHelperInstallSource {
             git_repo: HELPER_INSTALL_REPO.to_string(),
             git_branch: None,
             release_repo: HELPER_RELEASE_REPO.to_string(),
+            local_source_dir: default_local_source_dir(),
         }
     }
 }
@@ -36,6 +41,10 @@ impl RemoteHelperInstallSource {
             git_repo: env_string(HELPER_INSTALL_REPO_ENV).unwrap_or(default.git_repo),
             git_branch: env_string(HELPER_INSTALL_BRANCH_ENV),
             release_repo: env_string(HELPER_RELEASE_REPO_ENV).unwrap_or(default.release_repo),
+            local_source_dir: env_string(HELPER_LOCAL_SOURCE_DIR_ENV)
+                .map(PathBuf::from)
+                .filter(|path| is_valid_local_source_dir(path))
+                .or(default.local_source_dir),
         }
     }
 }
@@ -100,6 +109,11 @@ pub fn build_helper_install_args_with_source(
     let helper_path = shell_quote_helper_path(&profile.helper_path);
     let repo = shell_quote(&source.git_repo);
     let release_repo = shell_quote(&source.release_repo);
+    let has_local_source = if source.local_source_dir.is_some() {
+        "1"
+    } else {
+        "0"
+    };
     let branch_args = source
         .git_branch
         .as_deref()
@@ -170,6 +184,23 @@ pub fn build_helper_install_args_with_source(
             "echo 'Rust/Cargo is required to install cc-switch remote helper' >&2; ",
             "exit 127; ",
             "fi; ",
+            "if [ {has_local_source} = 1 ]; then ",
+            "if command -v tar >/dev/null 2>&1; then ",
+            "source_dir=$(mktemp -d); ",
+            "if tar -xzf - -C \"$source_dir\" && cargo install --path \"$source_dir/src-tauri\" --bin cc-switch-cli --root ~/.local --locked --force 1>&2; then ",
+            "rm -rf \"$source_dir\"; ",
+            "if [ \"$helper_path\" != \"$installed_path\" ]; then ",
+            "ln -sf \"$installed_path\" \"$helper_path\"; ",
+            "fi; ",
+            "verify_helper_status; ",
+            "exit 0; ",
+            "fi; ",
+            "rm -rf \"$source_dir\"; ",
+            "echo 'Local source remote helper install failed; falling back to git install' >&2; ",
+            "else ",
+            "echo 'tar is required for local source remote helper install; falling back to git install' >&2; ",
+            "fi; ",
+            "fi; ",
             "cargo install --git {repo}{branch_args} --bin cc-switch-cli --root ~/.local --locked --force 1>&2; ",
             "if [ \"$helper_path\" != \"$installed_path\" ]; then ",
             "ln -sf \"$installed_path\" \"$helper_path\"; ",
@@ -180,6 +211,7 @@ pub fn build_helper_install_args_with_source(
         repo = repo,
         release_repo = release_repo,
         branch_args = branch_args,
+        has_local_source = has_local_source,
     );
     args.push(command);
     args
@@ -198,7 +230,18 @@ pub fn install_helper_json<T: DeserializeOwned>(
     profile: &RemoteHostProfile,
     secret: Option<&RemoteConnectionSecret>,
 ) -> Result<T, AppError> {
-    let stdout = run_ssh_command(profile, build_helper_install_args(profile), secret)?;
+    let source = RemoteHelperInstallSource::from_env();
+    let input = source
+        .local_source_dir
+        .as_deref()
+        .map(create_local_source_archive)
+        .transpose()?;
+    let stdout = run_ssh_command_with_input(
+        profile,
+        build_helper_install_args_with_source(profile, &source),
+        input.as_deref(),
+        secret,
+    )?;
     parse_helper_json(&stdout)
 }
 
@@ -207,13 +250,43 @@ fn run_ssh_command(
     args: Vec<String>,
     secret: Option<&RemoteConnectionSecret>,
 ) -> Result<String, AppError> {
+    run_ssh_command_with_input(profile, args, None, secret)
+}
+
+fn run_ssh_command_with_input(
+    profile: &RemoteHostProfile,
+    args: Vec<String>,
+    input: Option<&[u8]>,
+    secret: Option<&RemoteConnectionSecret>,
+) -> Result<String, AppError> {
     let mut command = Command::new("ssh");
     command.args(args);
 
     let _askpass = configure_password_auth(profile, secret, &mut command)?;
-    let output = command
-        .output()
-        .map_err(|e| AppError::Message(format!("Failed to execute ssh: {e}")))?;
+    let output = if let Some(input) = input {
+        command.stdin(Stdio::piped());
+        command.stdout(Stdio::piped());
+        command.stderr(Stdio::piped());
+        let mut child = command
+            .spawn()
+            .map_err(|e| AppError::Message(format!("Failed to execute ssh: {e}")))?;
+        {
+            let mut stdin = child
+                .stdin
+                .take()
+                .ok_or_else(|| AppError::Message("Failed to open ssh stdin".to_string()))?;
+            stdin
+                .write_all(input)
+                .map_err(|e| AppError::Message(format!("Failed to write ssh stdin: {e}")))?;
+        }
+        child
+            .wait_with_output()
+            .map_err(|e| AppError::Message(format!("Failed to wait for ssh: {e}")))?
+    } else {
+        command
+            .output()
+            .map_err(|e| AppError::Message(format!("Failed to execute ssh: {e}")))?
+    };
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -226,6 +299,89 @@ fn run_ssh_command(
 
     String::from_utf8(output.stdout)
         .map_err(|e| AppError::Message(format!("Remote helper returned invalid UTF-8: {e}")))
+}
+
+fn default_local_source_dir() -> Option<PathBuf> {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir
+        .parent()
+        .map(Path::to_path_buf)
+        .filter(|path| is_valid_local_source_dir(path))
+}
+
+fn is_valid_local_source_dir(path: &Path) -> bool {
+    path.join("src-tauri").join("Cargo.toml").is_file()
+        && path.join("src-tauri").join("src").is_dir()
+}
+
+fn create_local_source_archive(source_dir: &Path) -> Result<Vec<u8>, AppError> {
+    if !is_valid_local_source_dir(source_dir) {
+        return Err(AppError::Message(format!(
+            "Invalid remote helper local source directory: {}",
+            source_dir.display()
+        )));
+    }
+
+    let encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    let mut builder = tar::Builder::new(encoder);
+    append_source_dir(&mut builder, source_dir, &source_dir.join("src-tauri"))?;
+    let encoder = builder
+        .into_inner()
+        .map_err(|e| AppError::Message(format!("Failed to finish remote helper archive: {e}")))?;
+    encoder
+        .finish()
+        .map_err(|e| AppError::Message(format!("Failed to compress remote helper archive: {e}")))
+}
+
+fn append_source_dir<W: Write>(
+    builder: &mut tar::Builder<W>,
+    root: &Path,
+    path: &Path,
+) -> Result<(), AppError> {
+    for entry in std::fs::read_dir(path).map_err(|e| {
+        AppError::Message(format!(
+            "Failed to read remote helper source directory {}: {e}",
+            path.display()
+        ))
+    })? {
+        let entry = entry.map_err(|e| {
+            AppError::Message(format!("Failed to inspect remote helper source entry: {e}"))
+        })?;
+        let entry_path = entry.path();
+        let relative_path = entry_path.strip_prefix(root).map_err(|e| {
+            AppError::Message(format!("Failed to build remote helper archive path: {e}"))
+        })?;
+
+        if should_skip_local_source_entry(relative_path) {
+            continue;
+        }
+
+        let metadata = entry.metadata().map_err(|e| {
+            AppError::Message(format!(
+                "Failed to read remote helper source metadata {}: {e}",
+                entry_path.display()
+            ))
+        })?;
+
+        if metadata.is_dir() {
+            builder
+                .append_dir(relative_path, &entry_path)
+                .map_err(|e| AppError::Message(format!("Failed to archive directory: {e}")))?;
+            append_source_dir(builder, root, &entry_path)?;
+        } else if metadata.is_file() {
+            builder
+                .append_path_with_name(&entry_path, relative_path)
+                .map_err(|e| AppError::Message(format!("Failed to archive file: {e}")))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn should_skip_local_source_entry(relative_path: &Path) -> bool {
+    relative_path
+        .components()
+        .any(|component| matches!(component.as_os_str().to_str(), Some("target" | ".git")))
 }
 
 fn parse_helper_json<T: DeserializeOwned>(stdout: &str) -> Result<T, AppError> {
