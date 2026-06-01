@@ -9,6 +9,9 @@ mod claude_desktop_config;
 #[path = "../claude_mcp.rs"]
 #[cfg(not(feature = "desktop"))]
 mod claude_mcp;
+#[path = "../cli/mod.rs"]
+#[cfg(not(feature = "desktop"))]
+mod cli;
 #[path = "../codex_config.rs"]
 #[cfg(not(feature = "desktop"))]
 mod codex_config;
@@ -69,9 +72,6 @@ mod store;
 #[path = "../usage_script.rs"]
 #[cfg(not(feature = "desktop"))]
 mod usage_script;
-#[path = "../cli/mod.rs"]
-#[cfg(not(feature = "desktop"))]
-mod cli;
 
 #[cfg(not(feature = "desktop"))]
 mod app_store {
