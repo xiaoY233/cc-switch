@@ -1,0 +1,78 @@
+name: Remote Helper Artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex-remote-server-management
+
+concurrency:
+  group: helper-artifacts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-helper:
+    name: Build Helper (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            helper_os: Linux
+            helper_arch: x86_64
+            helper_path: src-tauri/target/release/cc-switch-cli
+          - os: macos-14
+            helper_os: macOS
+            helper_arch: arm64
+            helper_path: src-tauri/target/release/cc-switch-cli
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libssl-dev \
+            libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev \
+            || sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.0-dev
+          sudo apt-get install -y --no-install-recommends libsoup-3.0-dev \
+            || sudo apt-get install -y --no-install-recommends libsoup2.4-dev
+
+      - name: Cache Cargo registry and build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: helper-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: helper-${{ runner.os }}-
+
+      - name: Build remote helper CLI
+        run: cargo build --manifest-path src-tauri/Cargo.toml --release --bin cc-switch-cli
+
+      - name: Prepare helper artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p helper-artifacts
+          short_sha="${GITHUB_SHA::8}"
+          asset="cc-switch-cli-${short_sha}-${{ matrix.helper_os }}-${{ matrix.helper_arch }}"
+          cp "${{ matrix.helper_path }}" "helper-artifacts/${asset}"
+          chmod +x "helper-artifacts/${asset}"
+          ls -la helper-artifacts
+
+      - name: Upload helper artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: cc-switch-cli-${{ matrix.helper_os }}-${{ matrix.helper_arch }}
+          path: helper-artifacts/*
+          if-no-files-found: error
