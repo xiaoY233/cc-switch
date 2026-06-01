@@ -352,17 +352,15 @@ export const useDeleteSessionMutation = (
     },
     onSuccess: async (input) => {
       const sessionsKey = ["sessions", targetKey(target)];
-      queryClient.setQueryData<SessionMeta[]>(
-        sessionsKey,
-        (current) =>
-          (current ?? []).filter(
-            (session) =>
-              !(
-                session.providerId === input.providerId &&
-                session.sessionId === input.sessionId &&
-                session.sourcePath === input.sourcePath
-              ),
-          ),
+      queryClient.setQueryData<SessionMeta[]>(sessionsKey, (current) =>
+        (current ?? []).filter(
+          (session) =>
+            !(
+              session.providerId === input.providerId &&
+              session.sessionId === input.sessionId &&
+              session.sourcePath === input.sourcePath
+            ),
+        ),
       );
       queryClient.removeQueries({
         queryKey: [

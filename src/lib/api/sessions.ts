@@ -14,7 +14,9 @@ export interface DeleteSessionResult extends DeleteSessionOptions {
 }
 
 export const sessionsApi = {
-  async list(target: ManagementTarget = { type: "local" }): Promise<SessionMeta[]> {
+  async list(
+    target: ManagementTarget = { type: "local" },
+  ): Promise<SessionMeta[]> {
     if (target.type === "remote") {
       return await remoteApi.listSessions(target.profile, target.secret);
     }
@@ -61,7 +63,11 @@ export const sessionsApi = {
     target: ManagementTarget = { type: "local" },
   ): Promise<DeleteSessionResult[]> {
     if (target.type === "remote") {
-      return await remoteApi.deleteSessions(target.profile, items, target.secret);
+      return await remoteApi.deleteSessions(
+        target.profile,
+        items,
+        target.secret,
+      );
     }
     return await invoke("delete_sessions", { items });
   },
