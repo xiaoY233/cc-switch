@@ -422,7 +422,7 @@ fn configure_password_auth(
     profile: &RemoteHostProfile,
     secret: Option<&RemoteConnectionSecret>,
     command: &mut Command,
-) -> Result<Option<tempfile::NamedTempFile>, AppError> {
+) -> Result<Option<tempfile::TempPath>, AppError> {
     use std::io::Write;
     use std::os::unix::fs::PermissionsExt;
 
@@ -453,11 +453,12 @@ fn configure_password_auth(
         .set_permissions(perms)
         .map_err(|e| AppError::Message(format!("Failed to secure ssh askpass helper: {e}")))?;
 
-    command.env("SSH_ASKPASS", askpass.path());
+    let askpass_path = askpass.into_temp_path();
+    command.env("SSH_ASKPASS", &askpass_path);
     command.env("SSH_ASKPASS_REQUIRE", "force");
     command.env("DISPLAY", "cc-switch");
     command.env("CC_SWITCH_REMOTE_SSH_PASSWORD", password);
-    Ok(Some(askpass))
+    Ok(Some(askpass_path))
 }
 
 #[cfg(not(unix))]
