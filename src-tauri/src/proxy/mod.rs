@@ -8,12 +8,17 @@ pub mod circuit_breaker;
 pub mod copilot_optimizer;
 pub mod error;
 pub mod error_mapper;
+#[cfg(feature = "desktop")]
 pub(crate) mod failover_switch;
+#[cfg(feature = "desktop")]
 mod forwarder;
 pub mod gemini_url;
 pub mod handler_config;
+#[cfg(feature = "desktop")]
 pub mod handler_context;
+#[cfg(feature = "desktop")]
 mod handlers;
+#[cfg(feature = "desktop")]
 mod health;
 pub mod http_client;
 pub mod hyper_client;
@@ -23,10 +28,13 @@ pub mod model_mapper;
 pub mod provider_router;
 pub mod providers;
 pub mod response_handler;
+#[cfg(feature = "desktop")]
 pub mod response_processor;
+#[cfg(feature = "desktop")]
 pub(crate) mod server;
 pub mod session;
 pub(crate) mod sse;
+#[cfg(feature = "desktop")]
 pub(crate) mod switch_lock;
 pub mod thinking_budget_rectifier;
 pub mod thinking_optimizer;

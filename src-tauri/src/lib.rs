@@ -1,3 +1,5 @@
+#![cfg(feature = "desktop")]
+
 mod app_config;
 mod app_store;
 mod auto_launch;

@@ -21,10 +21,6 @@ case "$ARCH" in
   *) echo "Unsupported arch: $ARCH" >&2; exit 1 ;;
 esac
 
-if [ "$ASSET_OS" = "macOS" ]; then
-  ASSET_ARCH="universal"
-fi
-
 API_URL="https://api.github.com/repos/$REPO/releases/tags/$VERSION"
 
 ASSET_NAME="cc-switch-cli-${VERSION}-${ASSET_OS}-${ASSET_ARCH}"
@@ -43,6 +39,17 @@ if [ -z "$DOWNLOAD_URL" ]; then
   exit 1
 fi
 
-curl -fL "$DOWNLOAD_URL" -o "$BIN_DIR/$BIN_NAME"
+curl -fsSL "$DOWNLOAD_URL" -o "$BIN_DIR/$BIN_NAME"
 chmod +x "$BIN_DIR/$BIN_NAME"
-"$BIN_DIR/$BIN_NAME" --json status
+if ! STATUS_OUTPUT="$("$BIN_DIR/$BIN_NAME" --json status 2>&1)"; then
+  case "$STATUS_OUTPUT" in
+    *libgdk-3.so.0*|*libgtk-3.so.0*|*libwebkit2gtk*|*libayatana-appindicator*)
+      echo "Downloaded remote helper is not compatible with this server: it depends on desktop GTK/WebKit libraries. Reinstall after the latest helper release is published." >&2
+      ;;
+    *)
+      echo "Remote helper downloaded but failed to start: $STATUS_OUTPUT" >&2
+      ;;
+  esac
+  exit 1
+fi
+printf '%s\n' "$STATUS_OUTPUT"

@@ -1,5 +1,7 @@
 fn main() {
-    tauri_build::build();
+    if std::env::var_os("CARGO_FEATURE_DESKTOP").is_some() {
+        tauri_build::build();
+    }
 
     // Windows: Embed Common Controls v6 manifest for test binaries
     //

@@ -9,7 +9,10 @@ pub mod model_fetch;
 pub mod omo;
 pub mod prompt;
 pub mod provider;
+#[cfg(feature = "desktop")]
 pub mod proxy;
+#[cfg(not(feature = "desktop"))]
+mod proxy_stub;
 pub mod session_usage;
 pub mod session_usage_codex;
 pub mod session_usage_gemini;
@@ -21,6 +24,7 @@ pub mod subscription;
 pub mod usage_cache;
 pub mod usage_stats;
 pub mod webdav;
+#[cfg(feature = "desktop")]
 pub mod webdav_auto_sync;
 pub mod webdav_sync;
 
@@ -29,7 +33,10 @@ pub use mcp::McpService;
 pub use omo::OmoService;
 pub use prompt::PromptService;
 pub use provider::{ProviderService, ProviderSortUpdate, SwitchResult};
+#[cfg(feature = "desktop")]
 pub use proxy::ProxyService;
+#[cfg(not(feature = "desktop"))]
+pub use proxy_stub::ProxyService;
 #[allow(unused_imports)]
 pub use skill::{DiscoverableSkill, Skill, SkillRepo, SkillService};
 pub use speedtest::{EndpointLatency, SpeedtestService};

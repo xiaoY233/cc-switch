@@ -117,8 +117,7 @@ pub fn import_providers(app: AppType) -> Result<bool, String> {
             .map(|count| count > 0)
             .or_else(live_config_missing_as_false),
         AppType::ClaudeDesktop => import_claude_desktop_providers_from_claude(&state),
-        _ => crate::commands::import_default_config_internal(&state, app)
-            .or_else(live_config_missing_as_false),
+        _ => import_default_config_internal(&state, app).or_else(live_config_missing_as_false),
     }
 }
 
@@ -194,10 +193,10 @@ fn import_claude_desktop_providers_from_claude(state: &AppState) -> Result<bool,
         let meta = desktop_provider.meta.get_or_insert_with(Default::default);
 
         if crate::claude_desktop_config::is_compatible_direct_provider(provider)
-            && crate::commands::claude_provider_models_are_claude_safe(provider)
+            && claude_provider_models_are_claude_safe(provider)
         {
             meta.claude_desktop_mode = Some(crate::provider::ClaudeDesktopMode::Direct);
-        } else if let Some(routes) = crate::commands::suggested_claude_desktop_routes(provider) {
+        } else if let Some(routes) = suggested_claude_desktop_routes(provider) {
             meta.claude_desktop_mode = Some(crate::provider::ClaudeDesktopMode::Proxy);
             meta.claude_desktop_model_routes = routes;
         } else {
@@ -217,6 +216,168 @@ fn import_claude_desktop_providers_from_claude(state: &AppState) -> Result<bool,
     );
 
     Ok(imported > 0)
+}
+
+fn import_default_config_internal(state: &AppState, app_type: AppType) -> Result<bool, AppError> {
+    let imported = ProviderService::import_default_config(state, app_type.clone())?;
+
+    if imported {
+        if state
+            .db
+            .should_auto_extract_config_snippet(app_type.as_str())?
+        {
+            match ProviderService::extract_common_config_snippet(state, app_type.clone()) {
+                Ok(snippet) if !snippet.is_empty() && snippet != "{}" => {
+                    let _ = state
+                        .db
+                        .set_config_snippet(app_type.as_str(), Some(snippet));
+                    let _ = state
+                        .db
+                        .set_config_snippet_cleared(app_type.as_str(), false);
+                }
+                _ => {}
+            }
+        }
+
+        ProviderService::migrate_legacy_common_config_usage_if_needed(state, app_type)?;
+    }
+
+    Ok(imported)
+}
+
+fn claude_provider_models_are_claude_safe(provider: &Provider) -> bool {
+    let Some(env) = provider
+        .settings_config
+        .get("env")
+        .and_then(|value| value.as_object())
+    else {
+        return true;
+    };
+
+    [
+        "ANTHROPIC_MODEL",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    ]
+    .into_iter()
+    .filter_map(|key| env.get(key).and_then(|value| value.as_str()))
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+    .all(crate::claude_desktop_config::is_claude_safe_model_id)
+}
+
+fn suggested_claude_desktop_routes(
+    provider: &Provider,
+) -> Option<std::collections::HashMap<String, crate::provider::ClaudeDesktopModelRoute>> {
+    let env = provider
+        .settings_config
+        .get("env")
+        .and_then(|value| value.as_object())?;
+    let mut routes = std::collections::HashMap::new();
+    let supports_1m_default = !matches!(
+        provider
+            .meta
+            .as_ref()
+            .and_then(|meta| meta.provider_type.as_deref()),
+        Some("github_copilot") | Some("codex_oauth")
+    );
+
+    fn add_route(
+        routes: &mut std::collections::HashMap<String, crate::provider::ClaudeDesktopModelRoute>,
+        env: &serde_json::Map<String, serde_json::Value>,
+        route_key: &str,
+        env_key: &str,
+        supports_1m_default: bool,
+    ) {
+        let Some(raw_model) = env
+            .get(env_key)
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
+            return;
+        };
+
+        let marker = crate::claude_desktop_config::ONE_M_CONTEXT_MARKER.as_bytes();
+        let raw_bytes = raw_model.as_bytes();
+        let has_1m_marker = raw_bytes.len() >= marker.len()
+            && raw_bytes[raw_bytes.len() - marker.len()..].eq_ignore_ascii_case(marker);
+        let stripped_model = if has_1m_marker {
+            raw_model[..raw_model.len() - marker.len()].trim_end()
+        } else {
+            raw_model
+        };
+        if stripped_model.is_empty() {
+            return;
+        }
+
+        let effective_supports_1m = supports_1m_default || has_1m_marker;
+        let explicit_label_override = env
+            .get(&format!("{env_key}_NAME"))
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string);
+        let label_override = explicit_label_override.clone().or_else(|| {
+            (!crate::claude_desktop_config::is_claude_safe_model_id(stripped_model))
+                .then(|| stripped_model.to_string())
+        });
+
+        let should_overwrite = |existing: Option<&str>| {
+            existing.is_none()
+                || explicit_label_override.is_some()
+                || existing == Some(stripped_model)
+        };
+
+        let merge_into = |existing: &mut crate::provider::ClaudeDesktopModelRoute| {
+            let merged = existing.supports_1m.unwrap_or(false) || effective_supports_1m;
+            existing.supports_1m = Some(merged);
+            if should_overwrite(existing.label_override.as_deref()) {
+                existing.label_override = label_override.clone();
+            }
+        };
+
+        if let Some(existing) = routes
+            .values_mut()
+            .find(|existing| existing.model == stripped_model)
+        {
+            merge_into(existing);
+            return;
+        }
+
+        routes
+            .entry(route_key.to_string())
+            .and_modify(merge_into)
+            .or_insert_with(|| crate::provider::ClaudeDesktopModelRoute {
+                model: stripped_model.to_string(),
+                label_override,
+                supports_1m: Some(effective_supports_1m),
+            });
+    }
+
+    for spec in crate::claude_desktop_config::DEFAULT_PROXY_ROUTES {
+        add_route(
+            &mut routes,
+            env,
+            spec.route_id,
+            spec.env_key,
+            supports_1m_default,
+        );
+    }
+
+    if routes.is_empty() {
+        let primary_route = crate::claude_desktop_config::DEFAULT_PROXY_ROUTES[0].route_id;
+        add_route(
+            &mut routes,
+            env,
+            primary_route,
+            "ANTHROPIC_MODEL",
+            supports_1m_default,
+        );
+    }
+
+    (!routes.is_empty()).then_some(routes)
 }
 
 pub fn get_openclaw_default_model(

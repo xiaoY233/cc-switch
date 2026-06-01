@@ -263,6 +263,7 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
     assert!(remote_command
         .contains("api.github.com/repos/xiaoY233/cc-switch/releases/tags/remote-helper-latest"));
     assert!(remote_command.contains("fetch_url_to_stdout()"));
+    assert!(remote_command.contains("curl -fsSL \"$1\" -o \"$2\""));
     assert!(remote_command.contains("wget -qO- \"$1\""));
     assert!(remote_command.contains("fetch_url_to_file()"));
     assert!(remote_command.contains("wget -qO \"$2\" \"$1\""));
@@ -270,11 +271,47 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
     assert!(remote_command.contains("grep -q '\"openclaw\"'"));
     assert!(remote_command.contains("cc-switch remote helper is missing required capabilities"));
     assert!(remote_command.contains("cc-switch-cli-.*-${asset_os}-${asset_arch}"));
+    assert!(!remote_command.contains("asset_arch=universal"));
     assert!(remote_command.contains("fetch_url_to_file \"$download_url\" \"$helper_tmp\""));
     assert!(remote_command.contains("verify_helper_status"));
     assert!(!remote_command.contains("cargo install"));
     assert!(!remote_command.contains("rustup"));
     assert!(!remote_command.contains("tar -xzf"));
+}
+
+#[test]
+#[cfg(unix)]
+#[serial]
+fn helper_startup_native_library_error_is_user_friendly() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let ssh_path = dir.path().join("ssh");
+    fs::write(
+        &ssh_path,
+        r#"#!/bin/sh
+set -eu
+printf '%s\n' '/root/.local/bin/cc-switch-remote-helper: error while loading shared libraries: libgdk-3.so.0: cannot open shared object file: No such file or directory' >&2
+exit 127
+"#,
+    )
+    .expect("write fake ssh");
+    let mut permissions = fs::metadata(&ssh_path)
+        .expect("fake ssh metadata")
+        .permissions();
+    permissions.set_mode(0o700);
+    fs::set_permissions(&ssh_path, permissions).expect("chmod fake ssh");
+
+    let old_path = std::env::var_os("PATH").unwrap_or_default();
+    let new_path = format!("{}:{}", dir.path().display(), old_path.to_string_lossy());
+    std::env::set_var("PATH", new_path);
+
+    let error = run_helper_json::<serde_json::Value>(&profile(), &["status".to_string()], None)
+        .expect_err("helper should fail");
+
+    std::env::set_var("PATH", old_path);
+
+    let message = error.to_string();
+    assert!(message.contains("远程 Helper 不是纯 CLI 构建"));
+    assert!(!message.contains("libgdk-3.so.0"));
 }
 
 #[test]

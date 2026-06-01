@@ -135,12 +135,20 @@ pub fn build_helper_install_args_with_source(
             "return 1; ",
             "}}; ",
             "fetch_url_to_file() {{ ",
-            "if command -v curl >/dev/null 2>&1 && curl -fL \"$1\" -o \"$2\"; then return 0; fi; ",
+            "if command -v curl >/dev/null 2>&1 && curl -fsSL \"$1\" -o \"$2\"; then return 0; fi; ",
             "if command -v wget >/dev/null 2>&1 && wget -qO \"$2\" \"$1\"; then return 0; fi; ",
             "return 1; ",
             "}}; ",
             "verify_helper_status() {{ ",
-            "status_json=$(\"$helper_path\" --json status); ",
+            "status_output=$(\"$helper_path\" --json status 2>&1) || {{ ",
+            "case \"$status_output\" in ",
+            "*libgdk-3.so.0*|*libgtk-3.so.0*|*libwebkit2gtk*|*libayatana-appindicator*) ",
+            "echo 'Downloaded remote helper is not compatible with this server: it depends on desktop GTK/WebKit libraries. Reinstall after the latest helper release is published.' >&2 ;; ",
+            "*) echo \"Remote helper downloaded but failed to start: $status_output\" >&2 ;; ",
+            "esac; ",
+            "return 65; ",
+            "}}; ",
+            "status_json=$status_output; ",
             "printf '%s\\n' \"$status_json\"; ",
             "printf '%s\\n' \"$status_json\" | grep -q '\"providers\"' && ",
             "printf '%s\\n' \"$status_json\" | grep -q '\"openclaw\"' && ",
@@ -156,7 +164,6 @@ pub fn build_helper_install_args_with_source(
             "case \"$asset_os\" in Linux) asset_os=Linux ;; Darwin) asset_os=macOS ;; *) asset_os= ;; esac; ",
             "asset_arch=$(uname -m); ",
             "case \"$asset_arch\" in x86_64|amd64) asset_arch=x86_64 ;; arm64|aarch64) asset_arch=arm64 ;; *) asset_arch= ;; esac; ",
-            "if [ \"$asset_os\" = macOS ]; then asset_arch=universal; fi; ",
             "if [ -z \"$asset_os\" ] || [ -z \"$asset_arch\" ]; then return 1; fi; ",
             "api_url=https://api.github.com/repos/{release_repo}/releases/tags/{release_tag}; ",
             "asset_pattern=\"cc-switch-cli-.*-${{asset_os}}-${{asset_arch}}$\"; ",
@@ -222,12 +229,24 @@ fn run_ssh_command(
         return Err(AppError::Message(if stderr.is_empty() {
             format!("Remote ssh command failed with status {}", output.status)
         } else {
-            stderr
+            normalize_remote_stderr(&stderr)
         }));
     }
 
     String::from_utf8(output.stdout)
         .map_err(|e| AppError::Message(format!("Remote helper returned invalid UTF-8: {e}")))
+}
+
+fn normalize_remote_stderr(stderr: &str) -> String {
+    if stderr.contains("libgdk-3.so.0")
+        || stderr.contains("libgtk-3.so.0")
+        || stderr.contains("libwebkit2gtk")
+        || stderr.contains("libayatana-appindicator")
+    {
+        "远程 Helper 不是纯 CLI 构建，依赖服务器上不存在的桌面 GTK/WebKit 库。请重新安装最新的远程 Helper。".to_string()
+    } else {
+        stderr.to_string()
+    }
 }
 
 fn parse_helper_json<T: DeserializeOwned>(stdout: &str) -> Result<T, AppError> {
