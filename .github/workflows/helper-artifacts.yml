@@ -117,4 +117,12 @@ jobs:
               --notes "Latest remote helper binaries for branch testing." \
               --prerelease
           fi
+          gh release view "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json assets \
+            --jq '.assets[].name' |
+            grep '^cc-switch-cli-' |
+            while read -r asset; do
+              gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" -y
+            done
           gh release upload "$TAG" helper-release/* --clobber --repo "$GITHUB_REPOSITORY"

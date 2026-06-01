@@ -31,7 +31,7 @@ DOWNLOAD_URL="$(
     grep -E '"browser_download_url":' |
     sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/' |
     grep -E "$ASSET_NAME_PATTERN" |
-    head -1
+    tail -1
 )"
 
 if [ -z "$DOWNLOAD_URL" ]; then

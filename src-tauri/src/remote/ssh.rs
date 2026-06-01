@@ -167,7 +167,7 @@ pub fn build_helper_install_args_with_source(
             "if [ -z \"$asset_os\" ] || [ -z \"$asset_arch\" ]; then return 1; fi; ",
             "api_url=https://api.github.com/repos/{release_repo}/releases/tags/{release_tag}; ",
             "asset_pattern=\"cc-switch-cli-.*-${{asset_os}}-${{asset_arch}}$\"; ",
-            "download_url=$(fetch_url_to_stdout \"$api_url\" | grep -E '\"browser_download_url\":' | sed -E 's/.*\"browser_download_url\": \"([^\"]+)\".*/\\1/' | grep -E \"$asset_pattern\" | head -1 || true); ",
+            "download_url=$(fetch_url_to_stdout \"$api_url\" | grep -E '\"browser_download_url\":' | sed -E 's/.*\"browser_download_url\": \"([^\"]+)\".*/\\1/' | grep -E \"$asset_pattern\" | tail -1 || true); ",
             "if [ -z \"$download_url\" ]; then return 1; fi; ",
             "helper_tmp=$(mktemp); ",
             "fetch_url_to_file \"$download_url\" \"$helper_tmp\" 1>&2; ",
