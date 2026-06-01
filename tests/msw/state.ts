@@ -1,5 +1,7 @@
 import type { AppId } from "@/lib/api/types";
 import type {
+  HermesMemoryKind,
+  HermesMemoryLimits,
   McpServer,
   OpenClawDefaultModel,
   Provider,
@@ -104,6 +106,7 @@ let settingsState: Settings = {
 let appConfigDirOverride: string | null = null;
 let remoteProfilesState: RemoteHostProfile[] = [];
 let lastRemoteSaveSecretState: { password?: string } | null = null;
+let remoteProviderStateError: string | null = null;
 let remoteOpenClawDefaultModelState: OpenClawDefaultModel | null = null;
 const sessionMessageKey = (providerId: string, sourcePath: string) =>
   `${providerId}:${sourcePath}`;
@@ -155,6 +158,18 @@ const createDefaultSessionMessages = (): Record<string, SessionMessage[]> => ({
 
 let sessionsState = createDefaultSessions();
 let sessionMessagesState = createDefaultSessionMessages();
+let remoteSessionsState: SessionMeta[] = [];
+let remoteSessionMessagesState: Record<string, SessionMessage[]> = {};
+let remoteHermesMemoryState: Record<HermesMemoryKind, string> = {
+  memory: "",
+  user: "",
+};
+let remoteHermesMemoryLimitsState: HermesMemoryLimits = {
+  memory: 2200,
+  user: 1375,
+  memoryEnabled: true,
+  userEnabled: true,
+};
 let mcpConfigs: McpConfigState = {
   claude: {
     sample: {
@@ -214,6 +229,18 @@ export const resetProviderState = () => {
   };
   sessionsState = createDefaultSessions();
   sessionMessagesState = createDefaultSessionMessages();
+  remoteSessionsState = [];
+  remoteSessionMessagesState = {};
+  remoteHermesMemoryState = {
+    memory: "",
+    user: "",
+  };
+  remoteHermesMemoryLimitsState = {
+    memory: 2200,
+    user: 1375,
+    memoryEnabled: true,
+    userEnabled: true,
+  };
   settingsState = {
     showInTray: true,
     minimizeToTrayOnClose: true,
@@ -225,6 +252,7 @@ export const resetProviderState = () => {
   appConfigDirOverride = null;
   remoteProfilesState = [];
   lastRemoteSaveSecretState = null;
+  remoteProviderStateError = null;
   remoteOpenClawDefaultModelState = null;
   mcpConfigs = {
     claude: {
@@ -363,6 +391,12 @@ export const setLastRemoteSaveSecret = (
 export const getLastRemoteSaveSecret = () =>
   lastRemoteSaveSecretState ? deepClone(lastRemoteSaveSecretState) : null;
 
+export const getRemoteProviderStateError = () => remoteProviderStateError;
+
+export const setRemoteProviderStateError = (error: string | null) => {
+  remoteProviderStateError = error;
+};
+
 export const getRemoteOpenClawDefaultModel = () =>
   remoteOpenClawDefaultModelState
     ? (deepClone(remoteOpenClawDefaultModelState) as OpenClawDefaultModel)
@@ -436,9 +470,20 @@ export const deleteMcpServer = (appType: AppId, id: string) => {
 
 export const listSessions = () => deepClone(sessionsState) as SessionMeta[];
 
+export const listRemoteSessions = () =>
+  deepClone(remoteSessionsState) as SessionMeta[];
+
 export const getSessionMessages = (providerId: string, sourcePath: string) =>
   deepClone(
     sessionMessagesState[sessionMessageKey(providerId, sourcePath)] ?? [],
+  ) as SessionMessage[];
+
+export const getRemoteSessionMessages = (
+  providerId: string,
+  sourcePath: string,
+) =>
+  deepClone(
+    remoteSessionMessagesState[sessionMessageKey(providerId, sourcePath)] ?? [],
   ) as SessionMessage[];
 
 export const deleteSession = (
@@ -458,6 +503,23 @@ export const deleteSession = (
   return true;
 };
 
+export const deleteRemoteSession = (
+  providerId: string,
+  sessionId: string,
+  sourcePath: string,
+) => {
+  remoteSessionsState = remoteSessionsState.filter(
+    (session) =>
+      !(
+        session.providerId === providerId &&
+        session.sessionId === sessionId &&
+        session.sourcePath === sourcePath
+      ),
+  );
+  delete remoteSessionMessagesState[sessionMessageKey(providerId, sourcePath)];
+  return true;
+};
+
 export const setSessionFixtures = (
   sessions: SessionMeta[],
   messages: Record<string, SessionMessage[]>,
@@ -467,4 +529,52 @@ export const setSessionFixtures = (
     string,
     SessionMessage[]
   >;
+};
+
+export const setRemoteSessionFixtures = (
+  sessions: SessionMeta[],
+  messages: Record<string, SessionMessage[]>,
+) => {
+  remoteSessionsState = deepClone(sessions) as SessionMeta[];
+  remoteSessionMessagesState = deepClone(messages) as Record<
+    string,
+    SessionMessage[]
+  >;
+};
+
+export const getRemoteHermesMemory = (kind: HermesMemoryKind) =>
+  remoteHermesMemoryState[kind] ?? "";
+
+export const setRemoteHermesMemory = (
+  kind: HermesMemoryKind,
+  content: string,
+) => {
+  remoteHermesMemoryState[kind] = content;
+};
+
+export const getRemoteHermesMemoryLimits = () =>
+  deepClone(remoteHermesMemoryLimitsState) as HermesMemoryLimits;
+
+export const setRemoteHermesMemoryEnabled = (
+  kind: HermesMemoryKind,
+  enabled: boolean,
+) => {
+  remoteHermesMemoryLimitsState =
+    kind === "memory"
+      ? { ...remoteHermesMemoryLimitsState, memoryEnabled: enabled }
+      : { ...remoteHermesMemoryLimitsState, userEnabled: enabled };
+};
+
+export const setRemoteHermesMemoryFixtures = (
+  memory: Partial<Record<HermesMemoryKind, string>>,
+  limits?: Partial<HermesMemoryLimits>,
+) => {
+  remoteHermesMemoryState = {
+    memory: memory.memory ?? remoteHermesMemoryState.memory,
+    user: memory.user ?? remoteHermesMemoryState.user,
+  };
+  remoteHermesMemoryLimitsState = {
+    ...remoteHermesMemoryLimitsState,
+    ...limits,
+  };
 };

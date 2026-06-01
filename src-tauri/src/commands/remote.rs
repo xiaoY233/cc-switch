@@ -12,6 +12,7 @@ use crate::services::skill::{
     SkillUpdateInfo,
 };
 use crate::services::{ProviderSortUpdate, SwitchResult};
+use crate::session_manager;
 use indexmap::IndexMap;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -197,6 +198,8 @@ fn parse_remote_capability(value: &str) -> Option<RemoteCapability> {
         "mcp" => Some(RemoteCapability::Mcp),
         "prompts" => Some(RemoteCapability::Prompts),
         "skills" => Some(RemoteCapability::Skills),
+        "sessions" => Some(RemoteCapability::Sessions),
+        "hermes-memory" => Some(RemoteCapability::HermesMemory),
         "import-export" => Some(RemoteCapability::ImportExport),
         _ => None,
     }
@@ -369,6 +372,166 @@ pub fn remote_update_providers_sort_order(
             "sort".to_string(),
             app,
             updates_json,
+        ],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_list_sessions(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Vec<session_manager::SessionMeta>, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &["sessions".to_string(), "list".to_string()],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_get_session_messages(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] providerId: String,
+    #[allow(non_snake_case)] sourcePath: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Vec<session_manager::SessionMessage>, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &[
+            "sessions".to_string(),
+            "messages".to_string(),
+            providerId,
+            sourcePath,
+        ],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_delete_session(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] providerId: String,
+    #[allow(non_snake_case)] sessionId: String,
+    #[allow(non_snake_case)] sourcePath: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &[
+            "sessions".to_string(),
+            "delete".to_string(),
+            providerId,
+            sessionId,
+            sourcePath,
+        ],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_delete_sessions(
+    profile: RemoteHostProfile,
+    items: Vec<session_manager::DeleteSessionRequest>,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Vec<session_manager::DeleteSessionOutcome>, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    let items_json = serde_json::to_string(&items).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &[
+            "sessions".to_string(),
+            "delete-many".to_string(),
+            items_json,
+        ],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_get_hermes_memory(
+    profile: RemoteHostProfile,
+    kind: crate::hermes_config::MemoryKind,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<String, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &[
+            "hermes".to_string(),
+            "memory".to_string(),
+            "get".to_string(),
+            kind.as_arg().to_string(),
+        ],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_set_hermes_memory(
+    profile: RemoteHostProfile,
+    kind: crate::hermes_config::MemoryKind,
+    content: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<(), String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &[
+            "hermes".to_string(),
+            "memory".to_string(),
+            "set".to_string(),
+            kind.as_arg().to_string(),
+            content,
+        ],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_get_hermes_memory_limits(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<crate::hermes_config::HermesMemoryLimits, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &[
+            "hermes".to_string(),
+            "memory".to_string(),
+            "limits".to_string(),
+        ],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_set_hermes_memory_enabled(
+    profile: RemoteHostProfile,
+    kind: crate::hermes_config::MemoryKind,
+    enabled: bool,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<crate::hermes_config::HermesWriteOutcome, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &[
+            "hermes".to_string(),
+            "memory".to_string(),
+            "enabled".to_string(),
+            kind.as_arg().to_string(),
+            enabled.to_string(),
         ],
         secret.as_ref(),
     )

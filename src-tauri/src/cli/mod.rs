@@ -146,6 +146,99 @@ fn run_normalized(args: &[String]) -> Value {
                     .expect("serialize invalid app error"),
             }
         }
+        [group, cmd] if group == "sessions" && cmd == "list" => match commands::list_sessions() {
+            Ok(value) => serde_json::to_value(types::ok(value)).expect("serialize sessions"),
+            Err(message) => serde_json::to_value(types::err::<()>("sessions_list_failed", message))
+                .expect("serialize sessions error"),
+        },
+        [group, cmd, provider_id, source_path] if group == "sessions" && cmd == "messages" => {
+            match commands::session_messages(provider_id, source_path) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize session messages")
+                }
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "sessions_messages_failed",
+                    message,
+                ))
+                .expect("serialize session messages error"),
+            }
+        }
+        [group, cmd, provider_id, session_id, source_path]
+            if group == "sessions" && cmd == "delete" =>
+        {
+            match commands::delete_session(provider_id, session_id, source_path) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize session delete")
+                }
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "sessions_delete_failed",
+                    message,
+                ))
+                .expect("serialize session delete error"),
+            }
+        }
+        [group, cmd, items_json] if group == "sessions" && cmd == "delete-many" => {
+            match commands::delete_sessions(items_json) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize session delete many")
+                }
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "sessions_delete_many_failed",
+                    message,
+                ))
+                .expect("serialize session delete many error"),
+            }
+        }
+        [group, scope, cmd, kind] if group == "hermes" && scope == "memory" && cmd == "get" => {
+            match commands::get_hermes_memory(kind) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize hermes memory")
+                }
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "hermes_memory_get_failed",
+                    message,
+                ))
+                .expect("serialize hermes memory error"),
+            }
+        }
+        [group, scope, cmd, kind, content]
+            if group == "hermes" && scope == "memory" && cmd == "set" =>
+        {
+            match commands::set_hermes_memory(kind, content) {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize hermes memory write"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "hermes_memory_set_failed",
+                    message,
+                ))
+                .expect("serialize hermes memory write error"),
+            }
+        }
+        [group, scope, cmd] if group == "hermes" && scope == "memory" && cmd == "limits" => {
+            match commands::get_hermes_memory_limits() {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize hermes memory limits"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "hermes_memory_limits_failed",
+                    message,
+                ))
+                .expect("serialize hermes memory limits error"),
+            }
+        }
+        [group, scope, cmd, kind, enabled]
+            if group == "hermes" && scope == "memory" && cmd == "enabled" =>
+        {
+            let enabled = enabled == "true";
+            match commands::set_hermes_memory_enabled(kind, enabled) {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize hermes memory enabled"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "hermes_memory_enabled_failed",
+                    message,
+                ))
+                .expect("serialize hermes memory enabled error"),
+            }
+        }
         [group, cmd] if group == "openclaw" && cmd == "get-default-model" => {
             match commands::get_openclaw_default_model() {
                 Ok(value) => serde_json::to_value(types::ok(value))
@@ -530,7 +623,7 @@ fn run_normalized(args: &[String]) -> Value {
         }
         _ => serde_json::to_value(types::err::<()>(
             "unsupported_command",
-            "Supported commands: status, providers, openclaw, mcp, prompts, skills, import-export",
+            "Supported commands: status, providers, sessions, hermes, openclaw, mcp, prompts, skills, import-export",
         ))
         .expect("serialize error response"),
     }

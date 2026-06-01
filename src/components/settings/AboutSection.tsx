@@ -48,6 +48,9 @@ interface AboutSectionProps {
   isPortable: boolean;
 }
 
+const APP_RELEASES_URL = "https://github.com/xiaoY233/cc-switch/releases";
+const APP_REPOSITORY_URL = "https://github.com/xiaoY233/cc-switch";
+
 interface ToolVersion {
   name: string;
   version: string | null;
@@ -376,14 +379,12 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
           : "";
 
       if (!displayVersion) {
-        await settingsApi.openExternal(
-          "https://github.com/farion1231/cc-switch/releases",
-        );
+        await settingsApi.openExternal(APP_RELEASES_URL);
         return;
       }
 
       await settingsApi.openExternal(
-        `https://github.com/farion1231/cc-switch/releases/tag/${displayVersion}`,
+        `${APP_RELEASES_URL}/tag/${displayVersion}`,
       );
     } catch (error) {
       console.error("[AboutSection] Failed to open release notes", error);
@@ -810,11 +811,7 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() =>
-                settingsApi.openExternal(
-                  "https://github.com/farion1231/cc-switch",
-                )
-              }
+              onClick={() => settingsApi.openExternal(APP_REPOSITORY_URL)}
               className="h-8 gap-1.5 text-xs"
             >
               <Github className="h-3.5 w-3.5" />

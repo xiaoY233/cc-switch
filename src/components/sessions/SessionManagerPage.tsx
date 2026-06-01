@@ -21,7 +21,7 @@ import {
   useSessionMessagesQuery,
   useSessionsQuery,
 } from "@/lib/query";
-import { sessionsApi } from "@/lib/api";
+import { sessionsApi, type ManagementTarget } from "@/lib/api";
 import type { SessionMeta } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,10 +65,20 @@ type ProviderFilter =
   | "gemini"
   | "hermes";
 
-export function SessionManagerPage({ appId }: { appId: string }) {
+export function SessionManagerPage({
+  appId,
+  target = { type: "local" },
+}: {
+  appId: string;
+  target?: ManagementTarget;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { data, isLoading, refetch } = useSessionsQuery();
+  const { data, isLoading, refetch } = useSessionsQuery(target);
+  const isRemoteTarget = target.type === "remote";
+  const targetKey =
+    target.type === "remote" ? `remote:${target.profile.id}` : "local";
+  const sessionsQueryKey = ["sessions", targetKey] as const;
   const sessions = data ?? [];
   const detailRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -131,8 +141,9 @@ export function SessionManagerPage({ appId }: { appId: string }) {
     useSessionMessagesQuery(
       selectedSession?.providerId,
       selectedSession?.sourcePath,
+      target,
     );
-  const deleteSessionMutation = useDeleteSessionMutation();
+  const deleteSessionMutation = useDeleteSessionMutation(target);
   const isDeleting = deleteSessionMutation.isPending || isBatchDeleting;
 
   const virtualizer = useVirtualizer({
@@ -271,6 +282,7 @@ export function SessionManagerPage({ appId }: { appId: string }) {
           sessionId: session.sessionId,
           sourcePath: session.sourcePath!,
         })),
+        target,
       );
 
       const deletedKeys = results
@@ -286,7 +298,7 @@ export function SessionManagerPage({ appId }: { appId: string }) {
 
       if (deletedKeys.length > 0) {
         const deletedKeySet = new Set(deletedKeys);
-        queryClient.setQueryData<SessionMeta[]>(["sessions"], (current) =>
+        queryClient.setQueryData<SessionMeta[]>(sessionsQueryKey, (current) =>
           (current ?? []).filter(
             (session) => !deletedKeySet.has(getSessionKey(session)),
           ),
@@ -297,7 +309,12 @@ export function SessionManagerPage({ appId }: { appId: string }) {
         .filter((result) => result.success)
         .forEach((result) => {
           queryClient.removeQueries({
-            queryKey: ["sessionMessages", result.providerId, result.sourcePath],
+            queryKey: [
+              "sessionMessages",
+              targetKey,
+              result.providerId,
+              result.sourcePath,
+            ],
           });
         });
 
@@ -307,7 +324,7 @@ export function SessionManagerPage({ appId }: { appId: string }) {
         return next;
       });
 
-      await queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      await queryClient.invalidateQueries({ queryKey: sessionsQueryKey });
 
       if (deletedKeys.length > 0) {
         toast.success(
@@ -889,7 +906,7 @@ export function SessionManagerPage({ appId }: { appId: string }) {
 
                       {/* 右侧：操作按钮组 */}
                       <div className="flex items-center gap-2 shrink-0">
-                        {isMac() && (
+                        {!isRemoteTarget && isMac() && (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -952,7 +969,7 @@ export function SessionManagerPage({ appId }: { appId: string }) {
                     </div>
 
                     {/* 恢复命令预览 */}
-                    {selectedSession.resumeCommand && (
+                    {!isRemoteTarget && selectedSession.resumeCommand && (
                       <div className="mt-3 flex items-center gap-2">
                         <div className="flex-1 rounded-md bg-muted/60 px-3 py-1.5 font-mono text-xs text-muted-foreground truncate">
                           {selectedSession.resumeCommand}

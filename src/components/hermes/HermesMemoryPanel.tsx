@@ -14,6 +14,11 @@ import {
   useToggleHermesMemoryEnabled,
 } from "@/hooks/useHermes";
 import { useDarkMode } from "@/hooks/useDarkMode";
+import {
+  getManagementTargetKey,
+  LOCAL_MANAGEMENT_TARGET,
+} from "@/lib/managementTarget";
+import type { ManagementTarget } from "@/lib/api";
 import type { HermesMemoryKind } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -21,18 +26,21 @@ interface MemoryTabPaneProps {
   kind: HermesMemoryKind;
   limit: number;
   enabled: boolean;
+  target: ManagementTarget;
 }
 
 const MemoryTabPane: React.FC<MemoryTabPaneProps> = ({
   kind,
   limit,
   enabled,
+  target,
 }) => {
   const { t } = useTranslation();
   const darkMode = useDarkMode();
-  const { data, isLoading } = useHermesMemory(kind, true);
-  const saveMutation = useSaveHermesMemory();
-  const toggleMutation = useToggleHermesMemoryEnabled();
+  const targetKey = getManagementTargetKey(target);
+  const { data, isLoading } = useHermesMemory(kind, true, target);
+  const saveMutation = useSaveHermesMemory(target);
+  const toggleMutation = useToggleHermesMemoryEnabled(target);
   const [content, setContent] = useState("");
   const [loaded, setLoaded] = useState(false);
 
@@ -45,6 +53,11 @@ const MemoryTabPane: React.FC<MemoryTabPaneProps> = ({
       setLoaded(true);
     }
   }, [data, loaded]);
+
+  useEffect(() => {
+    setContent("");
+    setLoaded(false);
+  }, [kind, targetKey]);
 
   const handleSave = async () => {
     try {
@@ -126,11 +139,19 @@ const MemoryTabPane: React.FC<MemoryTabPaneProps> = ({
   );
 };
 
-const HermesMemoryPanel: React.FC = () => {
+interface HermesMemoryPanelProps {
+  target?: ManagementTarget;
+}
+
+const HermesMemoryPanel: React.FC<HermesMemoryPanelProps> = ({
+  target = LOCAL_MANAGEMENT_TARGET,
+}) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<HermesMemoryKind>("memory");
   const openHermesWebUI = useOpenHermesWebUI();
-  const { data: limits } = useHermesMemoryLimits(true);
+  const isRemoteTarget = target.type === "remote";
+  const targetKey = getManagementTargetKey(target);
+  const { data: limits } = useHermesMemoryLimits(true, target);
 
   const memoryLimit = limits?.memory ?? 2200;
   const userLimit = limits?.user ?? 1375;
@@ -151,25 +172,35 @@ const HermesMemoryPanel: React.FC = () => {
             </TabsTrigger>
             <TabsTrigger value="user">{t("hermes.memory.userTab")}</TabsTrigger>
           </TabsList>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void openHermesWebUI("/config")}
-          >
-            <ExternalLink className="w-3.5 h-3.5 mr-1" />
-            {t("hermes.memory.openConfig")}
-          </Button>
+          {!isRemoteTarget && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void openHermesWebUI("/config")}
+            >
+              <ExternalLink className="w-3.5 h-3.5 mr-1" />
+              {t("hermes.memory.openConfig")}
+            </Button>
+          )}
         </div>
 
         <TabsContent value="memory" className="flex-1 px-6 pb-4 mt-4">
           <MemoryTabPane
+            key={`${targetKey}:memory`}
             kind="memory"
             limit={memoryLimit}
             enabled={memoryEnabled}
+            target={target}
           />
         </TabsContent>
         <TabsContent value="user" className="flex-1 px-6 pb-4 mt-4">
-          <MemoryTabPane kind="user" limit={userLimit} enabled={userEnabled} />
+          <MemoryTabPane
+            key={`${targetKey}:user`}
+            kind="user"
+            limit={userLimit}
+            enabled={userEnabled}
+            target={target}
+          />
         </TabsContent>
       </Tabs>
     </div>

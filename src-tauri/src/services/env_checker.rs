@@ -81,21 +81,8 @@ fn check_system_env(keywords: &[&str]) -> Result<Vec<EnvConflict>, String> {
 
 #[cfg(not(target_os = "windows"))]
 fn check_system_env(keywords: &[&str]) -> Result<Vec<EnvConflict>, String> {
-    let mut conflicts = Vec::new();
-
-    // Check current process environment
-    for (key, value) in std::env::vars() {
-        if keywords.iter().any(|k| key.to_uppercase().contains(k)) {
-            conflicts.push(EnvConflict {
-                var_name: key,
-                var_value: value,
-                source_type: "system".to_string(),
-                source_path: "Process Environment".to_string(),
-            });
-        }
-    }
-
-    Ok(conflicts)
+    let _ = keywords;
+    Ok(Vec::new())
 }
 
 /// Check shell configuration files for environment variable exports (Unix only)
@@ -164,5 +151,18 @@ mod tests {
             vec!["GEMINI", "GOOGLE_GEMINI"]
         );
         assert_eq!(get_keywords_for_app("unknown"), Vec::<&str>::new());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn process_env_is_not_reported_as_system_conflict_on_unix() {
+        std::env::set_var("ANTHROPIC_CCSWITCH_TEST_TRANSIENT", "test-value");
+        let conflicts = check_system_env(&["ANTHROPIC"]).unwrap();
+        std::env::remove_var("ANTHROPIC_CCSWITCH_TEST_TRANSIENT");
+
+        assert!(
+            conflicts.is_empty(),
+            "current process env is transient on Unix and should not be reported as a persistent system conflict"
+        );
     }
 }

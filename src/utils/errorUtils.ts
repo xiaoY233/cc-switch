@@ -37,6 +37,15 @@ export const extractErrorMessage = (error: unknown): string => {
   return "";
 };
 
+export const isRemotePasswordRequiredError = (error: unknown): boolean => {
+  const message = extractErrorMessage(error);
+  return (
+    message.includes("Remote SSH password is required") ||
+    message.includes("远程 SSH 密码") ||
+    message.includes("需要远程密码")
+  );
+};
+
 /**
  * 将已知的 MCP 相关后端错误（通常为中文硬编码）映射为 i18n 文案
  * 采用包含式匹配，尽量稳健地覆盖不同上下文的相似消息。

@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  HermesMemoryKind,
+  HermesMemoryLimits,
   McpServer,
   McpServersMap,
   OpenClawAgentsDefaults,
@@ -8,6 +10,8 @@ import type {
   OpenClawToolsConfig,
   OpenClawWriteOutcome,
   Provider,
+  SessionMessage,
+  SessionMeta,
 } from "@/types";
 import type { AppId } from "./types";
 import type { ProviderSortUpdate, SwitchResult } from "./providers";
@@ -56,6 +60,17 @@ export interface RemoteHealth {
 export interface RemoteProviderState {
   providers: Record<string, Provider>;
   currentProviderId: string;
+}
+
+export interface RemoteDeleteSessionOptions {
+  providerId: string;
+  sessionId: string;
+  sourcePath: string;
+}
+
+export interface RemoteDeleteSessionResult extends RemoteDeleteSessionOptions {
+  success: boolean;
+  error?: string;
 }
 
 export type ManagementTarget =
@@ -379,6 +394,107 @@ export const remoteApi = {
       profile,
       app,
       updates,
+      secret,
+    });
+  },
+
+  listSessions(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<SessionMeta[]> {
+    return invoke<SessionMeta[]>("remote_list_sessions", {
+      profile,
+      secret,
+    });
+  },
+
+  getSessionMessages(
+    profile: RemoteHostProfile,
+    providerId: string,
+    sourcePath: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<SessionMessage[]> {
+    return invoke<SessionMessage[]>("remote_get_session_messages", {
+      profile,
+      providerId,
+      sourcePath,
+      secret,
+    });
+  },
+
+  deleteSession(
+    profile: RemoteHostProfile,
+    options: RemoteDeleteSessionOptions,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    const { providerId, sessionId, sourcePath } = options;
+    return invoke<boolean>("remote_delete_session", {
+      profile,
+      providerId,
+      sessionId,
+      sourcePath,
+      secret,
+    });
+  },
+
+  deleteSessions(
+    profile: RemoteHostProfile,
+    items: RemoteDeleteSessionOptions[],
+    secret?: RemoteConnectionSecret,
+  ): Promise<RemoteDeleteSessionResult[]> {
+    return invoke<RemoteDeleteSessionResult[]>("remote_delete_sessions", {
+      profile,
+      items,
+      secret,
+    });
+  },
+
+  getHermesMemory(
+    profile: RemoteHostProfile,
+    kind: HermesMemoryKind,
+    secret?: RemoteConnectionSecret,
+  ): Promise<string> {
+    return invoke<string>("remote_get_hermes_memory", {
+      profile,
+      kind,
+      secret,
+    });
+  },
+
+  setHermesMemory(
+    profile: RemoteHostProfile,
+    kind: HermesMemoryKind,
+    content: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_set_hermes_memory", {
+      profile,
+      kind,
+      content,
+      secret,
+    });
+  },
+
+  getHermesMemoryLimits(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<HermesMemoryLimits> {
+    return invoke<HermesMemoryLimits>("remote_get_hermes_memory_limits", {
+      profile,
+      secret,
+    });
+  },
+
+  setHermesMemoryEnabled(
+    profile: RemoteHostProfile,
+    kind: HermesMemoryKind,
+    enabled: boolean,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_set_hermes_memory_enabled", {
+      profile,
+      kind,
+      enabled,
       secret,
     });
   },

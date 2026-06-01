@@ -9,7 +9,12 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { hermesApi } from "@/lib/api/hermes";
 import { providersApi } from "@/lib/api/providers";
+import {
+  getManagementTargetKey,
+  LOCAL_MANAGEMENT_TARGET,
+} from "@/lib/managementTarget";
 import type { HermesMemoryKind } from "@/types";
+import type { ManagementTarget } from "@/lib/api";
 import { extractErrorMessage } from "@/utils/errorUtils";
 
 /**
@@ -27,8 +32,10 @@ export const hermesKeys = {
   all: ["hermes"] as const,
   liveProviderIds: ["hermes", "liveProviderIds"] as const,
   modelConfig: ["hermes", "modelConfig"] as const,
-  memory: (kind: HermesMemoryKind) => ["hermes", "memory", kind] as const,
-  memoryLimits: ["hermes", "memoryLimits"] as const,
+  memory: (kind: HermesMemoryKind, targetKey = "local") =>
+    ["hermes", "memory", targetKey, kind] as const,
+  memoryLimits: (targetKey = "local") =>
+    ["hermes", "memoryLimits", targetKey] as const,
 };
 
 /**
@@ -63,18 +70,27 @@ export function useHermesModelConfig(enabled: boolean) {
   });
 }
 
-export function useHermesMemory(kind: HermesMemoryKind, enabled: boolean) {
+export function useHermesMemory(
+  kind: HermesMemoryKind,
+  enabled: boolean,
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
+  const targetKey = getManagementTargetKey(target);
   return useQuery({
-    queryKey: hermesKeys.memory(kind),
-    queryFn: () => hermesApi.getMemory(kind),
+    queryKey: hermesKeys.memory(kind, targetKey),
+    queryFn: () => hermesApi.getMemory(kind, target),
     enabled,
   });
 }
 
-export function useHermesMemoryLimits(enabled: boolean) {
+export function useHermesMemoryLimits(
+  enabled: boolean,
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
+  const targetKey = getManagementTargetKey(target);
   return useQuery({
-    queryKey: hermesKeys.memoryLimits,
-    queryFn: () => hermesApi.getMemoryLimits(),
+    queryKey: hermesKeys.memoryLimits(targetKey),
+    queryFn: () => hermesApi.getMemoryLimits(target),
     staleTime: 60_000,
     enabled,
   });
@@ -90,9 +106,12 @@ export function useHermesMemoryLimits(enabled: boolean) {
  * try/catch; success toasts are intentionally left to the caller (to pick
  * the right localized message per tab).
  */
-export function useSaveHermesMemory() {
+export function useSaveHermesMemory(
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const targetKey = getManagementTargetKey(target);
   return useMutation({
     mutationFn: ({
       kind,
@@ -100,10 +119,10 @@ export function useSaveHermesMemory() {
     }: {
       kind: HermesMemoryKind;
       content: string;
-    }) => hermesApi.setMemory(kind, content),
+    }) => hermesApi.setMemory(kind, content, target),
     onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({
-        queryKey: hermesKeys.memory(variables.kind),
+        queryKey: hermesKeys.memory(variables.kind, targetKey),
       });
     },
     onError: (error) => {
@@ -118,9 +137,12 @@ export function useSaveHermesMemory() {
  * Toggle one memory blob's on/off flag in Hermes' `config.yaml`. Invalidates
  * the limits query so the switch UI and disabled banner update immediately.
  */
-export function useToggleHermesMemoryEnabled() {
+export function useToggleHermesMemoryEnabled(
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const targetKey = getManagementTargetKey(target);
   return useMutation({
     mutationFn: ({
       kind,
@@ -128,10 +150,10 @@ export function useToggleHermesMemoryEnabled() {
     }: {
       kind: HermesMemoryKind;
       enabled: boolean;
-    }) => hermesApi.setMemoryEnabled(kind, enabled),
+    }) => hermesApi.setMemoryEnabled(kind, enabled, target),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: hermesKeys.memoryLimits,
+        queryKey: hermesKeys.memoryLimits(targetKey),
       });
     },
     onError: (error) => {

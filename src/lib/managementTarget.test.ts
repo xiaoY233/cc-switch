@@ -37,7 +37,7 @@ describe("management target helpers", () => {
   it("keeps local-only views out of remote target navigation", () => {
     expect(isRemoteSafeView("providers")).toBe(true);
     expect(isRemoteSafeView("openclawEnv")).toBe(true);
+    expect(isRemoteSafeView("sessions")).toBe(true);
     expect(isRemoteSafeView("workspace")).toBe(false);
-    expect(isRemoteSafeView("sessions")).toBe(false);
   });
 });

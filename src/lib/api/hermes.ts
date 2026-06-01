@@ -4,6 +4,9 @@ import type {
   HermesMemoryLimits,
   HermesModelConfig,
 } from "@/types";
+import { remoteApi, type ManagementTarget } from "@/lib/api/remote";
+
+const LOCAL_TARGET: ManagementTarget = { type: "local" };
 
 /**
  * Hermes Agent configuration API (CC Switch side).
@@ -37,12 +40,31 @@ export const hermesApi = {
    * Read one of Hermes' memory blobs (`MEMORY.md` or `USER.md`). Returns an
    * empty string when the file hasn't been created yet.
    */
-  async getMemory(kind: HermesMemoryKind): Promise<string> {
+  async getMemory(
+    kind: HermesMemoryKind,
+    target: ManagementTarget = LOCAL_TARGET,
+  ): Promise<string> {
+    if (target.type === "remote") {
+      return remoteApi.getHermesMemory(target.profile, kind, target.secret);
+    }
     return await invoke("get_hermes_memory", { kind });
   },
 
   /** Atomically overwrite a Hermes memory file. */
-  async setMemory(kind: HermesMemoryKind, content: string): Promise<void> {
+  async setMemory(
+    kind: HermesMemoryKind,
+    content: string,
+    target: ManagementTarget = LOCAL_TARGET,
+  ): Promise<void> {
+    if (target.type === "remote") {
+      await remoteApi.setHermesMemory(
+        target.profile,
+        kind,
+        content,
+        target.secret,
+      );
+      return;
+    }
     await invoke("set_hermes_memory", { kind, content });
   },
 
@@ -50,7 +72,12 @@ export const hermesApi = {
    * Character budgets + enable flags for both memory blobs, read from
    * config.yaml with Hermes defaults as fallback.
    */
-  async getMemoryLimits(): Promise<HermesMemoryLimits> {
+  async getMemoryLimits(
+    target: ManagementTarget = LOCAL_TARGET,
+  ): Promise<HermesMemoryLimits> {
+    if (target.type === "remote") {
+      return remoteApi.getHermesMemoryLimits(target.profile, target.secret);
+    }
     return await invoke("get_hermes_memory_limits");
   },
 
@@ -61,7 +88,17 @@ export const hermesApi = {
   async setMemoryEnabled(
     kind: HermesMemoryKind,
     enabled: boolean,
+    target: ManagementTarget = LOCAL_TARGET,
   ): Promise<void> {
+    if (target.type === "remote") {
+      await remoteApi.setHermesMemoryEnabled(
+        target.profile,
+        kind,
+        enabled,
+        target.secret,
+      );
+      return;
+    }
     await invoke("set_hermes_memory_enabled", { kind, enabled });
   },
 };

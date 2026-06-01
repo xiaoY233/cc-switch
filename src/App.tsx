@@ -52,7 +52,10 @@ import { useAutoCompact } from "@/hooks/useAutoCompact";
 import { useUsageCacheBridge } from "@/hooks/useUsageCacheBridge";
 import { useTauriEvent } from "@/hooks/useTauriEvent";
 import { useLastValidValue } from "@/hooks/useLastValidValue";
-import { extractErrorMessage } from "@/utils/errorUtils";
+import {
+  extractErrorMessage,
+  isRemotePasswordRequiredError,
+} from "@/utils/errorUtils";
 import { isTextEditableTarget } from "@/utils/domUtils";
 import { deepClone } from "@/utils/deepClone";
 import { cn } from "@/lib/utils";
@@ -123,9 +126,11 @@ const TARGET_AWARE_VIEWS = new Set<View>([
   "skills",
   "skillsDiscovery",
   "mcp",
+  "sessions",
   "openclawEnv",
   "openclawTools",
   "openclawAgents",
+  "hermesMemory",
 ]);
 
 interface WebDavSyncStatusUpdatedPayload {
@@ -293,14 +298,6 @@ function App() {
       return;
     }
 
-    if (
-      profile.authMethod.type === "password" &&
-      !remoteSecrets[profile.id]?.password
-    ) {
-      setPasswordPromptProfile(profile);
-      return;
-    }
-
     setPasswordPromptProfile(null);
     setActiveTargetKey(targetKey);
   };
@@ -329,6 +326,7 @@ function App() {
     }));
     setPasswordPromptProfile(null);
     setActiveTargetKey(`remote:${profile.id}`);
+    await queryClient.invalidateQueries({ queryKey: ["providers"] });
   };
 
   const handleRemoteProfileSaved = (
@@ -427,6 +425,26 @@ function App() {
     isProxyRunning,
     target: managementTarget,
   });
+
+  useEffect(() => {
+    if (
+      !activeRemoteProfile ||
+      activeRemoteProfile.authMethod.type !== "password" ||
+      remoteSecrets[activeRemoteProfile.id]?.password ||
+      passwordPromptProfile?.id === activeRemoteProfile.id ||
+      !isRemotePasswordRequiredError(providerLoadError)
+    ) {
+      return;
+    }
+
+    setPasswordPromptProfile(activeRemoteProfile);
+  }, [
+    activeRemoteProfile,
+    passwordPromptProfile?.id,
+    providerLoadError,
+    remoteSecrets,
+  ]);
+
   const providers = useMemo(() => data?.providers ?? {}, [data]);
   const currentProviderId = data?.currentProviderId ?? "";
   const isOpenClawView =
@@ -449,6 +467,7 @@ function App() {
     sharedFeatureApp === "openclaw" ||
     sharedFeatureApp === "gemini" ||
     sharedFeatureApp === "hermes";
+  const canOpenSessions = hasSessionSupport;
 
   const {
     addProvider,
@@ -1035,7 +1054,7 @@ function App() {
             />
           );
         case "hermesMemory":
-          return <HermesMemoryPanel />;
+          return <HermesMemoryPanel target={managementTarget} />;
         case "remoteServers":
           return (
             <RemoteServersPage
@@ -1097,6 +1116,7 @@ function App() {
             <SessionManagerPage
               key={sharedFeatureApp}
               appId={sharedFeatureApp}
+              target={managementTarget}
             />
           );
         case "workspace":
@@ -1613,15 +1633,19 @@ function App() {
                               >
                                 <Brain className="w-4 h-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => void openHermesWebUI()}
-                                className="text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 w-8 px-2"
-                                title={t("hermes.webui.open")}
-                              >
-                                <LayoutDashboard className="w-4 h-4" />
-                              </Button>
+                              {!isRemoteTarget && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => void openHermesWebUI()}
+                                    className="text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 w-8 px-2"
+                                    title={t("hermes.webui.open")}
+                                  >
+                                    <LayoutDashboard className="w-4 h-4" />
+                                  </Button>
+                                </>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1672,7 +1696,7 @@ function App() {
                               >
                                 <Cpu className="w-4 h-4" />
                               </Button>
-                              {!isRemoteTarget && (
+                              {canOpenSessions && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -1710,21 +1734,23 @@ function App() {
                               >
                                 <Book className="w-4 h-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setCurrentView("sessions")}
-                                className={cn(
-                                  "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5",
-                                  "transition-all duration-200 ease-in-out overflow-hidden",
-                                  hasSessionSupport
-                                    ? "opacity-100 w-8 scale-100 px-2"
-                                    : "opacity-0 w-0 scale-75 pointer-events-none px-0 -ml-1",
-                                )}
-                                title={t("sessionManager.title")}
-                              >
-                                <History className="flex-shrink-0 w-4 h-4" />
-                              </Button>
+                              {canOpenSessions && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setCurrentView("sessions")}
+                                  className={cn(
+                                    "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5",
+                                    "transition-all duration-200 ease-in-out overflow-hidden",
+                                    hasSessionSupport
+                                      ? "opacity-100 w-8 scale-100 px-2"
+                                      : "opacity-0 w-0 scale-75 pointer-events-none px-0 -ml-1",
+                                  )}
+                                  title={t("sessionManager.title")}
+                                >
+                                  <History className="flex-shrink-0 w-4 h-4" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"

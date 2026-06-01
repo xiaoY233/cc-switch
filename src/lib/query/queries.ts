@@ -19,6 +19,10 @@ import type {
   SessionMessage,
 } from "@/types";
 import { usageKeys } from "@/lib/query/usage";
+import { isRemotePasswordRequiredError } from "@/utils/errorUtils";
+
+const targetKey = (target: ManagementTarget) =>
+  target.type === "remote" ? `remote:${target.profile.id}` : "local";
 
 const sortProviders = (
   providers: Record<string, Provider>,
@@ -104,15 +108,20 @@ export const useProvidersQuery = (
   options?: UseProvidersQueryOptions,
 ): UseQueryResult<ProvidersQueryData> => {
   const { isProxyRunning = false, target = { type: "local" } } = options || {};
-  const targetKey =
-    target.type === "remote" ? `remote:${target.profile.id}` : "local";
+  const key = targetKey(target);
 
   return useQuery({
-    queryKey: ["providers", appId, targetKey],
+    queryKey: ["providers", appId, key],
     placeholderData: keepPreviousData,
     // 当代理服务运行时，每 10 秒刷新一次供应商列表
     // 这样可以自动反映后端熔断器自动禁用代理目标的变更
     refetchInterval: isProxyRunning ? 10000 : false,
+    retry: (failureCount, error) => {
+      if (target.type === "remote" && isRemotePasswordRequiredError(error)) {
+        return false;
+      }
+      return failureCount < 1;
+    },
     queryFn: async () => {
       return loadProvidersQueryData(appId, target);
     },
@@ -166,10 +175,12 @@ export const useUsageQuery = (
   };
 };
 
-export const useSessionsQuery = () => {
+export const useSessionsQuery = (
+  target: ManagementTarget = { type: "local" },
+) => {
   return useQuery<SessionMeta[]>({
-    queryKey: ["sessions"],
-    queryFn: async () => sessionsApi.list(),
+    queryKey: ["sessions", targetKey(target)],
+    queryFn: async () => sessionsApi.list(target),
     staleTime: 30 * 1000,
   });
 };
@@ -177,10 +188,12 @@ export const useSessionsQuery = () => {
 export const useSessionMessagesQuery = (
   providerId?: string,
   sourcePath?: string,
+  target: ManagementTarget = { type: "local" },
 ) => {
   return useQuery<SessionMessage[]>({
-    queryKey: ["sessionMessages", providerId, sourcePath],
-    queryFn: async () => sessionsApi.getMessages(providerId!, sourcePath!),
+    queryKey: ["sessionMessages", targetKey(target), providerId, sourcePath],
+    queryFn: async () =>
+      sessionsApi.getMessages(providerId!, sourcePath!, target),
     enabled: Boolean(providerId && sourcePath),
     staleTime: 30 * 1000,
   });

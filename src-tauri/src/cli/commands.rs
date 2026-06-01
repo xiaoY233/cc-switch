@@ -34,9 +34,64 @@ pub fn status_payload() -> StatusPayload {
             "mcp".to_string(),
             "prompts".to_string(),
             "skills".to_string(),
+            "sessions".to_string(),
+            "hermes-memory".to_string(),
             "import-export".to_string(),
         ],
     }
+}
+
+pub fn list_sessions() -> Result<Vec<crate::session_manager::SessionMeta>, String> {
+    Ok(crate::session_manager::scan_sessions())
+}
+
+pub fn session_messages(
+    provider_id: &str,
+    source_path: &str,
+) -> Result<Vec<crate::session_manager::SessionMessage>, String> {
+    crate::session_manager::load_messages(provider_id, source_path)
+}
+
+pub fn delete_session(
+    provider_id: &str,
+    session_id: &str,
+    source_path: &str,
+) -> Result<bool, String> {
+    crate::session_manager::delete_session(provider_id, session_id, source_path)
+}
+
+pub fn delete_sessions(
+    items_json: &str,
+) -> Result<Vec<crate::session_manager::DeleteSessionOutcome>, String> {
+    let items: Vec<crate::session_manager::DeleteSessionRequest> =
+        serde_json::from_str(items_json).map_err(|e| e.to_string())?;
+    Ok(crate::session_manager::delete_sessions(&items))
+}
+
+fn parse_hermes_memory_kind(kind: &str) -> Result<crate::hermes_config::MemoryKind, String> {
+    serde_json::from_value(json!(kind)).map_err(|e| e.to_string())
+}
+
+pub fn get_hermes_memory(kind: &str) -> Result<String, String> {
+    let kind = parse_hermes_memory_kind(kind)?;
+    crate::hermes_config::read_memory(kind).map_err(|e| e.to_string())
+}
+
+pub fn set_hermes_memory(kind: &str, content: &str) -> Result<(), String> {
+    let kind = parse_hermes_memory_kind(kind)?;
+    crate::hermes_config::write_memory(kind, content).map_err(|e| e.to_string())
+}
+
+pub fn get_hermes_memory_limits() -> Result<crate::hermes_config::HermesMemoryLimits, String> {
+    crate::hermes_config::read_memory_limits().map_err(|e| e.to_string())
+}
+
+pub fn set_hermes_memory_enabled(
+    kind: &str,
+    enabled: bool,
+) -> Result<crate::hermes_config::HermesWriteOutcome, String> {
+    let kind = parse_hermes_memory_kind(kind)?;
+    crate::hermes_config::set_memory_enabled(kind, enabled).map_err(|e| e.to_string())
 }
 
 pub fn list_providers(app: AppType) -> Result<serde_json::Value, String> {

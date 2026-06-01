@@ -6,11 +6,15 @@ import { providersApi } from "@/lib/api/providers";
 import {
   resetProviderState,
   getLastRemoteSaveSecret,
+  getRemoteHermesMemory,
   getRemoteOpenClawDefaultModel,
   setCurrentProviderId,
   setLiveProviderIds,
   setProviders,
+  setRemoteHermesMemoryFixtures,
+  setRemoteProviderStateError,
   setRemoteProfiles,
+  setRemoteSessionFixtures,
   setSettings,
 } from "../msw/state";
 import { emitTauriEvent } from "../msw/tauriMocks";
@@ -192,6 +196,16 @@ vi.mock("@/components/mcp/McpPanel", () => ({
     ) : (
       <button onClick={() => onOpenChange(true)}>open-mcp</button>
     ),
+}));
+
+vi.mock("@/components/MarkdownEditor", () => ({
+  default: ({ value, onChange }: any) => (
+    <textarea
+      data-testid="markdown-editor"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
 }));
 
 const renderApp = (AppComponent: ComponentType) => {
@@ -446,7 +460,7 @@ describe("App integration with MSW", () => {
     });
   });
 
-  it("persists a password remote target secret before activating it", async () => {
+  it("uses the stored backend password when activating a password remote target", async () => {
     setRemoteProfiles([
       {
         id: "remote-1",
@@ -470,14 +484,49 @@ describe("App integration with MSW", () => {
 
     fireEvent.click(await screen.findByText("Remote 1"));
 
+    await waitFor(() =>
+      expect(screen.getByTestId("provider-target")).toHaveTextContent("remote"),
+    );
+    expect(
+      screen.queryByTestId("remote-session-password-dialog"),
+    ).not.toBeInTheDocument();
+    expect(getLastRemoteSaveSecret()).toBeNull();
+  });
+
+  it("prompts and persists a password when the remote backend reports it missing", async () => {
+    setRemoteProfiles([
+      {
+        id: "remote-1",
+        name: "Remote 1",
+        host: "192.168.1.20",
+        port: 22,
+        username: "root",
+        authMethod: { type: "password" },
+        helperPath: "~/.local/bin/cc-switch-remote-helper",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+    setRemoteProviderStateError("Remote SSH password is required");
+
+    const { default: App } = await import("@/App");
+    renderApp(App);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("provider-target")).toHaveTextContent("local"),
+    );
+
+    fireEvent.click(await screen.findByText("Remote 1"));
+
     expect(
       await screen.findByTestId("remote-session-password-dialog"),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("provider-target")).toHaveTextContent("local");
+    expect(screen.getByTestId("provider-target")).toHaveTextContent("remote");
 
     fireEvent.change(screen.getByTestId("remote-session-password-input"), {
       target: { value: "secret-password" },
     });
+    setRemoteProviderStateError(null);
     fireEvent.click(screen.getByTestId("remote-session-password-confirm"));
 
     await waitFor(() =>
@@ -596,6 +645,7 @@ describe("App integration with MSW", () => {
       expect(screen.getByTestId("proxy-toggle")).toBeInTheDocument(),
     );
     expect(screen.getByTestId("failover-toggle")).toBeInTheDocument();
+    expect(screen.getByTitle("sessionManager.title")).toBeInTheDocument();
 
     fireEvent.click(await screen.findByText("Remote 1"));
 
@@ -603,5 +653,132 @@ describe("App integration with MSW", () => {
       expect(screen.queryByTestId("proxy-toggle")).not.toBeInTheDocument(),
     );
     expect(screen.queryByTestId("failover-toggle")).not.toBeInTheDocument();
+    expect(screen.getByTitle("sessionManager.title")).toBeInTheDocument();
+  });
+
+  it("opens remote session management without using local session data", async () => {
+    localStorage.setItem("cc-switch-last-app", "codex");
+    localStorage.setItem("cc-switch-last-view", "providers");
+    setSettings({ firstRunNoticeConfirmed: true });
+    setRemoteProfiles([
+      {
+        id: "remote-1",
+        name: "Remote 1",
+        host: "192.168.1.20",
+        port: 22,
+        username: "root",
+        authMethod: { type: "sshAgent" },
+        helperPath: "~/.local/bin/cc-switch-remote-helper",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+    setRemoteSessionFixtures(
+      [
+        {
+          providerId: "codex",
+          sessionId: "remote-codex-session",
+          title: "Remote Codex Session",
+          summary: "Remote summary",
+          projectDir: "/remote/project",
+          createdAt: 1000,
+          lastActiveAt: 2000,
+          sourcePath: "/remote/codex/session.jsonl",
+          resumeCommand: "codex resume remote-codex-session",
+        },
+      ],
+      {
+        "codex:/remote/codex/session.jsonl": [
+          {
+            role: "user",
+            content: "Remote session message",
+            ts: 2000,
+          },
+        ],
+      },
+    );
+
+    const { default: App } = await import("@/App");
+    renderApp(App);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("provider-target")).toHaveTextContent("local"),
+    );
+
+    fireEvent.click(await screen.findByText("Remote 1"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("provider-target")).toHaveTextContent("remote"),
+    );
+    fireEvent.click(screen.getByTitle("sessionManager.title"));
+
+    expect(await screen.findByText("Remote Codex Session")).toBeInTheDocument();
+    expect(screen.queryByText("Codex Session One")).not.toBeInTheDocument();
+  });
+
+  it("keeps Hermes memory remote-capable while hiding local-only WebUI controls", async () => {
+    localStorage.setItem("cc-switch-last-app", "hermes");
+    localStorage.setItem("cc-switch-last-view", "providers");
+    setSettings({ firstRunNoticeConfirmed: true });
+    setRemoteProfiles([
+      {
+        id: "remote-1",
+        name: "Remote 1",
+        host: "192.168.1.20",
+        port: 22,
+        username: "root",
+        authMethod: { type: "sshAgent" },
+        helperPath: "~/.local/bin/cc-switch-remote-helper",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+    setRemoteHermesMemoryFixtures(
+      {
+        memory: "Remote Hermes agent memory",
+        user: "Remote Hermes user profile",
+      },
+      {
+        memory: 3000,
+        user: 1800,
+      },
+    );
+
+    const { default: App } = await import("@/App");
+    renderApp(App);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("provider-target")).toHaveTextContent("local"),
+    );
+    expect(screen.getByTitle("hermes.memory.title")).toBeInTheDocument();
+    expect(screen.getByTitle("hermes.webui.open")).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByText("Remote 1"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("provider-target")).toHaveTextContent("remote"),
+    );
+    expect(screen.getByTitle("hermes.memory.title")).toBeInTheDocument();
+    expect(screen.queryByTitle("hermes.webui.open")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle("hermes.memory.title"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("markdown-editor")).toHaveValue(
+        "Remote Hermes agent memory",
+      ),
+    );
+    expect(screen.queryByText("hermes.memory.openConfig")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId("markdown-editor"), {
+      target: { value: "Updated remote Hermes memory" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "common.save" }));
+
+    await waitFor(() =>
+      expect(getRemoteHermesMemory("memory")).toBe(
+        "Updated remote Hermes memory",
+      ),
+    );
   });
 });

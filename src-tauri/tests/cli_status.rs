@@ -36,6 +36,8 @@ fn status_returns_stable_json_envelope() {
             "mcp",
             "prompts",
             "skills",
+            "sessions",
+            "hermes-memory",
             "import-export"
         ])
     );
@@ -120,6 +122,39 @@ fn openclaw_sections_round_trip_through_json_cli() {
     assert_eq!(get_agents["ok"], true);
     assert_eq!(get_agents["data"]["workspace"], "~/remote");
     assert_eq!(get_agents["data"]["timeoutSeconds"], 300);
+}
+
+#[test]
+#[serial]
+fn hermes_memory_round_trips_through_json_cli() {
+    let (set_response, get_response, limits_response) = with_temp_home(|| {
+        let set_response = cc_switch_lib::cli::run(&[
+            "hermes".to_string(),
+            "memory".to_string(),
+            "set".to_string(),
+            "memory".to_string(),
+            "remote helper memory".to_string(),
+        ]);
+        let get_response = cc_switch_lib::cli::run(&[
+            "hermes".to_string(),
+            "memory".to_string(),
+            "get".to_string(),
+            "memory".to_string(),
+        ]);
+        let limits_response = cc_switch_lib::cli::run(&[
+            "hermes".to_string(),
+            "memory".to_string(),
+            "limits".to_string(),
+        ]);
+        (set_response, get_response, limits_response)
+    });
+
+    assert_eq!(set_response["ok"], true);
+    assert!(set_response["error"].is_null());
+    assert_eq!(get_response["ok"], true);
+    assert_eq!(get_response["data"], "remote helper memory");
+    assert_eq!(limits_response["ok"], true);
+    assert_eq!(limits_response["data"]["memory"], 2200);
 }
 
 #[test]
@@ -262,6 +297,6 @@ fn unsupported_command_returns_stable_error_envelope() {
     assert_eq!(response["error"]["code"], "unsupported_command");
     assert_eq!(
         response["error"]["message"],
-        "Supported commands: status, providers, openclaw, mcp, prompts, skills, import-export"
+        "Supported commands: status, providers, sessions, hermes, openclaw, mcp, prompts, skills, import-export"
     );
 }

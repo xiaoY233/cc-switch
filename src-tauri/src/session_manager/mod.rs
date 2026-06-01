@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use providers::{claude, codex, gemini, hermes, openclaw, opencode};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionMeta {
     pub provider_id: String,
@@ -27,7 +27,7 @@ pub struct SessionMeta {
     pub resume_command: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionMessage {
     pub role: String,
@@ -36,7 +36,7 @@ pub struct SessionMessage {
     pub ts: Option<i64>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeleteSessionRequest {
     pub provider_id: String,
@@ -44,7 +44,7 @@ pub struct DeleteSessionRequest {
     pub source_path: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeleteSessionOutcome {
     pub provider_id: String,

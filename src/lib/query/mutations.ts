@@ -339,31 +339,41 @@ export const useSwitchProviderMutation = (
   });
 };
 
-export const useDeleteSessionMutation = () => {
+export const useDeleteSessionMutation = (
+  target: ManagementTarget = { type: "local" },
+) => {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
   return useMutation({
     mutationFn: async (input: DeleteSessionOptions) => {
-      await sessionsApi.delete(input);
+      await sessionsApi.delete(input, target);
       return input;
     },
     onSuccess: async (input) => {
-      queryClient.setQueryData<SessionMeta[]>(["sessions"], (current) =>
-        (current ?? []).filter(
-          (session) =>
-            !(
-              session.providerId === input.providerId &&
-              session.sessionId === input.sessionId &&
-              session.sourcePath === input.sourcePath
-            ),
-        ),
+      const sessionsKey = ["sessions", targetKey(target)];
+      queryClient.setQueryData<SessionMeta[]>(
+        sessionsKey,
+        (current) =>
+          (current ?? []).filter(
+            (session) =>
+              !(
+                session.providerId === input.providerId &&
+                session.sessionId === input.sessionId &&
+                session.sourcePath === input.sourcePath
+              ),
+          ),
       );
       queryClient.removeQueries({
-        queryKey: ["sessionMessages", input.providerId, input.sourcePath],
+        queryKey: [
+          "sessionMessages",
+          targetKey(target),
+          input.providerId,
+          input.sourcePath,
+        ],
       });
 
-      await queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      await queryClient.invalidateQueries({ queryKey: sessionsKey });
 
       toast.success(
         t("sessionManager.sessionDeleted", {

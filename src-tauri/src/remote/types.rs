@@ -55,6 +55,8 @@ pub enum RemoteCapability {
     Mcp,
     Prompts,
     Skills,
+    Sessions,
+    HermesMemory,
     ImportExport,
 }
 

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.16.1] - 2026-06-02
+
+### Added
+
+- Added remote server management support for provider state, MCP servers, prompts, skills, sessions, OpenClaw configuration panels, and Hermes memory management through the remote helper JSON CLI.
+- Added a CI workflow that publishes pure CLI remote helper artifacts to the `remote-helper-latest` release for Linux and macOS server installs.
+
+### Changed
+
+- Remote password profiles now reuse locally stored credentials through the backend instead of prompting on every target switch.
+- Remote helper installation now downloads GitHub release assets instead of compiling on the remote server, and validates required helper capabilities before reporting success.
+
+### Fixed
+
+- Fixed remote helper startup errors caused by desktop GTK/WebKit-linked binaries on headless Linux servers by producing and validating CLI-only helper artifacts.
+- Fixed SSH ControlMaster socket paths that could exceed Unix domain socket limits on macOS.
+- Fixed remote-only UI gaps by keeping target-aware pages on the existing project layout and hiding only features that are still local-only.
+- Fixed the system environment conflict banner so app-managed proxy variables no longer produce noisy startup warnings.
+
 ## [3.16.0] - 2026-05-29
 
 Development since v3.15.0 focuses on making third-party Codex providers work like first-class citizens through Chat Completions routing, stabilizing Codex provider identity and history, adding an in-app managed CLI tool lifecycle, expanding the partner preset catalog, refreshing the default model / pricing matrix around GPT-5.5 and Claude Opus 4.8, and improving usage observability, localization, docs, and proxy robustness.

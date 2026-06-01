@@ -1,18 +1,29 @@
 import { http, HttpResponse } from "msw";
 import type { RemoteHostProfile } from "@/lib/api/remote";
 import type { AppId } from "@/lib/api/types";
-import type { McpServer, Provider, Settings } from "@/types";
+import type {
+  HermesMemoryKind,
+  McpServer,
+  Provider,
+  Settings,
+} from "@/types";
 import {
   addProvider,
   deleteProvider,
+  deleteRemoteSession,
   deleteSession,
   getCurrentProviderId,
   getLiveProviderIds,
   getRemoteOpenClawDefaultModel,
+  getRemoteHermesMemory,
+  getRemoteHermesMemoryLimits,
+  getRemoteProviderStateError,
   getRemoteProfiles,
+  getRemoteSessionMessages,
   getSessionMessages,
   getProviders,
   listProviders,
+  listRemoteSessions,
   listSessions,
   resetProviderState,
   setCurrentProviderId,
@@ -27,6 +38,8 @@ import {
   getMcpConfig,
   setMcpServerEnabled,
   setRemoteOpenClawDefaultModel,
+  setRemoteHermesMemory,
+  setRemoteHermesMemoryEnabled,
   upsertMcpServer,
   deleteMcpServer,
 } from "./state";
@@ -115,6 +128,10 @@ export const handlers = [
   http.post(
     `${TAURI_ENDPOINT}/remote_get_provider_state`,
     async ({ request }) => {
+      const error = getRemoteProviderStateError();
+      if (error) {
+        return HttpResponse.text(error, { status: 500 });
+      }
       const { app } = await withJson<{ app: AppId }>(request);
       return success({
         providers: getProviders(app),
@@ -144,6 +161,89 @@ export const handlers = [
         backupPath: "/tmp/remote-openclaw-backup.json5",
         warnings: [],
       });
+    },
+  ),
+
+  http.post(`${TAURI_ENDPOINT}/remote_list_sessions`, () =>
+    success(listRemoteSessions()),
+  ),
+
+  http.post(
+    `${TAURI_ENDPOINT}/remote_get_session_messages`,
+    async ({ request }) => {
+      const { providerId, sourcePath } = await withJson<{
+        providerId: string;
+        sourcePath: string;
+      }>(request);
+      return success(getRemoteSessionMessages(providerId, sourcePath));
+    },
+  ),
+
+  http.post(`${TAURI_ENDPOINT}/remote_delete_session`, async ({ request }) => {
+    const { providerId, sessionId, sourcePath } = await withJson<{
+      providerId: string;
+      sessionId: string;
+      sourcePath: string;
+    }>(request);
+    return success(deleteRemoteSession(providerId, sessionId, sourcePath));
+  }),
+
+  http.post(`${TAURI_ENDPOINT}/remote_delete_sessions`, async ({ request }) => {
+    const { items = [] } = await withJson<{
+      items?: {
+        providerId: string;
+        sessionId: string;
+        sourcePath: string;
+      }[];
+    }>(request);
+
+    return success(
+      items.map((item) => ({
+        providerId: item.providerId,
+        sessionId: item.sessionId,
+        sourcePath: item.sourcePath,
+        success: deleteRemoteSession(
+          item.providerId,
+          item.sessionId,
+          item.sourcePath,
+        ),
+      })),
+    );
+  }),
+
+  http.post(
+    `${TAURI_ENDPOINT}/remote_get_hermes_memory`,
+    async ({ request }) => {
+      const { kind } = await withJson<{ kind: HermesMemoryKind }>(request);
+      return success(getRemoteHermesMemory(kind));
+    },
+  ),
+
+  http.post(
+    `${TAURI_ENDPOINT}/remote_set_hermes_memory`,
+    async ({ request }) => {
+      const { kind, content } = await withJson<{
+        kind: HermesMemoryKind;
+        content: string;
+      }>(request);
+      setRemoteHermesMemory(kind, content);
+      return success(null);
+    },
+  ),
+
+  http.post(`${TAURI_ENDPOINT}/remote_get_hermes_memory_limits`, () =>
+    success(getRemoteHermesMemoryLimits()),
+  ),
+
+  http.post(
+    `${TAURI_ENDPOINT}/remote_set_hermes_memory_enabled`,
+    async ({ request }) => {
+      const { kind, enabled } = await withJson<{
+        kind: HermesMemoryKind;
+        enabled: boolean;
+      }>(request);
+      setRemoteHermesMemoryEnabled(kind, enabled);
+      return success({ backupPath: "/tmp/remote-hermes-config.yaml" });
     },
   ),
 
