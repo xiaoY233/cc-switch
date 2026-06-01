@@ -2694,11 +2694,11 @@
     "deleted": "Remote server deleted",
     "dialog": {
       "title": "Remote Server",
-      "description": "Save remote connection details. Passwords stay in the current session and are not written to the local database."
+      "description": "Save remote connection details. SSH passwords are stored in the local database for future connections."
     },
     "sessionPassword": {
       "title": "Enter Remote Password",
-      "description": "{{name}} uses password authentication. The password stays in the current session and is not written to the local database."
+      "description": "{{name}} uses password authentication. The password will be stored in the local database for future connections."
     },
     "fields": {
       "name": "Name",
@@ -2709,7 +2709,7 @@
       "authentication": "Authentication",
       "keyPath": "SSH key path",
       "password": "Password",
-      "passwordSavedForSession": "Filled for this session"
+      "passwordSavedForSession": "Saved; leave blank to keep it"
     },
     "auth": {
       "sshAgent": "SSH Agent",

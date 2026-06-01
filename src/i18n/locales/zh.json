@@ -2694,11 +2694,11 @@
     "deleted": "远程服务器已删除",
     "dialog": {
       "title": "远程服务器",
-      "description": "保存远程连接信息。密码仅保留在当前会话中，不会写入本地数据库。"
+      "description": "保存远程连接信息。SSH 密码会保存到本机数据库，用于后续连接。"
     },
     "sessionPassword": {
       "title": "输入远程密码",
-      "description": "{{name}} 使用密码登录。密码只保存在当前会话中，不会写入本地数据库。"
+      "description": "{{name}} 使用密码登录。密码会保存到本机数据库，用于后续连接。"
     },
     "fields": {
       "name": "名称",
@@ -2709,7 +2709,7 @@
       "authentication": "认证方式",
       "keyPath": "SSH 密钥路径",
       "password": "密码",
-      "passwordSavedForSession": "本次会话已填写"
+      "passwordSavedForSession": "已保存，可留空不变"
     },
     "auth": {
       "sshAgent": "SSH Agent",

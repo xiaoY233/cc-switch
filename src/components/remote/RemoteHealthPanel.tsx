@@ -118,10 +118,10 @@ export function RemoteHealthPanel({
   return (
     <section
       data-testid="remote-health-panel"
-      className="overflow-hidden rounded-xl border border-border-default bg-card shadow-sm"
+      className="min-w-0 overflow-hidden rounded-xl border border-border-default bg-card shadow-sm"
     >
-      <div className="flex h-11 items-center justify-between border-b border-border-default px-4">
-        <div className="flex items-center gap-2">
+      <div className="flex min-h-11 flex-col gap-3 border-b border-border-default px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Activity className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-semibold">
             {t("remote.health.title", { defaultValue: "健康检查" })}
@@ -134,10 +134,11 @@ export function RemoteHealthPanel({
               : t("remote.health.notChecked", { defaultValue: "未检查" })}
           </Badge>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
           <Button
             size="sm"
             variant="outline"
+            className="min-w-0"
             disabled={!profile || checking || installing}
             onClick={() => void handleInstall()}
           >
@@ -149,6 +150,7 @@ export function RemoteHealthPanel({
           <Button
             size="sm"
             variant="outline"
+            className="min-w-0"
             disabled={!profile || checking || installing}
             onClick={() => void handleCheck()}
           >
@@ -159,7 +161,7 @@ export function RemoteHealthPanel({
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-0 sm:grid-cols-4">
+      <div className="grid min-w-0 grid-cols-1 gap-0 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
           label={t("remote.fields.host", { defaultValue: "主机" })}
           value={profile?.host ?? "-"}
@@ -243,7 +245,7 @@ function Metric({ label, value }: { label: string; value: string }) {
         <Terminal className="h-3.5 w-3.5" />
         {label}
       </div>
-      <div className="mt-1 truncate text-sm font-medium text-foreground">
+      <div className="mt-1 break-all text-sm font-medium text-foreground">
         {value}
       </div>
     </div>

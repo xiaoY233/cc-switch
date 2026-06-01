@@ -2,9 +2,10 @@ use crate::app_config::{InstalledSkill, McpServer, UnmanagedSkill};
 use crate::prompt::Prompt;
 use crate::provider::Provider;
 use crate::remote::{
-    build_helper_install_args, build_ssh_args, delete_profile, install_helper_json, load_profiles,
-    run_helper_json, upsert_profile, validate_profile, RemoteCapability, RemoteConnectionSecret,
-    RemoteHealth, RemoteHostProfile, RemotePlatform,
+    build_helper_install_args, build_ssh_args, delete_profile, delete_profile_secret,
+    install_helper_json, load_profiles, run_helper_json, save_profile_secret, upsert_profile,
+    validate_profile, RemoteAuthMethod, RemoteCapability, RemoteConnectionSecret, RemoteHealth,
+    RemoteHostProfile, RemotePlatform,
 };
 use crate::services::skill::{
     DiscoverableSkill, ImportSkillSelection, SkillBackupEntry, SkillRepo, SkillUninstallResult,
@@ -12,8 +13,16 @@ use crate::services::skill::{
 };
 use crate::services::{ProviderSortUpdate, SwitchResult};
 use indexmap::IndexMap;
+use serde::Serialize;
 use serde_json::{json, Value};
 use std::path::PathBuf;
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteProviderState {
+    pub providers: IndexMap<String, Provider>,
+    pub current_provider_id: String,
+}
 
 #[tauri::command]
 pub fn remote_list_profiles() -> Result<Vec<RemoteHostProfile>, String> {
@@ -21,8 +30,21 @@ pub fn remote_list_profiles() -> Result<Vec<RemoteHostProfile>, String> {
 }
 
 #[tauri::command]
-pub fn remote_save_profile(profile: RemoteHostProfile) -> Result<RemoteHostProfile, String> {
-    upsert_profile(profile).map_err(|e| e.to_string())
+pub fn remote_save_profile(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<RemoteHostProfile, String> {
+    let saved = upsert_profile(profile).map_err(|e| e.to_string())?;
+    match (&saved.auth_method, secret.as_ref()) {
+        (RemoteAuthMethod::Password, Some(secret)) => {
+            save_profile_secret(&saved.id, secret).map_err(|e| e.to_string())?;
+        }
+        (RemoteAuthMethod::Password, None) => {}
+        _ => {
+            delete_profile_secret(&saved.id).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(saved)
 }
 
 #[tauri::command]
@@ -208,6 +230,32 @@ pub fn remote_get_current_provider(
         secret.as_ref(),
     )
     .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_get_provider_state(
+    profile: RemoteHostProfile,
+    app: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<RemoteProviderState, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    let providers = run_helper_json(
+        &profile,
+        &["providers".to_string(), "list".to_string(), app.clone()],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())?;
+    let current_provider_id = run_helper_json(
+        &profile,
+        &["providers".to_string(), "current".to_string(), app],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(RemoteProviderState {
+        providers,
+        current_provider_id,
+    })
 }
 
 #[tauri::command]

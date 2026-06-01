@@ -7,7 +7,8 @@ pub use ssh::{
     install_helper_json, run_helper_json, RemoteHelperInstallSource,
 };
 pub use store::{
-    delete_profile, load_profiles, load_profiles_from_path, save_profiles, save_profiles_to_path,
+    delete_profile, delete_profile_secret, load_profile_secret, load_profiles,
+    load_profiles_from_path, save_profile_secret, save_profiles, save_profiles_to_path,
     upsert_profile, validate_profile,
 };
 pub use types::{

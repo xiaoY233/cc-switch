@@ -1323,6 +1323,7 @@ pub fn run() {
             commands::remote_import_config_from_file,
             commands::remote_get_providers,
             commands::remote_get_current_provider,
+            commands::remote_get_provider_state,
             commands::remote_switch_provider,
             commands::remote_add_provider,
             commands::remote_update_provider,

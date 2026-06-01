@@ -305,12 +305,27 @@ function App() {
     setActiveTargetKey(targetKey);
   };
 
-  const handleSessionPasswordSubmit = (password: string) => {
+  const handleSessionPasswordSubmit = async (password: string) => {
     if (!passwordPromptProfile) return;
     const profile = passwordPromptProfile;
+    const secret = { password };
+    try {
+      const saved = await remoteApi.saveProfile(profile, secret);
+      setRemoteProfiles((current) =>
+        current.map((item) => (item.id === saved.id ? saved : item)),
+      );
+    } catch (error) {
+      const message =
+        extractErrorMessage(error) ||
+        t("remote.saveFailed", {
+          defaultValue: "保存远程服务器失败",
+        });
+      toast.error(message);
+      throw error;
+    }
     setRemoteSecrets((current) => ({
       ...current,
-      [profile.id]: { password },
+      [profile.id]: secret,
     }));
     setPasswordPromptProfile(null);
     setActiveTargetKey(`remote:${profile.id}`);

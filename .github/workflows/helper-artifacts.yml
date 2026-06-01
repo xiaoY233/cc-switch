@@ -6,6 +6,9 @@ on:
     branches:
       - codex-remote-server-management
 
+permissions:
+  contents: write
+
 concurrency:
   group: helper-artifacts-${{ github.ref }}
   cancel-in-progress: true
@@ -76,3 +79,47 @@ jobs:
           name: cc-switch-cli-${{ matrix.helper_os }}-${{ matrix.helper_arch }}
           path: helper-artifacts/*
           if-no-files-found: error
+
+  publish-helper-release:
+    name: Publish Helper Release
+    runs-on: ubuntu-22.04
+    needs: build-helper
+    if: github.ref == 'refs/heads/codex-remote-server-management'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download helper artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: cc-switch-cli-*
+          path: helper-release
+          merge-multiple: true
+
+      - name: Publish remote-helper-latest release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: remote-helper-latest
+        run: |
+          set -euxo pipefail
+          ls -la helper-release
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG" --force
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Remote Helper Latest" \
+              --notes "Latest remote helper binaries for branch testing."
+          else
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Remote Helper Latest" \
+              --notes "Latest remote helper binaries for branch testing." \
+              --prerelease
+          fi
+          gh release upload "$TAG" helper-release/* --clobber --repo "$GITHUB_REPOSITORY"

@@ -2694,11 +2694,11 @@
     "deleted": "リモートサーバーを削除しました",
     "dialog": {
       "title": "リモートサーバー",
-      "description": "リモート接続情報を保存します。パスワードは現在のセッションにのみ保持され、ローカルデータベースには書き込まれません。"
+      "description": "リモート接続情報を保存します。SSH パスワードは今後の接続のためにローカルデータベースに保存されます。"
     },
     "sessionPassword": {
       "title": "リモートパスワードを入力",
-      "description": "{{name}} はパスワード認証を使用します。パスワードは現在のセッションにのみ保持され、ローカルデータベースには書き込まれません。"
+      "description": "{{name}} はパスワード認証を使用します。パスワードは今後の接続のためにローカルデータベースに保存されます。"
     },
     "fields": {
       "name": "名前",
@@ -2709,7 +2709,7 @@
       "authentication": "認証方式",
       "keyPath": "SSH キーパス",
       "password": "パスワード",
-      "passwordSavedForSession": "このセッションで入力済み"
+      "passwordSavedForSession": "保存済み。空欄なら変更しません"
     },
     "auth": {
       "sshAgent": "SSH Agent",

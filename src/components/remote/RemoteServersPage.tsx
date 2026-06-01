@@ -79,7 +79,7 @@ export function RemoteServersPage({
     profile: RemoteHostProfile,
     secret?: RemoteConnectionSecret,
   ) => {
-    const saved = await remoteApi.saveProfile(profile);
+    const saved = await remoteApi.saveProfile(profile, secret);
     const next = await remoteApi.listProfiles();
     onProfilesChanged(next);
     onProfileSaved(saved, secret);
@@ -105,8 +105,8 @@ export function RemoteServersPage({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden px-6">
-      <div className="mb-4 flex shrink-0 items-center justify-between rounded-xl px-1 py-3">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto overflow-x-hidden px-3 pb-6 sm:px-6 xl:overflow-hidden xl:pb-0">
+      <div className="mb-4 flex shrink-0 flex-col gap-3 rounded-xl px-1 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="text-sm text-muted-foreground">
             {t("remote.subtitle", {
@@ -114,16 +114,20 @@ export function RemoteServersPage({
             })}
           </div>
         </div>
-        <Button size="sm" onClick={openCreateDialog}>
+        <Button
+          size="sm"
+          onClick={openCreateDialog}
+          className="w-full sm:w-auto"
+        >
           <Plus className="mr-2 h-4 w-4" />
           {t("remote.addServer", { defaultValue: "新增服务器" })}
         </Button>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[360px_minmax(0,1fr)]">
+      <div className="grid min-w-0 flex-none grid-cols-1 gap-4 overflow-visible pb-6 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(260px,360px)_minmax(0,1fr)] xl:overflow-hidden xl:pb-0">
         <section
           data-testid="remote-server-list-panel"
-          className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border-default bg-card shadow-sm"
+          className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-border-default bg-card shadow-sm"
         >
           <div className="flex h-11 shrink-0 items-center justify-between border-b border-border-default px-4">
             <div className="flex min-w-0 items-center gap-2">
@@ -185,7 +189,7 @@ export function RemoteServersPage({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                      className="h-7 w-7 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                       onClick={() => openEditDialog(profile)}
                       title={t("common.edit", { defaultValue: "编辑" })}
                     >
@@ -195,7 +199,7 @@ export function RemoteServersPage({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                      className="h-7 w-7 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                       onClick={() => void handleDelete(profile.id)}
                       title={t("common.delete", { defaultValue: "删除" })}
                     >
@@ -208,7 +212,7 @@ export function RemoteServersPage({
           </div>
         </section>
 
-        <div className="grid min-h-0 content-start gap-4 overflow-y-auto pb-24">
+        <div className="grid min-w-0 content-start gap-4 overflow-visible xl:min-h-0 xl:overflow-y-auto xl:pb-24">
           <RemoteHealthPanel
             profile={selectedProfile}
             secret={selectedSecret}
@@ -216,14 +220,14 @@ export function RemoteServersPage({
 
           <section
             data-testid="remote-server-details-panel"
-            className="overflow-hidden rounded-xl border border-border-default bg-card shadow-sm"
+            className="min-w-0 overflow-hidden rounded-xl border border-border-default bg-card shadow-sm"
           >
             <div className="flex h-11 items-center border-b border-border-default px-4">
               <h2 className="text-sm font-semibold">
                 {t("remote.details", { defaultValue: "连接详情" })}
               </h2>
             </div>
-            <div className="grid gap-0 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-0 sm:grid-cols-2">
               <Detail
                 label={t("remote.fields.name", { defaultValue: "名称" })}
                 value={selectedProfile?.name}
@@ -284,7 +288,7 @@ function Detail({ label, value }: { label: string; value?: string }) {
   return (
     <div className="min-w-0 border-b border-border-default px-4 py-3 sm:odd:border-r">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 truncate text-sm font-medium text-foreground">
+      <div className="mt-1 break-all text-sm font-medium text-foreground">
         {value ?? "-"}
       </div>
     </div>

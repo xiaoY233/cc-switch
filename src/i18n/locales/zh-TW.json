@@ -2640,11 +2640,11 @@
     "deleted": "遠端伺服器已刪除",
     "dialog": {
       "title": "遠端伺服器",
-      "description": "儲存遠端連線資訊。密碼只會保留在目前工作階段，不會寫入本機資料庫。"
+      "description": "儲存遠端連線資訊。SSH 密碼會儲存在本機資料庫，用於後續連線。"
     },
     "sessionPassword": {
       "title": "輸入遠端密碼",
-      "description": "{{name}} 使用密碼登入。密碼只保存在目前工作階段中，不會寫入本機資料庫。"
+      "description": "{{name}} 使用密碼登入。密碼會儲存在本機資料庫，用於後續連線。"
     },
     "fields": {
       "name": "名稱",
@@ -2655,7 +2655,7 @@
       "authentication": "驗證方式",
       "keyPath": "SSH 金鑰路徑",
       "password": "密碼",
-      "passwordSavedForSession": "本次工作階段已填寫"
+      "passwordSavedForSession": "已儲存，可留空不變"
     },
     "auth": {
       "sshAgent": "SSH Agent",

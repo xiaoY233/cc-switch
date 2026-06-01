@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { providersApi } from "@/lib/api/providers";
 import {
   resetProviderState,
+  getLastRemoteSaveSecret,
   getRemoteOpenClawDefaultModel,
   setCurrentProviderId,
   setLiveProviderIds,
@@ -445,7 +446,7 @@ describe("App integration with MSW", () => {
     });
   });
 
-  it("requires a session password before activating a password remote target", async () => {
+  it("persists a password remote target secret before activating it", async () => {
     setRemoteProfiles([
       {
         id: "remote-1",
@@ -482,6 +483,9 @@ describe("App integration with MSW", () => {
     await waitFor(() =>
       expect(screen.getByTestId("provider-target")).toHaveTextContent("remote"),
     );
+    expect(getLastRemoteSaveSecret()).toEqual({
+      password: "secret-password",
+    });
   });
 
   it("keeps the user on remote server management after saving a profile", async () => {
@@ -493,7 +497,9 @@ describe("App integration with MSW", () => {
     renderApp(App);
 
     await waitFor(() =>
-      expect(screen.getByTestId("remote-server-list-panel")).toBeInTheDocument(),
+      expect(
+        screen.getByTestId("remote-server-list-panel"),
+      ).toBeInTheDocument(),
     );
 
     fireEvent.click(screen.getAllByRole("button", { name: "新增服务器" })[0]);
@@ -513,7 +519,9 @@ describe("App integration with MSW", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
     await waitFor(() =>
-      expect(screen.getByTestId("remote-server-list-panel")).toBeInTheDocument(),
+      expect(
+        screen.getByTestId("remote-server-list-panel"),
+      ).toBeInTheDocument(),
     );
     expect(screen.getAllByText("测试服务器").length).toBeGreaterThan(0);
     expect(localStorage.getItem("cc-switch-last-view")).toBe("remoteServers");

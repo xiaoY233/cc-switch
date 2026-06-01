@@ -53,6 +53,11 @@ export interface RemoteHealth {
   lastError?: string;
 }
 
+export interface RemoteProviderState {
+  providers: Record<string, Provider>;
+  currentProviderId: string;
+}
+
 export type ManagementTarget =
   | { type: "local" }
   | {
@@ -177,9 +182,14 @@ export const remoteApi = {
     );
   },
 
-  saveProfile(profile: RemoteHostProfile): Promise<RemoteHostProfile> {
-    return invokeWithPreviewFallback("remote_save_profile", { profile }, () =>
-      savePreviewRemoteProfile(profile),
+  saveProfile(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<RemoteHostProfile> {
+    return invokeWithPreviewFallback(
+      "remote_save_profile",
+      { profile, secret },
+      () => savePreviewRemoteProfile(profile),
     );
   },
 
@@ -269,6 +279,18 @@ export const remoteApi = {
     secret?: RemoteConnectionSecret,
   ): Promise<string> {
     return invoke<string>("remote_get_current_provider", {
+      profile,
+      app,
+      secret,
+    });
+  },
+
+  getProviderState(
+    profile: RemoteHostProfile,
+    app: AppId,
+    secret?: RemoteConnectionSecret,
+  ): Promise<RemoteProviderState> {
+    return invoke<RemoteProviderState>("remote_get_provider_state", {
       profile,
       app,
       secret,

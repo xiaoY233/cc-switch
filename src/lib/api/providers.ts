@@ -48,6 +48,27 @@ export interface ClaudeDesktopDefaultRoute {
 }
 
 export const providersApi = {
+  async getState(
+    appId: AppId,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<{
+    providers: Record<string, Provider>;
+    currentProviderId: string;
+  }> {
+    if (target.type === "remote") {
+      return await remoteApi.getProviderState(
+        target.profile,
+        appId,
+        target.secret,
+      );
+    }
+    const [providers, currentProviderId] = await Promise.all([
+      this.getAll(appId, target),
+      this.getCurrent(appId, target),
+    ]);
+    return { providers, currentProviderId };
+  },
+
   async getAll(
     appId: AppId,
     target: ManagementTarget = { type: "local" },

@@ -22,19 +22,25 @@ export function RemoteSessionPasswordDialog({
 }: {
   profile: RemoteHostProfile | null;
   onCancel: () => void;
-  onSubmit: (password: string) => void;
+  onSubmit: (password: string) => void | Promise<void>;
 }) {
   const { t } = useTranslation();
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     setPassword("");
   }, [profile?.id]);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!password) return;
-    onSubmit(password);
+    if (!password || submitting) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(password);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -57,7 +63,7 @@ export function RemoteSessionPasswordDialog({
             <DialogDescription>
               {t("remote.sessionPassword.description", {
                 defaultValue:
-                  "{{name}} 使用密码登录。密码只保存在当前会话中，不会写入本地数据库。",
+                  "{{name}} 使用密码登录。密码会保存到本机数据库，用于后续连接。",
                 name: profile?.name ?? "",
               })}
             </DialogDescription>
@@ -74,19 +80,27 @@ export function RemoteSessionPasswordDialog({
               onChange={(event) => setPassword(event.target.value)}
               type="password"
               autoFocus
+              disabled={submitting}
             />
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={submitting}
+            >
               {t("common.cancel", { defaultValue: "取消" })}
             </Button>
             <Button
               type="submit"
-              disabled={!password}
+              disabled={!password || submitting}
               data-testid="remote-session-password-confirm"
             >
-              {t("common.confirm", { defaultValue: "确定" })}
+              {submitting
+                ? t("remote.saving", { defaultValue: "保存中" })
+                : t("common.confirm", { defaultValue: "确定" })}
             </Button>
           </DialogFooter>
         </form>

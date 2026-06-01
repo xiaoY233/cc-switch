@@ -1,10 +1,16 @@
 use crate::config::get_app_config_dir;
+use crate::database::{lock_conn, Database};
 use crate::error::AppError;
-use crate::remote::types::{RemoteAuthMethod, RemoteHostProfile};
+use crate::remote::types::{RemoteAuthMethod, RemoteConnectionSecret, RemoteHostProfile};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use rusqlite::params;
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 const REMOTE_PROFILES_FILENAME: &str = "remote-hosts.json";
+const REMOTE_SECRET_PREFIX: &str = "remote.profile.password.";
+const REMOTE_SECRET_VALUE_PREFIX: &str = "v1:";
 
 pub fn validate_profile(profile: &RemoteHostProfile) -> Result<(), AppError> {
     if profile.id.trim().is_empty() {
@@ -64,7 +70,41 @@ pub fn delete_profile(id: &str) -> Result<bool, AppError> {
         return Ok(false);
     }
     save_profiles(&profiles)?;
+    delete_profile_secret(id)?;
     Ok(true)
+}
+
+pub fn save_profile_secret(
+    profile_id: &str,
+    secret: &RemoteConnectionSecret,
+) -> Result<(), AppError> {
+    let Some(password) = secret.password.as_deref().filter(|value| !value.is_empty()) else {
+        return delete_profile_secret(profile_id);
+    };
+    let db = Database::init()?;
+    db.set_setting(
+        &profile_secret_key(profile_id),
+        &encode_secret_value(profile_id, password),
+    )
+}
+
+pub fn load_profile_secret(profile_id: &str) -> Result<RemoteConnectionSecret, AppError> {
+    let db = Database::init()?;
+    let password = db
+        .get_setting(&profile_secret_key(profile_id))?
+        .and_then(|value| decode_secret_value(profile_id, &value).ok());
+    Ok(RemoteConnectionSecret { password })
+}
+
+pub fn delete_profile_secret(profile_id: &str) -> Result<(), AppError> {
+    let db = Database::init()?;
+    let conn = lock_conn!(db.conn);
+    conn.execute(
+        "DELETE FROM settings WHERE key = ?1",
+        params![profile_secret_key(profile_id)],
+    )
+    .map_err(|e| AppError::Database(e.to_string()))?;
+    Ok(())
 }
 
 pub fn load_profiles_from_path(path: &Path) -> Result<Vec<RemoteHostProfile>, AppError> {
@@ -101,4 +141,35 @@ pub fn save_profiles_to_path(path: &Path, profiles: &[RemoteHostProfile]) -> Res
         .map_err(|e| AppError::Message(format!("Failed to serialize remote host profiles: {e}")))?;
     fs::write(path, raw)
         .map_err(|e| AppError::Message(format!("Failed to write remote host profiles: {e}")))
+}
+
+fn profile_secret_key(profile_id: &str) -> String {
+    format!("{REMOTE_SECRET_PREFIX}{profile_id}")
+}
+
+fn encode_secret_value(profile_id: &str, password: &str) -> String {
+    let encrypted = xor_with_profile_key(profile_id, password.as_bytes());
+    format!("{REMOTE_SECRET_VALUE_PREFIX}{}", STANDARD.encode(encrypted))
+}
+
+fn decode_secret_value(profile_id: &str, encoded: &str) -> Result<String, AppError> {
+    let payload = encoded
+        .strip_prefix(REMOTE_SECRET_VALUE_PREFIX)
+        .ok_or_else(|| AppError::Message("Unsupported remote secret format".to_string()))?;
+    let bytes = STANDARD
+        .decode(payload)
+        .map_err(|e| AppError::Message(format!("Invalid remote secret encoding: {e}")))?;
+    let decrypted = xor_with_profile_key(profile_id, &bytes);
+    String::from_utf8(decrypted)
+        .map_err(|e| AppError::Message(format!("Invalid remote secret UTF-8: {e}")))
+}
+
+fn xor_with_profile_key(profile_id: &str, input: &[u8]) -> Vec<u8> {
+    let key_seed = format!("{}::{profile_id}", get_app_config_dir().display());
+    let digest = Sha256::digest(key_seed.as_bytes());
+    input
+        .iter()
+        .enumerate()
+        .map(|(index, byte)| byte ^ digest[index % digest.len()])
+        .collect()
 }

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="${CC_SWITCH_REPO:-xiaoY233/cc-switch}"
-VERSION="${1:-latest}"
+VERSION="${1:-${CC_SWITCH_REMOTE_HELPER_RELEASE_TAG:-remote-helper-latest}}"
 BIN_DIR="${CC_SWITCH_BIN_DIR:-$HOME/.local/bin}"
 BIN_NAME="${CC_SWITCH_BIN_NAME:-cc-switch-remote-helper}"
 OS="$(uname -s)"
@@ -25,18 +25,10 @@ if [ "$ASSET_OS" = "macOS" ]; then
   ASSET_ARCH="universal"
 fi
 
-if [ "$VERSION" = "latest" ]; then
-  API_URL="https://api.github.com/repos/$REPO/releases/latest"
-else
-  API_URL="https://api.github.com/repos/$REPO/releases/tags/$VERSION"
-fi
+API_URL="https://api.github.com/repos/$REPO/releases/tags/$VERSION"
 
 ASSET_NAME="cc-switch-cli-${VERSION}-${ASSET_OS}-${ASSET_ARCH}"
-if [ "$VERSION" = "latest" ]; then
-  ASSET_NAME_PATTERN="cc-switch-cli-.*-${ASSET_OS}-${ASSET_ARCH}$"
-else
-  ASSET_NAME_PATTERN="^${ASSET_NAME}$"
-fi
+ASSET_NAME_PATTERN="cc-switch-cli-.*-${ASSET_OS}-${ASSET_ARCH}$"
 
 DOWNLOAD_URL="$(
   curl -fsSL "$API_URL" |

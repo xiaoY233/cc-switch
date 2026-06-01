@@ -47,6 +47,49 @@ fn ssh_args_accept_new_host_keys_without_disabling_changed_host_protection() {
 }
 
 #[test]
+fn ssh_args_use_stable_control_master_socket_for_connection_reuse() {
+    let first = build_ssh_args(&profile(), &["providers".to_string(), "list".to_string()]);
+    let second = build_ssh_args(
+        &profile(),
+        &["providers".to_string(), "current".to_string()],
+    );
+
+    assert!(first.contains(&"ControlMaster=auto".to_string()));
+    assert!(first.contains(&"ControlPersist=10m".to_string()));
+
+    let first_path = first
+        .windows(2)
+        .find_map(|pair| (pair[0] == "-S").then(|| pair[1].clone()))
+        .expect("first control socket path");
+    let second_path = second
+        .windows(2)
+        .find_map(|pair| (pair[0] == "-S").then(|| pair[1].clone()))
+        .expect("second control socket path");
+
+    assert_eq!(first_path, second_path);
+    assert!(
+        first_path.contains("ccsw-"),
+        "socket path should be app-owned, got {first_path}"
+    );
+}
+
+#[test]
+#[cfg(unix)]
+fn ssh_control_master_socket_path_stays_below_unix_socket_limit() {
+    let args = build_ssh_args(&profile(), &["status".to_string()]);
+    let socket_path = args
+        .windows(2)
+        .find_map(|pair| (pair[0] == "-S").then(|| pair[1].clone()))
+        .expect("control socket path");
+
+    assert!(
+        socket_path.len() <= 80,
+        "OpenSSH appends a temporary suffix while creating the socket, so the base path must stay short; got {} bytes: {socket_path}",
+        socket_path.len()
+    );
+}
+
+#[test]
 fn ssh_args_terminate_options_before_destination() {
     let mut profile = profile();
     profile.username = "-oProxyCommand=bad".to_string();
@@ -217,7 +260,8 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
     let remote_command = args.last().expect("remote command");
 
     assert!(args.contains(&"alice@example.com".to_string()));
-    assert!(remote_command.contains("api.github.com/repos/xiaoY233/cc-switch/releases/latest"));
+    assert!(remote_command
+        .contains("api.github.com/repos/xiaoY233/cc-switch/releases/tags/remote-helper-latest"));
     assert!(remote_command.contains("fetch_url_to_stdout()"));
     assert!(remote_command.contains("wget -qO- \"$1\""));
     assert!(remote_command.contains("fetch_url_to_file()"));
@@ -227,35 +271,25 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
     assert!(remote_command.contains("cc-switch remote helper is missing required capabilities"));
     assert!(remote_command.contains("cc-switch-cli-.*-${asset_os}-${asset_arch}"));
     assert!(remote_command.contains("fetch_url_to_file \"$download_url\" \"$helper_tmp\""));
-    assert!(remote_command.contains("rustup.rs"));
-    assert!(remote_command.contains(". \"$HOME/.cargo/env\""));
-    assert!(remote_command.contains("Rust/Cargo is required to install cc-switch remote helper"));
-    assert!(remote_command.contains("cargo install --git https://github.com/xiaoY233/cc-switch"));
-    assert!(remote_command.contains("--bin cc-switch-cli"));
-    assert!(remote_command.contains("--force"));
-    assert!(remote_command.contains("installed_path=\"$HOME/.local/bin/cc-switch-cli\""));
-    assert!(remote_command.contains("ln -sf \"$installed_path\" \"$helper_path\""));
     assert!(remote_command.contains("verify_helper_status"));
+    assert!(!remote_command.contains("cargo install"));
+    assert!(!remote_command.contains("rustup"));
+    assert!(!remote_command.contains("tar -xzf"));
 }
 
 #[test]
-fn helper_install_defaults_to_git_build_before_release_asset_fallback() {
+fn helper_install_downloads_from_github_release_without_remote_compile() {
     let source = RemoteHelperInstallSource::default();
-    assert_eq!(source.local_source_dir, None);
+    assert_eq!(source.release_tag, "remote-helper-latest");
 
     let args = build_helper_install_args_with_source(&profile(), &source);
     let remote_command = args.last().expect("remote command");
-    let git_index = remote_command
-        .find("if cargo install --git https://github.com/xiaoY233/cc-switch")
-        .expect("git install command");
-    let release_index = remote_command
-        .find("if try_release_asset_install; then")
-        .expect("release fallback");
 
-    assert!(git_index < release_index);
-    assert!(
-        remote_command.contains("Git remote helper install failed; falling back to release asset")
-    );
+    assert!(remote_command.contains("if try_release_asset_install; then"));
+    assert!(remote_command.contains("verify_helper_status"));
+    assert!(!remote_command.contains("cargo install"));
+    assert!(!remote_command.contains("Local source remote helper install failed"));
+    assert!(!remote_command.contains("Git remote helper install failed"));
 }
 
 #[test]
@@ -272,70 +306,32 @@ fn helper_install_args_quote_configured_helper_path() {
 }
 
 #[test]
-fn helper_install_args_accept_custom_source_branch() {
+fn helper_install_args_accept_custom_release_source() {
     let source = RemoteHelperInstallSource {
-        git_repo: "https://github.com/acme/cc-switch".to_string(),
-        git_branch: Some("remote-helper".to_string()),
         release_repo: "acme/cc-switch".to_string(),
-        local_source_dir: None,
+        release_tag: "remote-helper-canary".to_string(),
     };
 
     let args = build_helper_install_args_with_source(&profile(), &source);
     let remote_command = args.last().expect("remote command");
 
-    assert!(remote_command.contains("api.github.com/repos/acme/cc-switch/releases/latest"));
-    assert!(remote_command.contains(
-        "cargo install --git https://github.com/acme/cc-switch --branch remote-helper --bin cc-switch-cli"
-    ));
-}
-
-#[test]
-fn helper_install_args_accept_local_source_dir_before_git_fallback() {
-    let source = RemoteHelperInstallSource {
-        git_repo: "https://github.com/acme/cc-switch".to_string(),
-        git_branch: Some("remote-helper".to_string()),
-        release_repo: "acme/cc-switch".to_string(),
-        local_source_dir: Some("/Users/alice/cc-switch".into()),
-    };
-
-    let args = build_helper_install_args_with_source(&profile(), &source);
-    let remote_command = args.last().expect("remote command");
-
-    assert!(remote_command.contains("source_dir=$(mktemp -d)"));
-    assert!(remote_command.contains("tar -xzf - -C \"$source_dir\""));
-    assert!(remote_command.contains("cargo install --path \"$source_dir/src-tauri\" --bin cc-switch-cli --root ~/.local --locked --force"));
-    assert!(remote_command.contains("rm -rf \"$source_dir\""));
-    assert!(remote_command.contains("cargo install --git https://github.com/acme/cc-switch --branch remote-helper --bin cc-switch-cli"));
+    assert!(remote_command
+        .contains("api.github.com/repos/acme/cc-switch/releases/tags/remote-helper-canary"));
+    assert!(!remote_command.contains("cargo install"));
 }
 
 #[test]
 #[cfg(unix)]
 #[serial]
-fn install_helper_streams_local_source_archive_to_ssh_stdin() {
+fn install_helper_runs_github_release_download_command_without_local_archive() {
     let dir = tempfile::tempdir().expect("temp dir");
-    let source_dir = dir.path().join("source");
-    fs::create_dir_all(source_dir.join("src-tauri/src")).expect("source dirs");
-    fs::write(
-        source_dir.join("src-tauri/Cargo.toml"),
-        "[package]\nname='unit'\n",
-    )
-    .expect("write cargo toml");
-    fs::write(source_dir.join("src-tauri/src/lib.rs"), "").expect("write lib");
-
-    let stdin_path = dir.path().join("stdin.tgz");
     let ssh_path = dir.path().join("ssh");
     fs::write(
         &ssh_path,
-        format!(
-            r#"#!/bin/sh
+        r#"#!/bin/sh
 set -eu
-cat > "{}"
-test -s "{}"
-printf '%s\n' '{{"ok":true,"data":{{"version":"test","platform":"linux","capabilities":["providers","openclaw","mcp","prompts","skills","import-export"]}},"error":null}}'
+printf '%s\n' '{"ok":true,"data":{"version":"test","platform":"linux","capabilities":["providers","openclaw","mcp","prompts","skills","import-export"]},"error":null}'
 "#,
-            stdin_path.display(),
-            stdin_path.display()
-        ),
     )
     .expect("write fake ssh");
     let mut permissions = fs::metadata(&ssh_path)
@@ -345,20 +341,13 @@ printf '%s\n' '{{"ok":true,"data":{{"version":"test","platform":"linux","capabil
     fs::set_permissions(&ssh_path, permissions).expect("chmod fake ssh");
 
     let old_path = std::env::var_os("PATH").unwrap_or_default();
-    let old_source = std::env::var_os("CC_SWITCH_REMOTE_HELPER_LOCAL_SOURCE_DIR");
     let new_path = format!("{}:{}", dir.path().display(), old_path.to_string_lossy());
     std::env::set_var("PATH", new_path);
-    std::env::set_var("CC_SWITCH_REMOTE_HELPER_LOCAL_SOURCE_DIR", &source_dir);
 
     let status: serde_json::Value =
         cc_switch_lib::remote::install_helper_json(&profile(), None).expect("install helper");
 
     std::env::set_var("PATH", old_path);
-    match old_source {
-        Some(value) => std::env::set_var("CC_SWITCH_REMOTE_HELPER_LOCAL_SOURCE_DIR", value),
-        None => std::env::remove_var("CC_SWITCH_REMOTE_HELPER_LOCAL_SOURCE_DIR"),
-    }
 
     assert_eq!(status["version"], "test");
-    assert!(fs::metadata(stdin_path).expect("stdin archive").len() > 0);
 }

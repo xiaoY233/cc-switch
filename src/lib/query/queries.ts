@@ -49,6 +49,7 @@ export interface ProvidersQueryData {
 }
 
 interface ProviderQueryReaders {
+  getState?: typeof providersApi.getState;
   getAll: typeof providersApi.getAll;
   getCurrent: typeof providersApi.getCurrent;
 }
@@ -60,6 +61,14 @@ export async function loadProvidersQueryData(
 ): Promise<ProvidersQueryData> {
   let providers: Record<string, Provider> = {};
   let currentProviderId = "";
+
+  if (target.type === "remote" && readers.getState) {
+    const state = await readers.getState(appId, target);
+    return {
+      providers: sortProviders(state.providers),
+      currentProviderId: state.currentProviderId,
+    };
+  }
 
   try {
     providers = await readers.getAll(appId, target);

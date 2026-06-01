@@ -39,7 +39,7 @@ describe("RemoteServersPage", () => {
     toastErrorMock.mockReset();
   });
 
-  it("saves a password-auth remote profile and keeps the password as a session secret", async () => {
+  it("saves a password-auth remote profile and passes the password for local persistence", async () => {
     const user = userEvent.setup();
     const onProfileSaved = vi.fn();
     const onProfileActivated = vi.fn();
@@ -82,6 +82,7 @@ describe("RemoteServersPage", () => {
         port: 22,
         authMethod: { type: "password" },
       }),
+      { password: "session-password" },
     );
     expect(onProfileSaved).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -21,6 +21,7 @@ import {
   getSettings,
   setSettings,
   setRemoteProfiles,
+  setLastRemoteSaveSecret,
   getAppConfigDirOverride,
   setAppConfigDirOverrideState,
   getMcpConfig,
@@ -90,9 +91,11 @@ export const handlers = [
   ),
 
   http.post(`${TAURI_ENDPOINT}/remote_save_profile`, async ({ request }) => {
-    const { profile } = await withJson<{ profile: RemoteHostProfile }>(
-      request,
-    );
+    const { profile, secret } = await withJson<{
+      profile: RemoteHostProfile;
+      secret?: { password?: string };
+    }>(request);
+    setLastRemoteSaveSecret(secret ?? null);
     const saved = {
       ...profile,
       id: profile.id || `remote-${Date.now()}`,
@@ -108,6 +111,17 @@ export const handlers = [
     const { app } = await withJson<{ app: AppId }>(request);
     return success(getProviders(app));
   }),
+
+  http.post(
+    `${TAURI_ENDPOINT}/remote_get_provider_state`,
+    async ({ request }) => {
+      const { app } = await withJson<{ app: AppId }>(request);
+      return success({
+        providers: getProviders(app),
+        currentProviderId: getCurrentProviderId(app),
+      });
+    },
+  ),
 
   http.post(
     `${TAURI_ENDPOINT}/remote_get_current_provider`,

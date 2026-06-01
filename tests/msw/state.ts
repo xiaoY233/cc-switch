@@ -103,6 +103,7 @@ let settingsState: Settings = {
 };
 let appConfigDirOverride: string | null = null;
 let remoteProfilesState: RemoteHostProfile[] = [];
+let lastRemoteSaveSecretState: { password?: string } | null = null;
 let remoteOpenClawDefaultModelState: OpenClawDefaultModel | null = null;
 const sessionMessageKey = (providerId: string, sourcePath: string) =>
   `${providerId}:${sourcePath}`;
@@ -223,6 +224,7 @@ export const resetProviderState = () => {
   };
   appConfigDirOverride = null;
   remoteProfilesState = [];
+  lastRemoteSaveSecretState = null;
   remoteOpenClawDefaultModelState = null;
   mcpConfigs = {
     claude: {
@@ -351,6 +353,15 @@ export const getRemoteProfiles = () =>
 export const setRemoteProfiles = (profiles: RemoteHostProfile[]) => {
   remoteProfilesState = deepClone(profiles) as RemoteHostProfile[];
 };
+
+export const setLastRemoteSaveSecret = (
+  secret: { password?: string } | null,
+) => {
+  lastRemoteSaveSecretState = secret ? deepClone(secret) : null;
+};
+
+export const getLastRemoteSaveSecret = () =>
+  lastRemoteSaveSecretState ? deepClone(lastRemoteSaveSecretState) : null;
 
 export const getRemoteOpenClawDefaultModel = () =>
   remoteOpenClawDefaultModelState
