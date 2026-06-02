@@ -1155,9 +1155,10 @@ mod tests {
         assert!(command.contains(
             "https://api.github.com/repos/xiaoY233/cc-switch/releases/tags/remote-helper-latest"
         ));
-        assert!(command.contains("asset_pattern=\"cc-switch-cli-.*-${asset_os}-${asset_arch}$\""));
+        assert!(command.contains("cc-switch-remote-helper"));
+        assert!(command.contains("cc-switch-cli"));
         assert!(command.contains("Downloaded remote helper is not compatible with this server"));
-        assert!(command.contains("No compatible cc-switch remote helper release asset found"));
+        assert!(command.contains("No compatible cc-switch-remote helper release asset found"));
         assert!(command.contains("\"$helper_path\" --json status"));
         assert!(!command.contains("rustup.rs"));
         assert!(!command.contains("cargo install --git"));
