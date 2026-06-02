@@ -269,7 +269,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          pnpm tauri build
+          $ErrorActionPreference = 'Continue'
+          $PSNativeCommandUseErrorActionPreference = $false
+          cmd /c "pnpm tauri build"
           $exitCode = $LASTEXITCODE
           if ($exitCode -ne 0) {
             $fallbackMsi = 'src-tauri/target/release/wix/x64/output.msi'
