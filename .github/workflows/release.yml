@@ -491,14 +491,24 @@ jobs:
           }
           if ($null -ne $msi) {
             $dest = "CC-Switch-$VERSION-Windows.msi"
-            Copy-Item $msi.FullName (Join-Path release-assets $dest)
+            $assetPath = Join-Path release-assets $dest
+            Copy-Item $msi.FullName $assetPath
             Write-Host "Installer copied: $dest"
             $sigPath = "$($msi.FullName).sig"
             if (Test-Path $sigPath) {
               Copy-Item $sigPath (Join-Path release-assets ("$dest.sig"))
               Write-Host "Signature copied: $dest.sig"
             } else {
-              Write-Warning "Signature not found for $($msi.Name)"
+              Write-Warning "Signature not found for $($msi.Name); signing copied MSI for updater metadata"
+              pnpm tauri signer sign $assetPath
+              if ($LASTEXITCODE -ne 0) {
+                throw "Failed to sign Windows MSI updater artifact"
+              }
+              $generatedSig = "$assetPath.sig"
+              if (-not (Test-Path $generatedSig)) {
+                throw "Windows MSI signing completed but $generatedSig was not created"
+              }
+              Write-Host "Signature generated: $dest.sig"
             }
           } else {
             Write-Warning 'No Windows MSI installer found'
