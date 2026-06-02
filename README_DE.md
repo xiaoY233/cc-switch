@@ -1,21 +1,26 @@
 <div align="center">
 
-# CC Switch
+# CC Switch Remote
 
-### Der All-in-One-Manager für Claude Code, Codex, Gemini CLI, OpenCode, OpenClaw & Hermes Agent
+### Remote-first fork von CC Switch für Claude Code, Codex, Gemini CLI, OpenCode, OpenClaw & Hermes Agent
 
-[![Version](https://img.shields.io/github/v/release/farion1231/cc-switch?color=blue&label=version)](https://github.com/farion1231/cc-switch/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/farion1231/cc-switch/releases)
+[![Version](https://img.shields.io/github/v/release/xiaoY233/cc-switch?color=blue&label=version)](https://github.com/xiaoY233/cc-switch/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/xiaoY233/cc-switch/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
-[![Downloads](https://img.shields.io/github/downloads/farion1231/cc-switch/total)](https://github.com/farion1231/cc-switch/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/xiaoY233/cc-switch/total)](https://github.com/xiaoY233/cc-switch/releases/latest)
 
-<a href="https://trendshift.io/repositories/15372" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15372" alt="farion1231%2Fcc-switch | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
-### 🌐 Die einzige offizielle Website: **[ccswitch.io](https://ccswitch.io)**
+CC Switch Remote behält die lokalen Verwaltungsfunktionen des Upstreams bei und ergänzt unabhängige Remote-Server-Verwaltung. `main` ist der Produktzweig; `upstream-main` verfolgt `farion1231/cc-switch/main` für regelmäßige Upstream-Synchronisierung.
 
 [English](README.md) | [中文](README_ZH.md) | [日本語](README_JA.md) | Deutsch | [Changelog](CHANGELOG.md)
 
 </div>
+
+## Remote Fork Strategy
+
+- `main` ist der Produktzweig von CC Switch Remote und wird für App-Releases verwendet.
+- `upstream-main` spiegelt den Upstream-Zweig CC Switch `main` und dient nur als Synchronisationsbasis.
+- Desktop-App und Remote Helper werden über getrennte Workflows veröffentlicht. App-Releases sind tag-basiert; Helper-Binaries werden vom Workflow `Remote Helper Artifacts` nach `remote-helper-latest` veröffentlicht.
+- Remote-Helper-Assets verwenden den Präfix `cc-switch-remote-helper-*` und sind reine CLI-Binaries ohne Desktop-GTK/WebKit-Abhängigkeiten.
 
 ## ❤️Sponsoren
 
@@ -295,43 +300,25 @@ Ausführliche Anleitungen zu jeder Funktion finden Sie im **[Benutzerhandbuch](d
 
 ### Windows-Nutzer
 
-Laden Sie das neueste Installationsprogramm `CC-Switch-v{version}-Windows.msi` oder die portable Version `CC-Switch-v{version}-Windows-Portable.zip` von der Seite [Releases](../../releases) herunter.
+Laden Sie das neueste Installationsprogramm `CC-Switch-Remote-v{version}-Windows.msi` oder die portable Version `CC-Switch-Remote-v{version}-Windows-Portable.zip` von der Seite [Releases](../../releases) herunter.
 
 ### macOS-Nutzer
 
-**Methode 1: Installation über Homebrew (empfohlen)**
+Laden Sie `CC-Switch-Remote-v{version}-macOS.dmg` (empfohlen) oder `.zip` von der Seite [Releases](../../releases) herunter.
 
-```bash
-brew install --cask cc-switch
-```
-
-Aktualisieren:
-
-```bash
-brew upgrade --cask cc-switch
-```
-
-**Methode 2: Manueller Download**
-
-Laden Sie `CC-Switch-v{version}-macOS.dmg` (empfohlen) oder `.zip` von der Seite [Releases](../../releases) herunter.
-
-> **Hinweis**: CC Switch für macOS ist von Apple code-signiert und notarisiert. Sie können es direkt installieren und öffnen.
+> **Hinweis**: Homebrew-Pakete verweisen derzeit auf Upstream CC Switch, nicht auf diesen Remote-Fork.
 
 ### Arch-Linux-Nutzer
 
-**Installation über paru (empfohlen)**
-
-```bash
-paru -S cc-switch-bin
-```
+Das aktuelle AUR-Paket verweist auf Upstream CC Switch, nicht auf diesen Remote-Fork.
 
 ### Linux-Nutzer
 
 Laden Sie den neuesten Linux-Build von der Seite [Releases](../../releases) herunter:
 
-- `CC-Switch-v{version}-Linux.deb` (Debian/Ubuntu)
-- `CC-Switch-v{version}-Linux.rpm` (Fedora/RHEL/openSUSE)
-- `CC-Switch-v{version}-Linux.AppImage` (universell)
+- `CC-Switch-Remote-v{version}-Linux-x86_64.deb` / `CC-Switch-Remote-v{version}-Linux-arm64.deb` (Debian/Ubuntu)
+- `CC-Switch-Remote-v{version}-Linux-x86_64.rpm` / `CC-Switch-Remote-v{version}-Linux-arm64.rpm` (Fedora/RHEL/openSUSE)
+- `CC-Switch-Remote-v{version}-Linux-x86_64.AppImage` / `CC-Switch-Remote-v{version}-Linux-arm64.AppImage` (universell)
 
 > **Flatpak**: Nicht in den offiziellen Releases enthalten. Sie können es selbst aus dem `.deb` bauen — eine Anleitung finden Sie unter [`flatpak/README.md`](flatpak/README.md).
 
