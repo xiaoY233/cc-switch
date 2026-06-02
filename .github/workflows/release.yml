@@ -229,6 +229,16 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
+          echo "=== Build macOS remote helper CLI ==="
+          cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --target aarch64-apple-darwin --bin cc-switch-cli
+          cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --target x86_64-apple-darwin --bin cc-switch-cli
+          mkdir -p src-tauri/target/universal-apple-darwin/release
+          lipo -create \
+            -output src-tauri/target/universal-apple-darwin/release/cc-switch-cli \
+            src-tauri/target/aarch64-apple-darwin/release/cc-switch-cli \
+            src-tauri/target/x86_64-apple-darwin/release/cc-switch-cli
+          chmod +x src-tauri/target/universal-apple-darwin/release/cc-switch-cli
+
           if [ "$SIGNED_MACOS" != "true" ]; then
             unset APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
             echo "=== macOS unsigned build ==="
