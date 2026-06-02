@@ -277,6 +277,7 @@ jobs:
             $fallbackMsi = 'src-tauri/target/release/wix/x64/output.msi'
             if (Test-Path $fallbackMsi) {
               Write-Warning "Tauri WiX bundler exited with $exitCode, but fallback MSI exists at $fallbackMsi; continuing to asset collection"
+              exit 0
             } else {
               exit $exitCode
             }
