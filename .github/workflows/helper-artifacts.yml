@@ -5,6 +5,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - ".github/workflows/helper-artifacts.yml"
+      - "src-tauri/Cargo.toml"
+      - "src-tauri/Cargo.lock"
+      - "src-tauri/build.rs"
+      - "src-tauri/src/**"
 
 permissions:
   contents: write
