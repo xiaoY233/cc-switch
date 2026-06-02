@@ -118,18 +118,7 @@ jobs:
             echo "✅ 使用原始两行密钥文件格式"
           else
             # 情况 2：整体被 base64 包裹（解包后应当是两行）；允许粘贴时带换行/空格。
-            if RAW_COMPACT="$RAW_COMPACT" KEY_PATH="$KEY_PATH" node <<'NODE'
-const fs = require('fs');
-const raw = process.env.RAW_COMPACT || '';
-try {
-  const decoded = Buffer.from(raw, 'base64').toString('utf8');
-  const firstLine = decoded.split(/\r?\n/, 1)[0] || '';
-  if (!firstLine.startsWith('untrusted comment:')) process.exit(2);
-  fs.writeFileSync(process.env.KEY_PATH, decoded.endsWith('\n') ? decoded : `${decoded}\n`);
-} catch (_) {
-  process.exit(1);
-}
-NODE
+            if RAW_COMPACT="$RAW_COMPACT" KEY_PATH="$KEY_PATH" node -e 'const fs=require("fs");const raw=process.env.RAW_COMPACT||"";try{const decoded=Buffer.from(raw,"base64").toString("utf8");const firstLine=decoded.split(/\r?\n/,1)[0]||"";if(!firstLine.startsWith("untrusted comment:"))process.exit(2);fs.writeFileSync(process.env.KEY_PATH,decoded.endsWith("\n")?decoded:`${decoded}\n`);}catch(_){process.exit(1);}'
             then
               echo "✅ 成功解码 base64 包裹密钥，已还原为两行文件"
             else
