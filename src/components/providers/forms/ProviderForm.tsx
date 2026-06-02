@@ -237,6 +237,7 @@ export interface ProviderFormProps {
     iconColor?: string;
   };
   showButtons?: boolean;
+  isProxyTakeover?: boolean;
 }
 
 export function ProviderForm(props: ProviderFormProps) {
@@ -259,6 +260,7 @@ function ProviderFormFull({
   target = LOCAL_MANAGEMENT_TARGET,
   initialData,
   showButtons = true,
+  isProxyTakeover = false,
 }: ProviderFormProps) {
   if (appId === "claude-desktop") {
     throw new Error("ProviderFormFull should not receive claude-desktop");
@@ -2180,6 +2182,7 @@ function ProviderFormFull({
                 configValue={codexConfig}
                 providerName={form.watch("name")}
                 showRemoteCompaction={category !== "official"}
+                isProxyTakeover={isProxyTakeover}
                 onAuthChange={setCodexAuth}
                 onConfigChange={handleCodexConfigChange}
                 useCommonConfig={useCodexCommonConfigFlag}
