@@ -1120,23 +1120,30 @@ mod tests {
     fn builds_status_command_after_validation() {
         let args = remote_build_status_command(valid_profile()).unwrap();
 
+        assert!(args.windows(2).any(|pair| pair == ["-p", "22"]));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["-o", "ConnectTimeout=10"]));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["-o", "StrictHostKeyChecking=accept-new"]));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["-o", "NumberOfPasswordPrompts=1"]));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["-o", "ControlMaster=auto"]));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["-o", "ControlPersist=10m"]));
+        assert!(args.windows(2).any(|pair| pair[0] == "-S"
+            && pair[1].starts_with("/tmp/ccsw-")
+            && pair[1].len() < 80));
+        assert!(args.windows(2).any(|pair| pair == ["-o", "BatchMode=yes"]));
+        assert_eq!(args[args.len() - 2], "ccswitch@example.com");
         assert_eq!(
-            args,
-            vec![
-                "-p",
-                "22",
-                "-o",
-                "ConnectTimeout=10",
-                "-o",
-                "StrictHostKeyChecking=accept-new",
-                "-o",
-                "NumberOfPasswordPrompts=1",
-                "-o",
-                "BatchMode=yes",
-                "--",
-                "ccswitch@example.com",
-                "/usr/local/bin/cc-switch-helper --json status",
-            ]
+            args.last().expect("remote command"),
+            "/usr/local/bin/cc-switch-helper --json status"
         );
     }
 
@@ -1145,9 +1152,15 @@ mod tests {
         let args = remote_build_helper_install_command(valid_profile()).unwrap();
         let command = args.last().expect("remote command");
 
-        assert!(command.contains("rustup.rs"));
-        assert!(command.contains("cargo install --git"));
+        assert!(command.contains(
+            "https://api.github.com/repos/xiaoY233/cc-switch/releases/tags/remote-helper-latest"
+        ));
+        assert!(command.contains("asset_pattern=\"cc-switch-cli-.*-${asset_os}-${asset_arch}$\""));
+        assert!(command.contains("Downloaded remote helper is not compatible with this server"));
+        assert!(command.contains("No compatible cc-switch remote helper release asset found"));
         assert!(command.contains("\"$helper_path\" --json status"));
+        assert!(!command.contains("rustup.rs"));
+        assert!(!command.contains("cargo install --git"));
     }
 
     #[test]
