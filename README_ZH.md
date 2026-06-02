@@ -1,21 +1,26 @@
 <div align="center">
 
-# CC Switch
+# CC Switch Remote
 
-### Claude Code、Codex、Gemini CLI、OpenCode、OpenClaw 和 Hermes Agent 的全方位管理工具
+### 面向远程服务器管理增强的 CC Switch Fork
 
-[![Version](https://img.shields.io/github/v/release/farion1231/cc-switch?color=blue&label=version)](https://github.com/farion1231/cc-switch/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/farion1231/cc-switch/releases)
+[![Version](https://img.shields.io/github/v/release/xiaoY233/cc-switch?color=blue&label=version)](https://github.com/xiaoY233/cc-switch/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/xiaoY233/cc-switch/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
-[![Downloads](https://img.shields.io/github/downloads/farion1231/cc-switch/total)](https://github.com/farion1231/cc-switch/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/xiaoY233/cc-switch/total)](https://github.com/xiaoY233/cc-switch/releases/latest)
 
-<a href="https://trendshift.io/repositories/15372" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15372" alt="farion1231%2Fcc-switch | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
-### 🌐 唯一官方网站：**[ccswitch.io](https://ccswitch.io)**
+CC Switch Remote 保留上游本地管理能力，同时新增相互独立的远程服务器管理。`main` 是产品主线；`upstream-main` 仅用于同步 `farion1231/cc-switch/main` 的上游功能更新。
 
 [English](README.md) | 中文 | [日本語](README_JA.md) | [Deutsch](README_DE.md) | [更新日志](CHANGELOG.md)
 
 </div>
+
+## 远程 Fork 维护策略
+
+- `main` 是 CC Switch Remote 产品主线，用于开发和应用发布。
+- `upstream-main` 镜像上游 CC Switch `main`，只作为同步上游功能的基线。
+- 桌面应用发布和远程 Helper 发布分离。应用通过 tag 触发正式发布；Helper 由 `Remote Helper Artifacts` workflow 发布到 `remote-helper-latest`。
+- 远程 Helper 资产使用 `cc-switch-remote-helper-*` 前缀，是不依赖桌面 GTK/WebKit 的纯 CLI 二进制。
 
 ## ❤️赞助商
 
@@ -297,43 +302,25 @@ CC Switch macOS 版本已通过 Apple 代码签名和公证，可直接下载安
 
 ### Windows 用户
 
-从 [Releases](../../releases) 页面下载最新版本的 `CC-Switch-v{版本号}-Windows.msi` 安装包或 `CC-Switch-v{版本号}-Windows-Portable.zip` 绿色版。
+从 [Releases](../../releases) 页面下载最新版本的 `CC-Switch-Remote-v{版本号}-Windows.msi` 安装包或 `CC-Switch-Remote-v{版本号}-Windows-Portable.zip` 绿色版。
 
 ### macOS 用户
 
-**方式一：通过 Homebrew 安装（推荐）**
+从 [Releases](../../releases) 页面下载 `CC-Switch-Remote-v{版本号}-macOS.dmg`（推荐）或 `.zip`。
 
-```bash
-brew install --cask cc-switch
-```
-
-更新：
-
-```bash
-brew upgrade --cask cc-switch
-```
-
-**方式二：手动下载**
-
-从 [Releases](../../releases) 页面下载 `CC-Switch-v{版本号}-macOS.dmg`（推荐）或 `.zip`。
-
-> **注意**：CC Switch macOS 版本已通过 Apple 代码签名和公证，可直接安装打开。
+> **注意**：Homebrew 包目前指向上游 CC Switch，不是此远程管理 Fork。
 
 ### Arch Linux 用户
 
-**通过 paru 安装（推荐）**
-
-```bash
-paru -S cc-switch-bin
-```
+当前 AUR 包指向上游 CC Switch，不是此远程管理 Fork。
 
 ### Linux 用户
 
 从 [Releases](../../releases) 页面下载最新版本的 Linux 安装包：
 
-- `CC-Switch-v{版本号}-Linux.deb`（Debian/Ubuntu）
-- `CC-Switch-v{版本号}-Linux.rpm`（Fedora/RHEL/openSUSE）
-- `CC-Switch-v{版本号}-Linux.AppImage`（通用）
+- `CC-Switch-Remote-v{版本号}-Linux-x86_64.deb` / `CC-Switch-Remote-v{版本号}-Linux-arm64.deb`（Debian/Ubuntu）
+- `CC-Switch-Remote-v{版本号}-Linux-x86_64.rpm` / `CC-Switch-Remote-v{版本号}-Linux-arm64.rpm`（Fedora/RHEL/openSUSE）
+- `CC-Switch-Remote-v{版本号}-Linux-x86_64.AppImage` / `CC-Switch-Remote-v{版本号}-Linux-arm64.AppImage`（通用）
 
 > **Flatpak**：官方 Release 不包含 Flatpak 包。如需使用，可从 `.deb` 自行构建 — 参见 [`flatpak/README.md`](flatpak/README.md)。
 

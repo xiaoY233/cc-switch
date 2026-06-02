@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - codex-remote-server-management
+      - main
 
 permissions:
   contents: write
@@ -24,11 +24,15 @@ jobs:
           - os: ubuntu-22.04
             helper_os: Linux
             helper_arch: x86_64
-            helper_path: src-tauri/target/release/cc-switch-cli
+            helper_path: src-tauri/target/release/cc-switch-remote-helper
+          - os: ubuntu-22.04-arm
+            helper_os: Linux
+            helper_arch: arm64
+            helper_path: src-tauri/target/release/cc-switch-remote-helper
           - os: macos-14
             helper_os: macOS
-            helper_arch: arm64
-            helper_path: src-tauri/target/release/cc-switch-cli
+            helper_arch: universal
+            helper_path: src-tauri/target/universal-apple-darwin/release/cc-switch-remote-helper
 
     steps:
       - name: Checkout
@@ -36,6 +40,10 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Add macOS universal targets
+        if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Install Linux system deps
         if: runner.os == 'Linux'
@@ -51,11 +59,25 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             src-tauri/target
-          key: helper-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: helper-${{ runner.os }}-
+          key: helper-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: helper-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Build remote helper CLI
-        run: cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --bin cc-switch-cli
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --target aarch64-apple-darwin --bin cc-switch-remote-helper
+            cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --target x86_64-apple-darwin --bin cc-switch-remote-helper
+            mkdir -p src-tauri/target/universal-apple-darwin/release
+            lipo -create \
+              -output src-tauri/target/universal-apple-darwin/release/cc-switch-remote-helper \
+              src-tauri/target/aarch64-apple-darwin/release/cc-switch-remote-helper \
+              src-tauri/target/x86_64-apple-darwin/release/cc-switch-remote-helper
+            chmod +x src-tauri/target/universal-apple-darwin/release/cc-switch-remote-helper
+          else
+            cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --bin cc-switch-remote-helper
+          fi
 
       - name: Prepare helper artifact
         shell: bash
@@ -63,7 +85,7 @@ jobs:
           set -euo pipefail
           mkdir -p helper-artifacts
           short_sha="${GITHUB_SHA::8}"
-          asset="cc-switch-cli-${short_sha}-${{ matrix.helper_os }}-${{ matrix.helper_arch }}"
+          asset="cc-switch-remote-helper-${short_sha}-${{ matrix.helper_os }}-${{ matrix.helper_arch }}"
           cp "${{ matrix.helper_path }}" "helper-artifacts/${asset}"
           chmod +x "helper-artifacts/${asset}"
           ls -la helper-artifacts
@@ -71,7 +93,7 @@ jobs:
       - name: Upload helper artifact
         uses: actions/upload-artifact@v7
         with:
-          name: cc-switch-cli-${{ matrix.helper_os }}-${{ matrix.helper_arch }}
+          name: cc-switch-remote-helper-${{ matrix.helper_os }}-${{ matrix.helper_arch }}
           path: helper-artifacts/*
           if-no-files-found: error
 
@@ -79,7 +101,7 @@ jobs:
     name: Publish Helper Release
     runs-on: ubuntu-22.04
     needs: build-helper
-    if: github.ref == 'refs/heads/codex-remote-server-management'
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -89,7 +111,7 @@ jobs:
       - name: Download helper artifacts
         uses: actions/download-artifact@v8
         with:
-          pattern: cc-switch-cli-*
+          pattern: cc-switch-remote-helper-*
           path: helper-release
           merge-multiple: true
 
@@ -108,20 +130,20 @@ jobs:
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release edit "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
-              --title "Remote Helper Latest" \
-              --notes "Latest remote helper binaries for branch testing."
+              --title "CC Switch Remote Helper Latest" \
+              --notes "Latest pure CLI remote helper binaries for cc-switch-remote."
           else
             gh release create "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
-              --title "Remote Helper Latest" \
-              --notes "Latest remote helper binaries for branch testing." \
+              --title "CC Switch Remote Helper Latest" \
+              --notes "Latest pure CLI remote helper binaries for cc-switch-remote." \
               --prerelease
           fi
           gh release view "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --json assets \
             --jq '.assets[].name' |
-            grep '^cc-switch-cli-' |
+            grep -E '^(cc-switch-remote-helper|cc-switch-cli)-' |
             while read -r asset; do
               gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" -y
             done

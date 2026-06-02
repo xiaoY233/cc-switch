@@ -23,8 +23,8 @@ esac
 
 API_URL="https://api.github.com/repos/$REPO/releases/tags/$VERSION"
 
-ASSET_NAME="cc-switch-cli-${VERSION}-${ASSET_OS}-${ASSET_ARCH}"
-ASSET_NAME_PATTERN="cc-switch-cli-.*-${ASSET_OS}-${ASSET_ARCH}$"
+ASSET_NAME="cc-switch-remote-helper-${VERSION}-${ASSET_OS}-${ASSET_ARCH}"
+ASSET_NAME_PATTERN="(cc-switch-remote-helper|cc-switch-cli)-.*-${ASSET_OS}-${ASSET_ARCH}$"
 
 DOWNLOAD_URL="$(
   curl -fsSL "$API_URL" |

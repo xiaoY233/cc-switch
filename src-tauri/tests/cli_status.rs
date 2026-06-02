@@ -1,3 +1,5 @@
+#![cfg(feature = "desktop")]
+
 use serial_test::serial;
 
 fn with_temp_home<T>(run: impl FnOnce() -> T) -> T {

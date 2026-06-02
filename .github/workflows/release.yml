@@ -27,6 +27,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Ensure release tag is on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "❌ Release tags must point to commits contained in origin/main." >&2
+            echo "Current tag commit: $GITHUB_SHA" >&2
+            exit 1
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -229,16 +242,6 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
-          echo "=== Build macOS remote helper CLI ==="
-          cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --target aarch64-apple-darwin --bin cc-switch-cli
-          cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --target x86_64-apple-darwin --bin cc-switch-cli
-          mkdir -p src-tauri/target/universal-apple-darwin/release
-          lipo -create \
-            -output src-tauri/target/universal-apple-darwin/release/cc-switch-cli \
-            src-tauri/target/aarch64-apple-darwin/release/cc-switch-cli \
-            src-tauri/target/x86_64-apple-darwin/release/cc-switch-cli
-          chmod +x src-tauri/target/universal-apple-darwin/release/cc-switch-cli
-
           if [ "$SIGNED_MACOS" != "true" ]; then
             unset APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
             echo "=== macOS unsigned build ==="
@@ -328,22 +331,22 @@ jobs:
           fi
 
           # 1) Collect .tar.gz (updater artifact)
-          NEW_TAR_GZ="CC-Switch-${VERSION}-macOS.tar.gz"
+          NEW_TAR_GZ="CC-Switch-Remote-${VERSION}-macOS.tar.gz"
           cp "$TAR_GZ" "release-assets/$NEW_TAR_GZ"
           [ -f "$TAR_GZ.sig" ] && cp "$TAR_GZ.sig" "release-assets/$NEW_TAR_GZ.sig" || echo ".sig for macOS not found yet"
           echo "macOS updater artifact copied: $NEW_TAR_GZ"
 
           # 2) Collect .app as zip
-          NEW_ZIP="CC-Switch-${VERSION}-macOS.zip"
+          NEW_ZIP="CC-Switch-Remote-${VERSION}-macOS.zip"
           ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "release-assets/$NEW_ZIP"
           echo "macOS zip ready: $NEW_ZIP"
 
           # 3) Create DMG. Signed releases use create-dmg codesigning; unsigned releases use hdiutil.
-          NEW_DMG="CC-Switch-${VERSION}-macOS.dmg"
+          NEW_DMG="CC-Switch-Remote-${VERSION}-macOS.dmg"
           DMG_STAGE_DIR="$RUNNER_TEMP/dmg-stage"
           rm -rf "$DMG_STAGE_DIR"
           mkdir -p "$DMG_STAGE_DIR"
-          ditto "$APP_PATH" "$DMG_STAGE_DIR/CC Switch.app"
+          ditto "$APP_PATH" "$DMG_STAGE_DIR/CC Switch Remote.app"
 
           if [ "$SIGNED_MACOS" = "true" ]; then
             if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
@@ -353,13 +356,13 @@ jobs:
 
             HOMEBREW_NO_AUTO_UPDATE=1 brew install create-dmg
             create-dmg \
-              --volname "CC Switch" \
+              --volname "CC Switch Remote" \
               --background "src-tauri/icons/dmg-background.png" \
               --window-size 660 400 \
               --window-pos 200 120 \
               --icon-size 80 \
-              --icon "CC Switch.app" 180 220 \
-              --hide-extension "CC Switch.app" \
+              --icon "CC Switch Remote.app" 180 220 \
+              --hide-extension "CC Switch Remote.app" \
               --app-drop-link 480 220 \
               --codesign "$APPLE_SIGNING_IDENTITY" \
               --no-internet-enable \
@@ -367,7 +370,7 @@ jobs:
               "$DMG_STAGE_DIR"
             echo "✅ Signed styled DMG created: $NEW_DMG"
           else
-            hdiutil create -volname "CC Switch" -srcfolder "$DMG_STAGE_DIR" -ov -format UDZO "release-assets/$NEW_DMG"
+            hdiutil create -volname "CC Switch Remote" -srcfolder "$DMG_STAGE_DIR" -ov -format UDZO "release-assets/$NEW_DMG"
             echo "⚠️ Unsigned DMG created: $NEW_DMG"
           fi
 
@@ -465,8 +468,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f "release-assets/CC-Switch-${GITHUB_REF_NAME}-macOS.zip"
-          test -f "release-assets/CC-Switch-${GITHUB_REF_NAME}-macOS.dmg"
+          test -f "release-assets/CC-Switch-Remote-${GITHUB_REF_NAME}-macOS.zip"
+          test -f "release-assets/CC-Switch-Remote-${GITHUB_REF_NAME}-macOS.dmg"
           echo "⚠️ macOS artifacts are unsigned and not notarized"
 
       - name: Prepare Windows Assets
@@ -490,7 +493,7 @@ jobs:
             }
           }
           if ($null -ne $msi) {
-            $dest = "CC-Switch-$VERSION-Windows.msi"
+            $dest = "CC-Switch-Remote-$VERSION-Windows.msi"
             $assetPath = Join-Path release-assets $dest
             Copy-Item $msi.FullName $assetPath
             Write-Host "Installer copied: $dest"
@@ -515,24 +518,24 @@ jobs:
           }
           # 绿色版（portable）：仅可执行文件打 zip（不参与 Updater）
           $exeCandidates = @(
-            'src-tauri/target/release/cc-switch.exe',
-            'src-tauri/target/x86_64-pc-windows-msvc/release/cc-switch.exe'
+            'src-tauri/target/release/cc-switch-remote.exe',
+            'src-tauri/target/x86_64-pc-windows-msvc/release/cc-switch-remote.exe'
           )
           $exePath = $exeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if ($null -ne $exePath) {
-            $portableDir = 'release-assets/CC-Switch-Portable'
+            $portableDir = 'release-assets/CC-Switch-Remote-Portable'
             New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
             Copy-Item $exePath $portableDir
             $portableIniPath = Join-Path $portableDir 'portable.ini'
             $portableContent = @(
-              '# CC Switch portable build marker',
+              '# CC Switch Remote portable build marker',
               'portable=true'
             )
             $portableContent | Set-Content -Path $portableIniPath -Encoding UTF8
-            $portableZip = "release-assets/CC-Switch-$VERSION-Windows-Portable.zip"
+            $portableZip = "release-assets/CC-Switch-Remote-$VERSION-Windows-Portable.zip"
             Compress-Archive -Path "$portableDir/*" -DestinationPath $portableZip -Force
             Remove-Item -Recurse -Force $portableDir
-            Write-Host "Windows portable zip created: CC-Switch-$VERSION-Windows-Portable.zip"
+            Write-Host "Windows portable zip created: CC-Switch-Remote-$VERSION-Windows-Portable.zip"
           } else {
             Write-Warning 'Portable exe not found'
           }
@@ -548,7 +551,7 @@ jobs:
           # Updater artifact: AppImage（含对应 .sig）
           APPIMAGE=$(find src-tauri/target/release/bundle -name "*.AppImage" | head -1 || true)
           if [ -n "$APPIMAGE" ]; then
-            NEW_APPIMAGE="CC-Switch-${VERSION}-Linux-${ARCH}.AppImage"
+            NEW_APPIMAGE="CC-Switch-Remote-${VERSION}-Linux-${ARCH}.AppImage"
             cp "$APPIMAGE" "release-assets/$NEW_APPIMAGE"
             [ -f "$APPIMAGE.sig" ] && cp "$APPIMAGE.sig" "release-assets/$NEW_APPIMAGE.sig" || echo ".sig for AppImage not found"
             echo "AppImage copied: $NEW_APPIMAGE"
@@ -558,53 +561,18 @@ jobs:
           # 额外上传 .deb（用于手动安装，不参与 Updater）
           DEB=$(find src-tauri/target/release/bundle -name "*.deb" | head -1 || true)
           if [ -n "$DEB" ]; then
-            cp "$DEB" "release-assets/CC-Switch-${VERSION}-Linux-${ARCH}.deb"
-            echo "Deb package copied: CC-Switch-${VERSION}-Linux-${ARCH}.deb"
+            cp "$DEB" "release-assets/CC-Switch-Remote-${VERSION}-Linux-${ARCH}.deb"
+            echo "Deb package copied: CC-Switch-Remote-${VERSION}-Linux-${ARCH}.deb"
           else
             echo "No .deb found (optional)"
           fi
           # 额外上传 .rpm（用于 Fedora/RHEL/openSUSE 等，不参与 Updater）
           RPM=$(find src-tauri/target/release/bundle -name "*.rpm" | head -1 || true)
           if [ -n "$RPM" ]; then
-            cp "$RPM" "release-assets/CC-Switch-${VERSION}-Linux-${ARCH}.rpm"
-            echo "RPM package copied: CC-Switch-${VERSION}-Linux-${ARCH}.rpm"
+            cp "$RPM" "release-assets/CC-Switch-Remote-${VERSION}-Linux-${ARCH}.rpm"
+            echo "RPM package copied: CC-Switch-Remote-${VERSION}-Linux-${ARCH}.rpm"
           else
             echo "No .rpm found (optional)"
-          fi
-
-      - name: Prepare Remote Helper CLI Asset
-        shell: bash
-        run: |
-          set -euxo pipefail
-          mkdir -p release-assets
-          VERSION="${GITHUB_REF_NAME}"
-          case "${{ runner.os }}" in
-            macOS)
-              HELPER_PATH="src-tauri/target/universal-apple-darwin/release/cc-switch-cli"
-              HELPER_OS="macOS"
-              HELPER_ARCH="universal"
-              ;;
-            Linux)
-              HELPER_PATH="src-tauri/target/release/cc-switch-cli"
-              HELPER_OS="Linux"
-              HELPER_ARCH="${{ matrix.arch || 'x86_64' }}"
-              ;;
-            Windows)
-              HELPER_PATH="src-tauri/target/release/cc-switch-cli.exe"
-              HELPER_OS="Windows"
-              HELPER_ARCH="x86_64"
-              ;;
-          esac
-          if [ ! -f "$HELPER_PATH" ]; then
-            echo "Remote helper CLI not found at $HELPER_PATH" >&2
-            exit 1
-          fi
-          ASSET="cc-switch-cli-${VERSION}-${HELPER_OS}-${HELPER_ARCH}"
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            cp "$HELPER_PATH" "release-assets/${ASSET}.exe"
-          else
-            cp "$HELPER_PATH" "release-assets/${ASSET}"
-            chmod +x "release-assets/${ASSET}"
           fi
 
       - name: List prepared assets
@@ -668,21 +636,22 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
-          name: CC Switch ${{ github.ref_name }}
-          prerelease: true
+          name: CC Switch Remote ${{ github.ref_name }}
+          prerelease: false
           body: |
-            ## CC Switch ${{ github.ref_name }}
+            ## CC Switch Remote ${{ github.ref_name }}
 
-            🌐 **Only Official Website / 唯一官方网站 / 唯一の公式サイト**: [ccswitch.io](https://ccswitch.io)
+            Remote-management fork of CC Switch.
 
-            Claude Code 供应商切换工具
+            Claude Code / Codex / Gemini provider management with local and remote targets.
 
             ### 下载
 
-            - **macOS**: `CC-Switch-${{ github.ref_name }}-macOS.dmg` 或 `CC-Switch-${{ github.ref_name }}-macOS.zip`（未签名/未公证）
-            - **Windows**: `CC-Switch-${{ github.ref_name }}-Windows.msi`（安装版）或 `CC-Switch-${{ github.ref_name }}-Windows-Portable.zip`（绿色版）
-            - **Linux (x86_64)**: `CC-Switch-${{ github.ref_name }}-Linux-x86_64.AppImage` / `.deb` / `.rpm`
-            - **Linux (ARM64)**: `CC-Switch-${{ github.ref_name }}-Linux-arm64.AppImage` / `.deb` / `.rpm`
+            - **macOS**: `CC-Switch-Remote-${{ github.ref_name }}-macOS.dmg` 或 `CC-Switch-Remote-${{ github.ref_name }}-macOS.zip`（未签名/未公证）
+            - **Windows**: `CC-Switch-Remote-${{ github.ref_name }}-Windows.msi`（安装版）或 `CC-Switch-Remote-${{ github.ref_name }}-Windows-Portable.zip`（绿色版）
+            - **Linux (x86_64)**: `CC-Switch-Remote-${{ github.ref_name }}-Linux-x86_64.AppImage` / `.deb` / `.rpm`
+            - **Linux (ARM64)**: `CC-Switch-Remote-${{ github.ref_name }}-Linux-arm64.AppImage` / `.deb` / `.rpm`
+            - **Remote Helper**: published separately by the `Remote Helper Artifacts` workflow on `remote-helper-latest`
 
             > `.tar.gz` 为 Tauri updater 自动更新专用，无需手动下载。
 

@@ -8,6 +8,8 @@ pub struct ProxyService {
     _db: Arc<Database>,
 }
 
+pub struct ProxySwitchGuard;
+
 impl ProxyService {
     pub fn new(db: Arc<Database>) -> Self {
         Self { _db: db }
@@ -37,6 +39,14 @@ impl ProxyService {
     }
 
     pub async fn hot_switch_provider(&self, _app: &str, _id: &str) -> Result<(), String> {
+        Ok(())
+    }
+
+    pub async fn lock_switch_for_app(&self, _app: &str) -> ProxySwitchGuard {
+        ProxySwitchGuard
+    }
+
+    pub async fn hot_switch_provider_inner(&self, _app: &str, _id: &str) -> Result<(), String> {
         Ok(())
     }
 }
