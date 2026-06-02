@@ -267,7 +267,18 @@ jobs:
 
       - name: Build Tauri App (Windows)
         if: runner.os == 'Windows'
-        run: pnpm tauri build
+        shell: pwsh
+        run: |
+          pnpm tauri build
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            $fallbackMsi = 'src-tauri/target/release/wix/x64/output.msi'
+            if (Test-Path $fallbackMsi) {
+              Write-Warning "Tauri WiX bundler exited with $exitCode, but fallback MSI exists at $fallbackMsi; continuing to asset collection"
+            } else {
+              exit $exitCode
+            }
+          }
 
       - name: Build Tauri App (Linux)
         if: runner.os == 'Linux'
@@ -467,6 +478,13 @@ jobs:
           if ($null -eq $msi) {
             # 兜底：全局搜索 .msi
             $msi = Get-ChildItem -Path 'src-tauri/target/release/bundle' -Recurse -Include *.msi -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+          if ($null -eq $msi) {
+            $fallbackMsi = 'src-tauri/target/release/wix/x64/output.msi'
+            if (Test-Path $fallbackMsi) {
+              $msi = Get-Item $fallbackMsi
+              Write-Warning "Using fallback WiX output MSI: $fallbackMsi"
+            }
           }
           if ($null -ne $msi) {
             $dest = "CC-Switch-$VERSION-Windows.msi"
