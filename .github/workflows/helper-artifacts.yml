@@ -65,8 +65,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             src-tauri/target
-          key: helper-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: helper-${{ runner.os }}-${{ runner.arch }}-
+          key: helper-cc-switch-remote-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: helper-cc-switch-remote-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Build remote helper CLI
         shell: bash
