@@ -2691,6 +2691,7 @@
     "manageServers": "リモートサーバー",
     "noServers": "リモートサーバーはありません",
     "addServer": "サーバーを追加",
+    "connectionProfiles": "接続設定",
     "connections": "接続",
     "details": "接続詳細",
     "address": "アドレス",
@@ -2739,8 +2740,10 @@
       "check": "確認",
       "helperVersion": "Helper バージョン",
       "platform": "プラットフォーム",
-      "capabilities": "機能",
-      "missingCapabilities": "不足している機能"
+      "capabilities": "リモート機能サポート",
+      "missingCapabilities": "不足している機能サポート",
+      "noCapabilities": "機能サポート情報が返されていません",
+      "supportedCapabilities": "{{count}} 件サポート済み"
     },
     "capabilities": {
       "providers": "プロバイダー",
@@ -2748,6 +2751,9 @@
       "mcp": "MCP",
       "prompts": "プロンプト",
       "skills": "スキル",
+      "sessions": "セッション管理",
+      "hermesMemory": "Hermes メモリ",
+      "tools": "環境チェック更新",
       "importExport": "インポート / エクスポート"
     }
   },

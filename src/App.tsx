@@ -1411,13 +1411,6 @@ function App() {
                 >
                   <Settings className="w-4 h-4" />
                 </Button>
-                <ManagementTargetSwitcher
-                  profiles={remoteProfiles}
-                  activeTargetKey={activeTargetKey}
-                  onTargetChange={handleManagementTargetChange}
-                  onManageServers={() => setCurrentView("remoteServers")}
-                  style={{ WebkitAppRegion: "no-drag" } as any}
-                />
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1429,6 +1422,13 @@ function App() {
                 >
                   <Server className="w-4 h-4" />
                 </Button>
+                <ManagementTargetSwitcher
+                  profiles={remoteProfiles}
+                  activeTargetKey={activeTargetKey}
+                  onTargetChange={handleManagementTargetChange}
+                  onManageServers={() => setCurrentView("remoteServers")}
+                  style={{ WebkitAppRegion: "no-drag" } as any}
+                />
                 <UpdateBadge
                   onClick={() => {
                     setSettingsDefaultTab("about");

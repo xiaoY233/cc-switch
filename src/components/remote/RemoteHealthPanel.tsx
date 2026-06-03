@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
   remoteApi,
@@ -39,6 +40,21 @@ const EXPECTED_REMOTE_CAPABILITIES = [
     id: "skills",
     labelKey: "remote.capabilities.skills",
     defaultLabel: "技能",
+  },
+  {
+    id: "sessions",
+    labelKey: "remote.capabilities.sessions",
+    defaultLabel: "会话管理",
+  },
+  {
+    id: "hermes-memory",
+    labelKey: "remote.capabilities.hermesMemory",
+    defaultLabel: "Hermes 记忆",
+  },
+  {
+    id: "tools",
+    labelKey: "remote.capabilities.tools",
+    defaultLabel: "环境检查更新",
   },
   {
     id: "import-export",
@@ -116,9 +132,9 @@ export function RemoteHealthPanel({
   };
 
   return (
-    <section
+    <Card
       data-testid="remote-health-panel"
-      className="min-w-0 overflow-hidden rounded-xl border border-border-default bg-card shadow-sm"
+      className="min-w-0 overflow-hidden border-border-default"
     >
       <div className="flex min-h-11 flex-col gap-3 border-b border-border-default px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -189,7 +205,9 @@ export function RemoteHealthPanel({
       {healthCanReportCapabilities && (
         <div className="border-t border-border-default px-4 py-3">
           <div className="mb-2 text-xs font-medium text-muted-foreground">
-            {t("remote.health.capabilities", { defaultValue: "能力" })}
+            {t("remote.health.capabilities", {
+              defaultValue: "远程功能支持",
+            })}
           </div>
           <div className="flex flex-wrap gap-2">
             {EXPECTED_REMOTE_CAPABILITIES.map((capability) => {
@@ -217,7 +235,7 @@ export function RemoteHealthPanel({
               <div>
                 <span className="font-medium">
                   {t("remote.health.missingCapabilities", {
-                    defaultValue: "缺少能力",
+                    defaultValue: "缺少功能支持",
                   })}
                 </span>
                 <span className="ml-1">
@@ -234,7 +252,7 @@ export function RemoteHealthPanel({
           )}
         </div>
       )}
-    </section>
+    </Card>
   );
 }
 

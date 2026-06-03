@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { KeyRound, LockKeyhole, ShieldCheck } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +13,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { extractErrorMessage } from "@/utils/errorUtils";
 import type {
   RemoteAuthMethod,
@@ -31,25 +35,21 @@ const AUTH_OPTIONS: Array<{
   type: RemoteAuthMode;
   labelKey: string;
   defaultLabel: string;
-  icon: LucideIcon;
 }> = [
   {
     type: "sshAgent",
     labelKey: "remote.auth.sshAgent",
     defaultLabel: "SSH Agent",
-    icon: ShieldCheck,
   },
   {
     type: "keyFile",
     labelKey: "remote.auth.keyFile",
     defaultLabel: "密钥文件",
-    icon: KeyRound,
   },
   {
     type: "password",
     labelKey: "remote.auth.password",
     defaultLabel: "密码",
-    icon: LockKeyhole,
   },
 ];
 
@@ -158,13 +158,13 @@ export function RemoteHostDialog({
             <DialogDescription>
               {t("remote.dialog.description", {
                 defaultValue:
-                  "保存远程连接信息。密码仅保留在当前会话中，不会写入本地数据库。",
+                  "保存远程连接信息。SSH 密码会保存到本机数据库，用于后续连接。",
               })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-5 px-6 py-5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field
                 id="remote-name"
                 label={t("remote.fields.name", { defaultValue: "名称" })}
@@ -237,31 +237,24 @@ export function RemoteHostDialog({
                   defaultValue: "认证方式",
                 })}
               </Label>
-              <div className="grid grid-cols-3 gap-2">
-                {AUTH_OPTIONS.map((option) => {
-                  const Icon = option.icon;
-                  const active = authMode === option.type;
-                  return (
-                    <button
-                      key={option.type}
-                      type="button"
-                      onClick={() => setAuthMode(option.type)}
-                      disabled={formDisabled}
-                      className={cn(
-                        "flex h-10 items-center justify-center gap-2 rounded-lg border text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                        active
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border bg-card text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
+              <Select
+                value={authMode}
+                onValueChange={(value) => setAuthMode(value as RemoteAuthMode)}
+                disabled={formDisabled}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AUTH_OPTIONS.map((option) => (
+                    <SelectItem key={option.type} value={option.type}>
                       {t(option.labelKey, {
                         defaultValue: option.defaultLabel,
                       })}
-                    </button>
-                  );
-                })}
-              </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {authMode === "keyFile" && (

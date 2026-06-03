@@ -134,20 +134,7 @@ fn tool_version(tool: &str) -> ToolVersion {
         .output();
 
     let (version, error, installed_but_broken) = match probe {
-        Ok(output) if output.status.success() => {
-            let stdout = decode_command_output(&output.stdout);
-            let stderr = decode_command_output(&output.stderr);
-            let raw = if stdout.trim().is_empty() {
-                stderr.trim()
-            } else {
-                stdout.trim()
-            };
-            (extract_semver(raw), None, false)
-        }
-        Ok(output) => {
-            let detail = command_error_detail(&output);
-            (None, Some(detail), true)
-        }
+        Ok(output) => classify_tool_version_output(&output),
         Err(error) => (None, Some(error.to_string()), false),
     };
 
@@ -159,6 +146,32 @@ fn tool_version(tool: &str) -> ToolVersion {
         installed_but_broken,
         env_type: std::env::consts::OS.to_string(),
         wsl_distro: None,
+    }
+}
+
+fn classify_tool_version_output(
+    output: &std::process::Output,
+) -> (Option<String>, Option<String>, bool) {
+    if output.status.success() {
+        let stdout = decode_command_output(&output.stdout);
+        let stderr = decode_command_output(&output.stderr);
+        let raw = if stdout.trim().is_empty() {
+            stderr.trim()
+        } else {
+            stdout.trim()
+        };
+        return (extract_semver(raw), None, false);
+    }
+
+    let detail = command_error_detail(output);
+    if output.status.code() == Some(127) || detail.trim().is_empty() {
+        (
+            None,
+            Some("not installed or not executable".to_string()),
+            false,
+        )
+    } else {
+        (None, Some(detail), true)
     }
 }
 
@@ -973,6 +986,42 @@ fn is_redacted_sentinel(value: &Value) -> bool {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    #[cfg(unix)]
+    fn tool_version_command_not_found_is_not_installed_not_broken() {
+        use std::os::unix::process::ExitStatusExt;
+
+        let output = std::process::Output {
+            status: std::process::ExitStatus::from_raw(127 << 8),
+            stdout: Vec::new(),
+            stderr: b"bash: line 1: claude: command not found\n".to_vec(),
+        };
+
+        let (version, error, installed_but_broken) = classify_tool_version_output(&output);
+
+        assert_eq!(version, None);
+        assert_eq!(error.as_deref(), Some("not installed or not executable"));
+        assert!(!installed_but_broken);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn tool_version_non_127_failure_is_installed_but_broken() {
+        use std::os::unix::process::ExitStatusExt;
+
+        let output = std::process::Output {
+            status: std::process::ExitStatus::from_raw(1 << 8),
+            stdout: Vec::new(),
+            stderr: b"node: version too old\n".to_vec(),
+        };
+
+        let (version, error, installed_but_broken) = classify_tool_version_output(&output);
+
+        assert_eq!(version, None);
+        assert_eq!(error.as_deref(), Some("node: version too old"));
+        assert!(installed_but_broken);
+    }
 
     #[test]
     fn provider_output_redacts_nested_secret_values() {

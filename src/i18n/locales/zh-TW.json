@@ -2637,6 +2637,7 @@
     "manageServers": "遠端伺服器",
     "noServers": "暫無遠端伺服器",
     "addServer": "新增伺服器",
+    "connectionProfiles": "連線配置",
     "connections": "連線",
     "details": "連線詳情",
     "address": "位址",
@@ -2685,8 +2686,10 @@
       "check": "檢查",
       "helperVersion": "Helper 版本",
       "platform": "平台",
-      "capabilities": "能力",
-      "missingCapabilities": "缺少能力"
+      "capabilities": "遠端功能支援",
+      "missingCapabilities": "缺少功能支援",
+      "noCapabilities": "未返回功能支援資訊",
+      "supportedCapabilities": "已支援 {{count}} 項"
     },
     "capabilities": {
       "providers": "供應商",
@@ -2694,6 +2697,9 @@
       "mcp": "MCP",
       "prompts": "提示詞",
       "skills": "技能",
+      "sessions": "工作階段管理",
+      "hermesMemory": "Hermes 記憶",
+      "tools": "環境檢查更新",
       "importExport": "匯入 / 匯出"
     }
   },

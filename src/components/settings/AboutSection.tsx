@@ -7,13 +7,8 @@ import {
   Globe,
   Info,
   Loader2,
-  RefreshCw,
-  Terminal,
-  CheckCircle2,
-  AlertCircle,
-  ArrowUpCircle,
   ChevronDown,
-  Stethoscope,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,13 +31,21 @@ import { relaunchApp } from "@/lib/updater";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import appIcon from "@/assets/icons/app-icon.png";
-import { APP_ICON_MAP } from "@/config/appConfig";
-import type { AppId } from "@/lib/api/types";
 import { extractErrorMessage } from "@/utils/errorUtils";
 import { isWindows } from "@/lib/platform";
 import { isUpdateAvailable } from "@/lib/version";
 import { ToolUpgradeConfirmDialog } from "./ToolUpgradeConfirmDialog";
 import { ToolInstallRow } from "./ToolInstallRow";
+import {
+  TOOL_DISPLAY_NAMES,
+  TOOL_NAMES,
+  ToolDiagnoseButton,
+  ToolEnvironmentSection,
+  type ToolLifecycleAction,
+  type ToolName,
+  type ToolVersion,
+  type WslShellPreference,
+} from "./ToolEnvironmentSection";
 
 interface AboutSectionProps {
   isPortable: boolean;
@@ -53,63 +56,9 @@ const APP_RELEASES_URL =
 const APP_REPOSITORY_URL = "https://github.com/xiaoY233/cc-switch-remote";
 const APP_WEBSITE_URL = APP_REPOSITORY_URL;
 
-interface ToolVersion {
-  name: string;
-  version: string | null;
-  latest_version: string | null;
-  error: string | null;
-  // 后端已定位到可执行文件但 --version 报错（装了却跑不起来）。直接读此字段，
-  // 不要靠匹配 error 文案反推——避免前端与后端字符串硬耦合。
-  installed_but_broken: boolean;
-  env_type: "windows" | "wsl" | "macos" | "linux" | "unknown";
-  wsl_distro: string | null;
-}
-
-const TOOL_NAMES = [
-  "claude",
-  "codex",
-  "gemini",
-  "opencode",
-  "openclaw",
-  "hermes",
-] as const;
-type ToolName = (typeof TOOL_NAMES)[number];
-type ToolLifecycleAction = "install" | "update";
-
-type WslShellPreference = {
-  wslShell?: string | null;
-  wslShellFlag?: string | null;
-};
-
 const WSL_SHELL_OPTIONS = ["sh", "bash", "zsh", "fish", "dash"] as const;
 // UI-friendly order: login shell first.
 const WSL_SHELL_FLAG_OPTIONS = ["-lic", "-lc", "-c"] as const;
-
-const ENV_BADGE_CONFIG: Record<
-  string,
-  { labelKey: string; className: string }
-> = {
-  wsl: {
-    labelKey: "settings.envBadge.wsl",
-    className:
-      "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
-  },
-  windows: {
-    labelKey: "settings.envBadge.windows",
-    className:
-      "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-  },
-  macos: {
-    labelKey: "settings.envBadge.macos",
-    className:
-      "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20",
-  },
-  linux: {
-    labelKey: "settings.envBadge.linux",
-    className:
-      "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
-  },
-};
 
 const posixScriptInstallCommand = (url: string) =>
   `bash -c 'tmp=$(mktemp) && curl -fsSL ${url} -o $tmp && bash $tmp; status=$?; rm -f $tmp; exit $status'`;
@@ -160,29 +109,11 @@ const ONE_CLICK_INSTALL_COMMANDS = isWindows()
   ? WINDOWS_ONE_CLICK_INSTALL_COMMANDS
   : POSIX_ONE_CLICK_INSTALL_COMMANDS;
 
-const TOOL_DISPLAY_NAMES: Record<ToolName, string> = {
-  claude: "Claude Code",
-  codex: "Codex",
-  gemini: "Gemini CLI",
-  opencode: "OpenCode",
-  openclaw: "OpenClaw",
-  hermes: "Hermes",
-};
-
 // 后端返回的 tool 是 string；这里收敛唯一的 ToolName 断言与兜底，供升级确认
 // 对话框按工具名展示（避免在 JSX 里内联 cast、且每次渲染都新建闭包）。
 function toolDisplayName(tool: string): string {
   return TOOL_DISPLAY_NAMES[tool as ToolName] ?? tool;
 }
-
-const TOOL_APP_IDS: Record<ToolName, AppId> = {
-  claude: "claude",
-  codex: "codex",
-  gemini: "gemini",
-  opencode: "opencode",
-  openclaw: "openclaw",
-  hermes: "hermes",
-};
 
 export function AboutSection({ isPortable }: AboutSectionProps) {
   // ... (use hooks as before) ...
@@ -883,270 +814,88 @@ export function AboutSection({ isPortable }: AboutSectionProps) {
         )}
       </motion.div>
 
-      <div className="space-y-3">
-        <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-sm font-medium">{t("settings.localEnvCheck")}</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 gap-1.5 text-xs"
-              onClick={() => handleDiagnoseAll()}
-              disabled={isLoadingTools || isAnyBusy || isDiagnosingAll}
-            >
-              {isDiagnosingAll ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Stethoscope className="h-3.5 w-3.5" />
-              )}
-              {isDiagnosingAll
-                ? t("settings.toolDiagnosing")
-                : t("settings.toolDiagnose")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 gap-1.5 text-xs"
-              onClick={() => loadAllToolVersions()}
-              disabled={isLoadingTools || isAnyBusy}
-            >
-              <RefreshCw
-                className={
-                  isLoadingTools ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"
-                }
-              />
-              {isLoadingTools ? t("common.refreshing") : t("common.refresh")}
-            </Button>
-            <Button
-              size="sm"
-              className="h-7 gap-1.5 text-xs"
-              onClick={() => handleRunToolAction(updatableToolNames, "update")}
-              disabled={
-                isLoadingTools || isAnyBusy || updatableToolNames.length === 0
-              }
-            >
-              {batchAction === "update" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <ArrowUpCircle className="h-3.5 w-3.5" />
-              )}
-              {t("settings.updateAllTools", {
-                count: updatableToolNames.length,
-              })}
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid gap-3 px-1 sm:grid-cols-2 xl:grid-cols-3">
-          {TOOL_NAMES.map((toolName, index) => {
-            const tool = toolVersionByName.get(toolName);
-            const appConfig = APP_ICON_MAP[TOOL_APP_IDS[toolName]];
-            const displayName = TOOL_DISPLAY_NAMES[toolName];
-            const isToolVersionLoading =
-              isLoadingTools || Boolean(loadingTools[toolName]);
-            const isOutdated = isUpdateAvailable(
-              tool?.version,
-              tool?.latest_version,
-            );
-            // 已安装却跑不起来（如 Node 版本不达标）：用它区分卡片文案与按钮，避免把
-            // "装了跑不起来"误判成"未安装"而给出无用的安装按钮（重装同一版本解决不了）。
-            const installedButBroken = Boolean(tool?.installed_but_broken);
-            // loading 和 broken 都没有可执行动作；其余按是否已装/是否过期选择。
-            const action: ToolLifecycleAction | null =
-              isToolVersionLoading || installedButBroken
-                ? null
-                : !tool?.version
-                  ? "install"
-                  : isOutdated
-                    ? "update"
-                    : null;
-            const runningAction = toolActions[toolName];
-            const title = tool?.version || tool?.error || t("common.unknown");
-            const conflicts = toolDiagnostics[toolName];
-
-            return (
-              <motion.div
-                key={toolName}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.15 + index * 0.04 }}
-                className="flex min-h-[150px] flex-col gap-3 rounded-xl border border-border bg-gradient-to-br from-card/80 to-card/40 p-4 shadow-sm transition-colors hover:border-primary/30"
+      <ToolEnvironmentSection
+        title={t("settings.localEnvCheck")}
+        toolVersions={toolVersions}
+        isLoading={isLoadingTools}
+        loadingTools={loadingTools}
+        toolActions={toolActions}
+        batchAction={batchAction}
+        updatableToolNames={updatableToolNames}
+        isAnyBusy={isAnyBusy}
+        actionPrefix={
+          <ToolDiagnoseButton
+            loading={isDiagnosingAll}
+            disabled={isLoadingTools || isAnyBusy}
+            onClick={handleDiagnoseAll}
+          />
+        }
+        onRefresh={loadAllToolVersions}
+        onRunToolAction={handleRunToolAction}
+        renderToolControls={(toolName) => {
+          const tool = toolVersionByName.get(toolName);
+          if (tool?.env_type !== "wsl") return null;
+          return (
+            <div className="flex flex-wrap gap-2">
+              <Select
+                value={wslShellByTool[toolName]?.wslShell || "auto"}
+                onValueChange={(v) => handleToolShellChange(toolName, v)}
+                disabled={isLoadingTools || loadingTools[toolName] || isAnyBusy}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background/80 text-muted-foreground">
-                      {appConfig?.icon ?? <Terminal className="h-4 w-4" />}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">
-                        {displayName}
-                      </div>
-                      {tool?.env_type && ENV_BADGE_CONFIG[tool.env_type] && (
-                        <span
-                          className={`mt-1 inline-flex w-fit text-[9px] px-1.5 py-0.5 rounded-full border ${ENV_BADGE_CONFIG[tool.env_type].className}`}
-                        >
-                          {t(ENV_BADGE_CONFIG[tool.env_type].labelKey)}
-                          {tool.wsl_distro ? ` · ${tool.wsl_distro}` : ""}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {isToolVersionLoading ? (
-                    <Loader2 className="mt-1 h-4 w-4 animate-spin text-muted-foreground" />
-                  ) : tool?.version ? (
-                    isOutdated ? (
-                      <span className="mt-1 shrink-0 rounded-full border border-yellow-500/20 bg-yellow-500/10 px-1.5 py-0.5 text-[10px] text-yellow-600 dark:text-yellow-400">
-                        {t("settings.updateAvailableShort")}
-                      </span>
-                    ) : (
-                      <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-green-500" />
-                    )
-                  ) : (
-                    <AlertCircle className="mt-1 h-4 w-4 shrink-0 text-yellow-500" />
-                  )}
-                </div>
-
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">
-                      {t("settings.currentVersion")}
-                    </span>
-                    <span
-                      className="min-w-0 truncate font-mono text-foreground"
-                      title={title}
-                    >
-                      {isToolVersionLoading
-                        ? t("common.loading")
-                        : tool?.version
-                          ? tool.version
-                          : installedButBroken
-                            ? t("settings.installedNotRunnable")
-                            : t("common.notInstalled")}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">
-                      {t("settings.latestVersion")}
-                    </span>
-                    <span className="min-w-0 truncate font-mono text-foreground">
-                      {isToolVersionLoading
-                        ? t("common.loading")
-                        : tool?.latest_version || t("common.unknown")}
-                    </span>
-                  </div>
-                  {!isToolVersionLoading && !tool?.version && tool?.error && (
-                    <div className="truncate text-[11px] text-muted-foreground">
-                      {tool.error}
-                    </div>
-                  )}
-                </div>
-
-                {tool?.env_type === "wsl" && (
-                  <div className="flex flex-wrap gap-2">
-                    <Select
-                      value={wslShellByTool[toolName]?.wslShell || "auto"}
-                      onValueChange={(v) => handleToolShellChange(toolName, v)}
-                      disabled={
-                        isLoadingTools || loadingTools[toolName] || isAnyBusy
-                      }
-                    >
-                      <SelectTrigger className="h-7 w-[82px] text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="auto">{t("common.auto")}</SelectItem>
-                        {WSL_SHELL_OPTIONS.map((shell) => (
-                          <SelectItem key={shell} value={shell}>
-                            {shell}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={wslShellByTool[toolName]?.wslShellFlag || "auto"}
-                      onValueChange={(v) =>
-                        handleToolShellFlagChange(toolName, v)
-                      }
-                      disabled={
-                        isLoadingTools || loadingTools[toolName] || isAnyBusy
-                      }
-                    >
-                      <SelectTrigger className="h-7 w-[82px] text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="auto">{t("common.auto")}</SelectItem>
-                        {WSL_SHELL_FLAG_OPTIONS.map((flag) => (
-                          <SelectItem key={flag} value={flag}>
-                            {flag}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* 多处安装冲突诊断结果：仅在懒触发后有数据时渲染。 */}
-                {conflicts && conflicts.length > 0 && (
-                  <div className="space-y-1.5 rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-2.5">
-                    <div className="text-[11px] font-medium text-yellow-600 dark:text-yellow-400">
-                      {t("settings.toolConflictTitle")}
-                    </div>
-                    <p className="text-[10px] leading-snug text-muted-foreground">
-                      {t("settings.toolConflictHint")}
-                    </p>
-                    <ul className="space-y-1.5">
-                      {conflicts.map((inst) => (
-                        <li key={inst.path}>
-                          <ToolInstallRow inst={inst} />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div className="mt-auto flex items-center justify-end">
-                  {isToolVersionLoading ? (
-                    <span className="text-xs text-muted-foreground">
-                      {t("common.loading")}
-                    </span>
-                  ) : installedButBroken ? (
-                    // 已安装但跑不起来：重装无济于事，不给按钮，给一句指向环境的提示。
-                    <span className="text-xs text-yellow-600 dark:text-yellow-400">
-                      {t("settings.toolCheckEnv")}
-                    </span>
-                  ) : action ? (
-                    <Button
-                      size="sm"
-                      variant={action === "install" ? "outline" : "default"}
-                      className="h-7 gap-1.5 text-xs"
-                      onClick={() => handleRunToolAction([toolName], action)}
-                      disabled={isToolVersionLoading || isAnyBusy}
-                    >
-                      {runningAction ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : action === "install" ? (
-                        <Download className="h-3.5 w-3.5" />
-                      ) : (
-                        <ArrowUpCircle className="h-3.5 w-3.5" />
-                      )}
-                      {/* loading 时文案保持不变、仅图标切换为 spinner，
-                          按钮宽度恒定，避免"升级"→"升级中…"导致的抖动。 */}
-                      {action === "install"
-                        ? t("settings.toolInstall")
-                        : t("settings.toolUpdate")}
-                    </Button>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">
-                      {t("settings.toolReady")}
-                    </span>
-                  )}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
+                <SelectTrigger className="h-7 w-[82px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">{t("common.auto")}</SelectItem>
+                  {WSL_SHELL_OPTIONS.map((shell) => (
+                    <SelectItem key={shell} value={shell}>
+                      {shell}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={wslShellByTool[toolName]?.wslShellFlag || "auto"}
+                onValueChange={(v) => handleToolShellFlagChange(toolName, v)}
+                disabled={isLoadingTools || loadingTools[toolName] || isAnyBusy}
+              >
+                <SelectTrigger className="h-7 w-[82px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">{t("common.auto")}</SelectItem>
+                  {WSL_SHELL_FLAG_OPTIONS.map((flag) => (
+                    <SelectItem key={flag} value={flag}>
+                      {flag}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          );
+        }}
+        renderToolDiagnostics={(toolName) => {
+          const conflicts = toolDiagnostics[toolName];
+          if (!conflicts || conflicts.length === 0) return null;
+          return (
+            <div className="space-y-1.5 rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-2.5">
+              <div className="text-[11px] font-medium text-yellow-600 dark:text-yellow-400">
+                {t("settings.toolConflictTitle")}
+              </div>
+              <p className="text-[10px] leading-snug text-muted-foreground">
+                {t("settings.toolConflictHint")}
+              </p>
+              <ul className="space-y-1.5">
+                {conflicts.map((inst) => (
+                  <li key={inst.path}>
+                    <ToolInstallRow inst={inst} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        }}
+      />
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}

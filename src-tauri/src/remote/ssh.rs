@@ -241,7 +241,7 @@ fn run_ssh_command(
         return Err(AppError::Message(if stderr.is_empty() {
             format!("Remote ssh command failed with status {}", output.status)
         } else {
-            normalize_remote_stderr(&stderr)
+            normalize_remote_stderr(profile, &stderr)
         }));
     }
 
@@ -249,16 +249,31 @@ fn run_ssh_command(
         .map_err(|e| AppError::Message(format!("Remote helper returned invalid UTF-8: {e}")))
 }
 
-fn normalize_remote_stderr(stderr: &str) -> String {
+fn normalize_remote_stderr(profile: &RemoteHostProfile, stderr: &str) -> String {
     if stderr.contains("libgdk-3.so.0")
         || stderr.contains("libgtk-3.so.0")
         || stderr.contains("libwebkit2gtk")
         || stderr.contains("libayatana-appindicator")
     {
         "远程 Helper 不是纯 CLI 构建，依赖服务器上不存在的桌面 GTK/WebKit 库。请重新安装最新的远程 Helper。".to_string()
+    } else if is_helper_missing_error(profile, stderr) {
+        format!(
+            "远程 Helper 未安装或路径不正确。请点击“安装 Helper”，或在远程服务器配置中修正 Helper 路径（当前：{}）。",
+            profile.helper_path
+        )
     } else {
         stderr.to_string()
     }
+}
+
+fn is_helper_missing_error(profile: &RemoteHostProfile, stderr: &str) -> bool {
+    let mentions_helper = stderr.contains("cc-switch-remote-helper")
+        || stderr.contains("cc-switch-cli")
+        || stderr.contains(profile.helper_path.as_str());
+    mentions_helper
+        && (stderr.contains("No such file or directory")
+            || stderr.contains("not found")
+            || stderr.contains("没有那个文件或目录"))
 }
 
 fn parse_helper_json<T: DeserializeOwned>(stdout: &str) -> Result<T, AppError> {

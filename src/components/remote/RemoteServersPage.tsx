@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { ListItemRow } from "@/components/common/ListItemRow";
 import {
   remoteApi,
@@ -105,9 +106,14 @@ export function RemoteServersPage({
   };
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto overflow-x-hidden px-3 pb-6 sm:px-6 xl:overflow-hidden xl:pb-0">
-      <div className="mb-4 flex shrink-0 flex-col gap-3 rounded-xl px-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto overflow-x-hidden px-6 pb-6 xl:overflow-hidden xl:pb-0">
+      <div className="mb-4 flex shrink-0 flex-col gap-3 px-1 py-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
+          <h2 className="text-sm font-medium">
+            {t("remote.connectionProfiles", {
+              defaultValue: "连接配置",
+            })}
+          </h2>
           <div className="text-sm text-muted-foreground">
             {t("remote.subtitle", {
               defaultValue: "只保存连接信息；管理操作在现有页面按目标执行。",
@@ -125,9 +131,9 @@ export function RemoteServersPage({
       </div>
 
       <div className="grid min-w-0 flex-none grid-cols-1 gap-4 overflow-visible pb-6 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(260px,360px)_minmax(0,1fr)] xl:overflow-hidden xl:pb-0">
-        <section
+        <Card
           data-testid="remote-server-list-panel"
-          className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-border-default bg-card shadow-sm"
+          className="flex min-h-0 min-w-0 flex-col overflow-hidden border-border-default"
         >
           <div className="flex h-11 shrink-0 items-center justify-between border-b border-border-default px-4">
             <div className="flex min-w-0 items-center gap-2">
@@ -210,7 +216,7 @@ export function RemoteServersPage({
               })
             )}
           </div>
-        </section>
+        </Card>
 
         <div className="grid min-w-0 content-start gap-4 overflow-visible xl:min-h-0 xl:overflow-y-auto xl:pb-24">
           <RemoteHealthPanel
@@ -218,9 +224,9 @@ export function RemoteServersPage({
             secret={selectedSecret}
           />
 
-          <section
+          <Card
             data-testid="remote-server-details-panel"
-            className="min-w-0 overflow-hidden rounded-xl border border-border-default bg-card shadow-sm"
+            className="min-w-0 overflow-hidden border-border-default"
           >
             <div className="flex h-11 items-center border-b border-border-default px-4">
               <h2 className="text-sm font-semibold">
@@ -253,7 +259,7 @@ export function RemoteServersPage({
                 value={selectedProfile?.helperPath}
               />
             </div>
-          </section>
+          </Card>
         </div>
       </div>
 

@@ -2691,6 +2691,7 @@
     "manageServers": "Remote Servers",
     "noServers": "No remote servers",
     "addServer": "Add Server",
+    "connectionProfiles": "Connection Profiles",
     "connections": "Connections",
     "details": "Connection Details",
     "address": "Address",
@@ -2739,8 +2740,10 @@
       "check": "Check",
       "helperVersion": "Helper Version",
       "platform": "Platform",
-      "capabilities": "Capabilities",
-      "missingCapabilities": "Missing capabilities"
+      "capabilities": "Remote Feature Support",
+      "missingCapabilities": "Missing feature support",
+      "noCapabilities": "No feature support information returned",
+      "supportedCapabilities": "{{count}} supported"
     },
     "capabilities": {
       "providers": "Providers",
@@ -2748,6 +2751,9 @@
       "mcp": "MCP",
       "prompts": "Prompts",
       "skills": "Skills",
+      "sessions": "Sessions",
+      "hermesMemory": "Hermes Memory",
+      "tools": "Environment Check Updates",
       "importExport": "Import / Export"
     }
   },

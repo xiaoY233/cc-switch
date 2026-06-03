@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  AlertCircle,
-  ArrowUpCircle,
-  CheckCircle2,
-  Database,
-  Download,
-  Loader2,
-  RefreshCw,
-  Server,
-  Stethoscope,
-} from "lucide-react";
+import { Database, Download, Loader2, RefreshCw, Server } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,6 +13,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImportExportSection } from "@/components/settings/ImportExportSection";
+import {
+  TOOL_DISPLAY_NAMES,
+  TOOL_NAMES,
+  ToolEnvironmentSection,
+  type ToolLifecycleAction,
+  type ToolName,
+} from "@/components/settings/ToolEnvironmentSection";
 import { useImportExport } from "@/hooks/useImportExport";
 import { remoteApi } from "@/lib/api";
 import type {
@@ -40,27 +37,6 @@ interface RemoteSettingsPageProps {
   defaultTab?: string;
   target: Extract<ManagementTarget, { type: "remote" }>;
 }
-
-const TOOL_NAMES = [
-  "claude",
-  "codex",
-  "gemini",
-  "opencode",
-  "openclaw",
-  "hermes",
-] as const;
-
-type ToolName = (typeof TOOL_NAMES)[number];
-type ToolLifecycleAction = "install" | "update";
-
-const TOOL_DISPLAY_NAMES: Record<ToolName, string> = {
-  claude: "Claude Code",
-  codex: "Codex CLI",
-  gemini: "Gemini CLI",
-  opencode: "OpenCode",
-  openclaw: "OpenClaw",
-  hermes: "Hermes",
-};
 
 function coerceRemoteTab(tab: string | undefined): string {
   if (tab === "advanced") return "data";
@@ -88,10 +64,21 @@ export function RemoteSettingsPage({
   const [batchAction, setBatchAction] = useState<ToolLifecycleAction | null>(
     null,
   );
+  const [activeRemoteTask, setActiveRemoteTask] = useState<string | null>(null);
 
   const importExport = useImportExport({ onImportSuccess, target });
 
   const toolsCapability = health?.capabilities.includes("tools") ?? false;
+  const helperReady = Boolean(health?.reachable && health.helperInstalled);
+  const toolsDisabled = !helperReady || !toolsCapability;
+  const toolsDisabledMessage = !helperReady
+    ? t("remote.settings.environment.helperRequired", {
+        defaultValue: "请先完成健康检查并安装可用的远程 Helper。",
+      })
+    : t("remote.settings.environment.helperUnsupported", {
+        defaultValue:
+          "当前远程 Helper 不支持环境检查更新。请安装包含 tools capability 的新版 Helper。",
+      });
 
   const toolVersionByName = useMemo(
     () => new Map(toolVersions.map((tool) => [tool.name, tool])),
@@ -113,6 +100,11 @@ export function RemoteSettingsPage({
 
   const loadHealth = useCallback(async () => {
     setIsCheckingHealth(true);
+    setActiveRemoteTask(
+      t("remote.settings.tasks.checkHealth", {
+        defaultValue: "正在通过 SSH 检查远程 Helper 状态...",
+      }),
+    );
     try {
       const result = await remoteApi.checkHealth(target.profile, target.secret);
       setHealth(result);
@@ -128,11 +120,17 @@ export function RemoteSettingsPage({
       return null;
     } finally {
       setIsCheckingHealth(false);
+      setActiveRemoteTask(null);
     }
-  }, [target.profile, target.secret]);
+  }, [t, target.profile, target.secret]);
 
   const loadToolVersions = useCallback(async () => {
     setIsLoadingTools(true);
+    setActiveRemoteTask(
+      t("remote.settings.tasks.loadTools", {
+        defaultValue: "正在读取远程工具版本和更新信息...",
+      }),
+    );
     try {
       const result = await remoteApi.getToolVersions(
         target.profile,
@@ -152,6 +150,7 @@ export function RemoteSettingsPage({
       return [];
     } finally {
       setIsLoadingTools(false);
+      setActiveRemoteTask(null);
     }
   }, [t, target.profile, target.secret]);
 
@@ -163,6 +162,11 @@ export function RemoteSettingsPage({
 
   const installHelper = async () => {
     setIsInstallingHelper(true);
+    setActiveRemoteTask(
+      t("remote.settings.tasks.installHelper", {
+        defaultValue: "正在安装远程 Helper：连接 SSH、下载二进制并验证能力...",
+      }),
+    );
     try {
       const result = await remoteApi.installHelper(
         target.profile,
@@ -184,6 +188,7 @@ export function RemoteSettingsPage({
       );
     } finally {
       setIsInstallingHelper(false);
+      setActiveRemoteTask(null);
     }
   };
 
@@ -198,6 +203,16 @@ export function RemoteSettingsPage({
     const failures: string[] = [];
     let succeeded = 0;
     for (const toolName of toolNames) {
+      setActiveRemoteTask(
+        t("remote.settings.tasks.runToolAction", {
+          defaultValue: "正在远程{{action}}{{tool}}...",
+          action:
+            action === "install"
+              ? t("settings.toolInstall")
+              : t("settings.toolUpdate"),
+          tool: TOOL_DISPLAY_NAMES[toolName],
+        }),
+      );
       setToolActions((prev) => ({ ...prev, [toolName]: action }));
       try {
         await remoteApi.runToolLifecycleAction(
@@ -226,6 +241,7 @@ export function RemoteSettingsPage({
     }
 
     if (isBatch) setBatchAction(null);
+    setActiveRemoteTask(null);
     const actionLabel =
       action === "install"
         ? t("settings.toolInstall")
@@ -291,17 +307,29 @@ export function RemoteSettingsPage({
                 onInstallHelper={installHelper}
                 profileName={target.profile.name || target.profile.host}
               />
-              <RemoteToolEnvironmentSection
-                disabled={!toolsCapability}
+              <RemoteTaskBanner message={activeRemoteTask} />
+              <ToolEnvironmentSection
+                title={t("remote.settings.environment.toolsTitle", {
+                  defaultValue: "远程环境检查更新",
+                })}
+                description={t("remote.settings.environment.toolsDescription", {
+                  defaultValue:
+                    "检查远程服务器上的 Claude Code、Codex、Gemini、OpenCode、OpenClaw 和 Hermes",
+                })}
+                disabled={toolsDisabled}
+                disabledMessage={toolsDisabledMessage}
                 toolVersions={toolVersions}
                 isLoading={isLoadingTools}
                 toolActions={toolActions}
                 batchAction={batchAction}
-                updatableTools={updatableTools}
+                updatableToolNames={updatableTools}
+                isAnyBusy={
+                  Boolean(batchAction) || Object.keys(toolActions).length > 0
+                }
                 onRefresh={() => {
                   void loadToolVersions();
                 }}
-                onRunAction={runToolAction}
+                onRunToolAction={runToolAction}
               />
             </motion.div>
           </TabsContent>
@@ -380,9 +408,10 @@ function RemoteHealthSection({
 }: RemoteHealthSectionProps) {
   const { t } = useTranslation();
   const helperReady = Boolean(health?.reachable && health.helperInstalled);
+  const capabilitySummary = formatRemoteCapabilitySummary(health, t);
   return (
-    <div className="rounded-xl glass-card overflow-hidden">
-      <div className="px-6 py-4 border-b border-border/50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-3">
+      <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <Server className="h-5 w-5 text-primary shrink-0" />
           <div className="min-w-0">
@@ -407,7 +436,7 @@ function RemoteHealthSection({
             variant="outline"
             size="sm"
             onClick={() => void onRefresh()}
-            disabled={isChecking}
+            disabled={isChecking || isInstalling}
           >
             {isChecking ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -421,7 +450,7 @@ function RemoteHealthSection({
             variant="outline"
             size="sm"
             onClick={() => void onInstallHelper()}
-            disabled={isInstalling}
+            disabled={isInstalling || isChecking}
           >
             {isInstalling ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -434,29 +463,52 @@ function RemoteHealthSection({
           </Button>
         </div>
       </div>
-      <div className="grid gap-px bg-border/50 sm:grid-cols-3">
-        <InfoCell
-          label={t("remote.health.helperVersion", {
-            defaultValue: "Helper 版本",
-          })}
-          value={health?.helperVersion ?? "-"}
-        />
-        <InfoCell
-          label={t("remote.health.platform", { defaultValue: "系统" })}
-          value={health?.platform ?? "-"}
-        />
-        <InfoCell
-          label={t("remote.health.capabilities", { defaultValue: "能力" })}
-          value={health?.capabilities.join(", ") || "-"}
-        />
-      </div>
-      {health?.lastError ? (
-        <div className="px-6 py-3 border-t border-border/50 text-sm text-destructive">
-          {health.lastError}
+      <div className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-card/80 to-card/40 shadow-sm">
+        <div className="grid gap-px bg-border/50 sm:grid-cols-3">
+          <InfoCell
+            label={t("remote.health.helperVersion", {
+              defaultValue: "Helper 版本",
+            })}
+            value={health?.helperVersion ?? "-"}
+          />
+          <InfoCell
+            label={t("remote.health.platform", { defaultValue: "系统" })}
+            value={health?.platform ?? "-"}
+          />
+          <InfoCell
+            label={t("remote.health.capabilities", {
+              defaultValue: "远程功能支持",
+            })}
+            value={capabilitySummary}
+          />
         </div>
-      ) : null}
+        {health?.lastError ? (
+          <div className="border-t border-border/50 px-4 py-3 text-sm text-destructive">
+            {health.lastError}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
+}
+
+function formatRemoteCapabilitySummary(
+  health: RemoteHealth | null,
+  t: ReturnType<typeof useTranslation>["t"],
+) {
+  if (!health?.reachable || !health.helperInstalled) {
+    return "-";
+  }
+  const count = health.capabilities.length;
+  if (count === 0) {
+    return t("remote.health.noCapabilities", {
+      defaultValue: "未返回功能支持信息",
+    });
+  }
+  return t("remote.health.supportedCapabilities", {
+    defaultValue: "已支持 {{count}} 项",
+    count,
+  });
 }
 
 function InfoCell({ label, value }: { label: string; value: string }) {
@@ -468,202 +520,12 @@ function InfoCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-interface RemoteToolEnvironmentSectionProps {
-  disabled: boolean;
-  toolVersions: RemoteToolVersion[];
-  isLoading: boolean;
-  toolActions: Partial<Record<ToolName, ToolLifecycleAction>>;
-  batchAction: ToolLifecycleAction | null;
-  updatableTools: readonly ToolName[];
-  onRefresh: () => void | Promise<void>;
-  onRunAction: (
-    tools: ToolName[],
-    action: ToolLifecycleAction,
-  ) => void | Promise<void>;
-}
-
-function RemoteToolEnvironmentSection({
-  disabled,
-  toolVersions,
-  isLoading,
-  toolActions,
-  batchAction,
-  updatableTools,
-  onRefresh,
-  onRunAction,
-}: RemoteToolEnvironmentSectionProps) {
-  const { t } = useTranslation();
-  const toolVersionByName = useMemo(
-    () => new Map(toolVersions.map((tool) => [tool.name, tool])),
-    [toolVersions],
-  );
-
+function RemoteTaskBanner({ message }: { message: string | null }) {
+  if (!message) return null;
   return (
-    <div className="rounded-xl glass-card overflow-hidden">
-      <div className="px-6 py-4 border-b border-border/50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <Stethoscope className="h-5 w-5 text-primary shrink-0" />
-          <div className="min-w-0">
-            <h3 className="text-base font-semibold">
-              {t("remote.settings.environment.toolsTitle", {
-                defaultValue: "远程环境检查更新",
-              })}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {t("remote.settings.environment.toolsDescription", {
-                defaultValue:
-                  "检查远程服务器上的 Claude Code、Codex、Gemini、OpenCode、OpenClaw 和 Hermes",
-              })}
-            </p>
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void onRefresh()}
-            disabled={disabled || isLoading}
-          >
-            {isLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
-            {t("common.refresh")}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => void onRunAction([...updatableTools], "update")}
-            disabled={disabled || updatableTools.length === 0 || !!batchAction}
-          >
-            {batchAction === "update" ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <ArrowUpCircle className="mr-2 h-4 w-4" />
-            )}
-            {t("settings.updateAllTools", { count: updatableTools.length })}
-          </Button>
-        </div>
-      </div>
-
-      {disabled ? (
-        <div className="px-6 py-4 text-sm text-muted-foreground">
-          {t("remote.settings.environment.helperUnsupported", {
-            defaultValue:
-              "当前远程 Helper 不支持环境检查更新。请安装包含 tools capability 的新版 Helper。",
-          })}
-        </div>
-      ) : (
-        <div className="grid gap-px bg-border/50 md:grid-cols-2 xl:grid-cols-3">
-          {TOOL_NAMES.map((name) => {
-            const tool = toolVersionByName.get(name);
-            const action = toolActions[name];
-            const hasUpdate = Boolean(
-              tool?.version &&
-                tool.latest_version &&
-                isUpdateAvailable(tool.version, tool.latest_version),
-            );
-            const installed = Boolean(tool?.version);
-            return (
-              <div key={name} className="bg-background/70 p-4 min-w-0">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">
-                      {TOOL_DISPLAY_NAMES[name]}
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground truncate">
-                      {tool?.env_type ?? "-"}
-                    </div>
-                  </div>
-                  <ToolStatusBadge tool={tool} hasUpdate={hasUpdate} />
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  <InfoLine
-                    label={t("settings.currentVersion")}
-                    value={tool?.version ?? "-"}
-                  />
-                  <InfoLine
-                    label={t("settings.latestVersion")}
-                    value={tool?.latest_version ?? "-"}
-                  />
-                </div>
-                {tool?.error ? (
-                  <div className="mt-3 line-clamp-2 text-xs text-destructive">
-                    {tool.error}
-                  </div>
-                ) : null}
-                <div className="mt-4 flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      void onRunAction([name], installed ? "update" : "install")
-                    }
-                    disabled={isLoading || !!action || !!batchAction}
-                  >
-                    {action ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : installed ? (
-                      <ArrowUpCircle className="mr-2 h-4 w-4" />
-                    ) : (
-                      <Download className="mr-2 h-4 w-4" />
-                    )}
-                    {installed
-                      ? t("settings.toolUpdate")
-                      : t("settings.toolInstall")}
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ToolStatusBadge({
-  tool,
-  hasUpdate,
-}: {
-  tool?: RemoteToolVersion;
-  hasUpdate: boolean;
-}) {
-  const { t } = useTranslation();
-  if (hasUpdate) {
-    return (
-      <Badge variant="secondary">
-        <ArrowUpCircle className="mr-1 h-3 w-3" />
-        {t("settings.updateAvailableShort", {
-          defaultValue: "可升级",
-        })}
-      </Badge>
-    );
-  }
-  if (tool?.version) {
-    return (
-      <Badge variant="default">
-        <CheckCircle2 className="mr-1 h-3 w-3" />
-        {t("settings.toolReady")}
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="destructive">
-      <AlertCircle className="mr-1 h-3 w-3" />
-      {t("settings.notInstalled", { defaultValue: "未安装" })}
-    </Badge>
-  );
-}
-
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 truncate">{value}</div>
+    <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
+      <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+      <span className="min-w-0 truncate">{message}</span>
     </div>
   );
 }

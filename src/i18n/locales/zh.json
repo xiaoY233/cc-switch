@@ -2691,6 +2691,7 @@
     "manageServers": "远程服务器",
     "noServers": "暂无远程服务器",
     "addServer": "新增服务器",
+    "connectionProfiles": "连接配置",
     "connections": "连接",
     "details": "连接详情",
     "address": "地址",
@@ -2739,8 +2740,10 @@
       "check": "检查",
       "helperVersion": "Helper 版本",
       "platform": "平台",
-      "capabilities": "能力",
-      "missingCapabilities": "缺少能力"
+      "capabilities": "远程功能支持",
+      "missingCapabilities": "缺少功能支持",
+      "noCapabilities": "未返回功能支持信息",
+      "supportedCapabilities": "已支持 {{count}} 项"
     },
     "capabilities": {
       "providers": "供应商",
@@ -2748,6 +2751,9 @@
       "mcp": "MCP",
       "prompts": "提示词",
       "skills": "技能",
+      "sessions": "会话管理",
+      "hermesMemory": "Hermes 记忆",
+      "tools": "环境检查更新",
       "importExport": "导入 / 导出"
     }
   },
