@@ -107,7 +107,7 @@ jobs:
     name: Publish Helper Release
     runs-on: ubuntu-22.04
     needs: build-helper
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout
         uses: actions/checkout@v6

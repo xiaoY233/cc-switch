@@ -62,6 +62,16 @@ export interface RemoteProviderState {
   currentProviderId: string;
 }
 
+export interface RemoteToolVersion {
+  name: string;
+  version: string | null;
+  latest_version: string | null;
+  error: string | null;
+  installed_but_broken: boolean;
+  env_type: "windows" | "wsl" | "macos" | "linux" | "unknown";
+  wsl_distro: string | null;
+}
+
 export interface RemoteDeleteSessionOptions {
   providerId: string;
   sessionId: string;
@@ -272,6 +282,32 @@ export const remoteApi = {
     return invoke("remote_import_config_from_file", {
       profile,
       filePath,
+      secret,
+    });
+  },
+
+  getToolVersions(
+    profile: RemoteHostProfile,
+    tools?: string[],
+    secret?: RemoteConnectionSecret,
+  ): Promise<RemoteToolVersion[]> {
+    return invoke<RemoteToolVersion[]>("remote_get_tool_versions", {
+      profile,
+      tools,
+      secret,
+    });
+  },
+
+  runToolLifecycleAction(
+    profile: RemoteHostProfile,
+    tools: string[],
+    action: "install" | "update",
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_run_tool_lifecycle_action", {
+      profile,
+      tools,
+      action,
       secret,
     });
   },

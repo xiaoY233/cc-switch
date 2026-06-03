@@ -187,6 +187,17 @@ vi.mock("@/components/settings/SettingsPage", () => ({
   ),
 }));
 
+vi.mock("@/components/settings/RemoteSettingsPage", () => ({
+  RemoteSettingsPage: ({ onImportSuccess, target }: any) => (
+    <div data-testid="settings-page">
+      <span data-testid="settings-target">{target?.type ?? "local"}</span>
+      <button onClick={() => onImportSuccess?.()}>
+        simulate-import-success
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock("@/components/mcp/McpPanel", () => ({
   default: ({ open, onOpenChange }: any) =>
     open ? (
@@ -768,7 +779,9 @@ describe("App integration with MSW", () => {
         "Remote Hermes agent memory",
       ),
     );
-    expect(screen.queryByText("hermes.memory.openConfig")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("hermes.memory.openConfig"),
+    ).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByTestId("markdown-editor"), {
       target: { value: "Updated remote Hermes memory" },

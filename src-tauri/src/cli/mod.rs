@@ -41,6 +41,17 @@ fn run_normalized(args: &[String]) -> Value {
             Err(err) => serde_json::to_value(types::err::<()>("invalid_app", err.to_string()))
                 .expect("serialize invalid app error"),
         },
+        [group, cmd, app] if group == "providers" && cmd == "state" => match app.parse() {
+            Ok(app_type) => match commands::provider_state(app_type) {
+                Ok(value) => serde_json::to_value(types::ok(value)).expect("serialize state"),
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("providers_state_failed", message))
+                        .expect("serialize provider state error")
+                }
+            },
+            Err(err) => serde_json::to_value(types::err::<()>("invalid_app", err.to_string()))
+                .expect("serialize invalid app error"),
+        },
         [group, cmd, app, id] if group == "providers" && cmd == "switch" => match app.parse() {
             Ok(app_type) => match commands::switch_provider(app_type, id) {
                 Ok(value) => serde_json::to_value(types::ok(value)).expect("serialize switch"),
@@ -130,6 +141,28 @@ fn run_normalized(args: &[String]) -> Value {
                 Err(message) => {
                     serde_json::to_value(types::err::<()>("import_export_import_failed", message))
                         .expect("serialize sql import error")
+                }
+            }
+        }
+        [group, cmd, tools_json] if group == "tools" && cmd == "versions" => {
+            match commands::tool_versions(tools_json) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize tool versions")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("tools_versions_failed", message))
+                        .expect("serialize tool versions error")
+                }
+            }
+        }
+        [group, cmd, action, tools_json] if group == "tools" && cmd == "run" => {
+            match commands::run_tool_lifecycle_action(tools_json, action) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize tool lifecycle")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("tools_lifecycle_failed", message))
+                        .expect("serialize tool lifecycle error")
                 }
             }
         }
@@ -623,7 +656,7 @@ fn run_normalized(args: &[String]) -> Value {
         }
         _ => serde_json::to_value(types::err::<()>(
             "unsupported_command",
-            "Supported commands: status, providers, sessions, hermes, openclaw, mcp, prompts, skills, import-export",
+            "Supported commands: status, providers, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools",
         ))
         .expect("serialize error response"),
     }

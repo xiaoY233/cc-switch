@@ -58,6 +58,7 @@ pub enum RemoteCapability {
     Sessions,
     HermesMemory,
     ImportExport,
+    Tools,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

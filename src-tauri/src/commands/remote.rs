@@ -14,11 +14,11 @@ use crate::services::skill::{
 use crate::services::{ProviderSortUpdate, SwitchResult};
 use crate::session_manager;
 use indexmap::IndexMap;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteProviderState {
     pub providers: IndexMap<String, Provider>,
@@ -156,6 +156,41 @@ pub fn remote_import_config_from_file(
     .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn remote_get_tool_versions(
+    profile: RemoteHostProfile,
+    tools: Option<Vec<String>>,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Value, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    let tools_json =
+        serde_json::to_string(&tools.unwrap_or_default()).map_err(|e| e.to_string())?;
+    run_helper_json(
+        &profile,
+        &["tools".to_string(), "versions".to_string(), tools_json],
+        secret.as_ref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_run_tool_lifecycle_action(
+    profile: RemoteHostProfile,
+    tools: Vec<String>,
+    action: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<(), String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    let tools_json = serde_json::to_string(&tools).map_err(|e| e.to_string())?;
+    run_helper_json::<Value>(
+        &profile,
+        &["tools".to_string(), "run".to_string(), action, tools_json],
+        secret.as_ref(),
+    )
+    .map(|_| ())
+    .map_err(|e| e.to_string())
+}
+
 fn remote_health_from_status(status: serde_json::Value) -> RemoteHealth {
     RemoteHealth {
         reachable: true,
@@ -201,6 +236,7 @@ fn parse_remote_capability(value: &str) -> Option<RemoteCapability> {
         "sessions" => Some(RemoteCapability::Sessions),
         "hermes-memory" => Some(RemoteCapability::HermesMemory),
         "import-export" => Some(RemoteCapability::ImportExport),
+        "tools" => Some(RemoteCapability::Tools),
         _ => None,
     }
 }
@@ -242,23 +278,37 @@ pub fn remote_get_provider_state(
     secret: Option<RemoteConnectionSecret>,
 ) -> Result<RemoteProviderState, String> {
     validate_profile(&profile).map_err(|e| e.to_string())?;
-    let providers = run_helper_json(
+    match run_helper_json(
         &profile,
-        &["providers".to_string(), "list".to_string(), app.clone()],
+        &["providers".to_string(), "state".to_string(), app.clone()],
         secret.as_ref(),
-    )
-    .map_err(|e| e.to_string())?;
-    let current_provider_id = run_helper_json(
-        &profile,
-        &["providers".to_string(), "current".to_string(), app],
-        secret.as_ref(),
-    )
-    .map_err(|e| e.to_string())?;
+    ) {
+        Ok(state) => Ok(state),
+        Err(error) if is_unsupported_remote_command(&error.to_string()) => {
+            let providers = run_helper_json(
+                &profile,
+                &["providers".to_string(), "list".to_string(), app.clone()],
+                secret.as_ref(),
+            )
+            .map_err(|e| e.to_string())?;
+            let current_provider_id = run_helper_json(
+                &profile,
+                &["providers".to_string(), "current".to_string(), app],
+                secret.as_ref(),
+            )
+            .map_err(|e| e.to_string())?;
 
-    Ok(RemoteProviderState {
-        providers,
-        current_provider_id,
-    })
+            Ok(RemoteProviderState {
+                providers,
+                current_provider_id,
+            })
+        }
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn is_unsupported_remote_command(message: &str) -> bool {
+    message.contains("unsupported_command")
 }
 
 #[tauri::command]

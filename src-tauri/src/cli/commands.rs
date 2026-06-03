@@ -12,6 +12,8 @@ use crate::{
 use indexmap::IndexMap;
 use serde::Serialize;
 use serde_json::{json, Value};
+use std::collections::HashSet;
+use std::process::Command;
 use std::sync::Arc;
 
 const REDACTED_SECRET_SENTINEL: &str = "[redacted]";
@@ -37,8 +39,227 @@ pub fn status_payload() -> StatusPayload {
             "sessions".to_string(),
             "hermes-memory".to_string(),
             "import-export".to_string(),
+            "tools".to_string(),
         ],
     }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderStatePayload {
+    pub providers: serde_json::Value,
+    pub current_provider_id: String,
+}
+
+const VALID_TOOLS: [&str; 6] = [
+    "claude", "codex", "gemini", "opencode", "openclaw", "hermes",
+];
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ToolVersion {
+    pub name: String,
+    pub version: Option<String>,
+    pub latest_version: Option<String>,
+    pub error: Option<String>,
+    pub installed_but_broken: bool,
+    pub env_type: String,
+    pub wsl_distro: Option<String>,
+}
+
+enum ToolLifecycleAction {
+    Install,
+    Update,
+}
+
+impl ToolLifecycleAction {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "install" => Ok(Self::Install),
+            "update" => Ok(Self::Update),
+            _ => Err(format!("Unsupported tool lifecycle action: {value}")),
+        }
+    }
+}
+
+pub fn tool_versions(tools_json: &str) -> Result<Vec<ToolVersion>, String> {
+    let tools = parse_tool_list(tools_json)?;
+    Ok(tools.into_iter().map(|tool| tool_version(&tool)).collect())
+}
+
+pub fn run_tool_lifecycle_action(tools_json: &str, action: &str) -> Result<(), String> {
+    let tools = parse_tool_list(tools_json)?;
+    let action = ToolLifecycleAction::parse(action)?;
+    if tools.is_empty() {
+        return Err("No supported tools selected".to_string());
+    }
+
+    let mut lines = vec!["set -e".to_string()];
+    for tool in tools {
+        let line = tool_lifecycle_command(&tool, &action)
+            .ok_or_else(|| format!("Unsupported tool action target: {tool}"))?;
+        lines.push(line);
+    }
+
+    let output = Command::new("bash")
+        .arg("-lc")
+        .arg(lines.join("\n"))
+        .output()
+        .map_err(|e| format!("Failed to start remote tool lifecycle command: {e}"))?;
+    finish_command_output(&output)
+}
+
+fn parse_tool_list(tools_json: &str) -> Result<Vec<String>, String> {
+    let requested: Option<Vec<String>> = if tools_json.trim().is_empty() || tools_json == "-" {
+        None
+    } else {
+        Some(serde_json::from_str(tools_json).map_err(|e| e.to_string())?)
+    };
+    let requested: Option<HashSet<String>> = requested.map(|tools| tools.into_iter().collect());
+    Ok(VALID_TOOLS
+        .iter()
+        .filter(|tool| {
+            requested
+                .as_ref()
+                .map(|set| set.contains(**tool))
+                .unwrap_or(true)
+        })
+        .map(|tool| (*tool).to_string())
+        .collect())
+}
+
+fn tool_version(tool: &str) -> ToolVersion {
+    let probe = Command::new("bash")
+        .arg("-lc")
+        .arg(format!("{tool} --version"))
+        .output();
+
+    let (version, error, installed_but_broken) = match probe {
+        Ok(output) if output.status.success() => {
+            let stdout = decode_command_output(&output.stdout);
+            let stderr = decode_command_output(&output.stderr);
+            let raw = if stdout.trim().is_empty() {
+                stderr.trim()
+            } else {
+                stdout.trim()
+            };
+            (extract_semver(raw), None, false)
+        }
+        Ok(output) => {
+            let detail = command_error_detail(&output);
+            (None, Some(detail), true)
+        }
+        Err(error) => (None, Some(error.to_string()), false),
+    };
+
+    ToolVersion {
+        name: tool.to_string(),
+        version,
+        latest_version: latest_tool_version(tool),
+        error,
+        installed_but_broken,
+        env_type: std::env::consts::OS.to_string(),
+        wsl_distro: None,
+    }
+}
+
+fn latest_tool_version(tool: &str) -> Option<String> {
+    let command = match tool {
+        "claude" => "npm view @anthropic-ai/claude-code version --silent",
+        "codex" => "npm view @openai/codex version --silent",
+        "gemini" => "npm view @google/gemini-cli version --silent",
+        "opencode" => "npm view opencode-ai version --silent",
+        "openclaw" => "npm view openclaw version --silent",
+        "hermes" => {
+            "python3 -m pip index versions hermes-agent 2>/dev/null | head -n 1 | sed -n 's/.*(\\([^)]*\\)).*/\\1/p'"
+        }
+        _ => return None,
+    };
+    let output = Command::new("bash").arg("-lc").arg(command).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    extract_semver(decode_command_output(&output.stdout).trim())
+}
+
+fn tool_lifecycle_command(tool: &str, action: &ToolLifecycleAction) -> Option<String> {
+    match action {
+        ToolLifecycleAction::Install => match tool {
+            "claude" => Some(installer_with_npm_fallback(
+                "bash -c 'tmp=$(mktemp) && curl -fsSL https://claude.ai/install.sh -o $tmp && bash $tmp; status=$?; rm -f $tmp; exit $status'",
+                "npm i -g @anthropic-ai/claude-code@latest",
+            )),
+            "codex" => Some("npm i -g @openai/codex@latest".to_string()),
+            "gemini" => Some("npm i -g @google/gemini-cli@latest".to_string()),
+            "opencode" => Some(installer_with_npm_fallback(
+                "bash -c 'tmp=$(mktemp) && curl -fsSL https://opencode.ai/install -o $tmp && bash $tmp; status=$?; rm -f $tmp; exit $status'",
+                "npm i -g opencode-ai@latest",
+            )),
+            "openclaw" => Some("npm i -g openclaw@latest".to_string()),
+            "hermes" => Some("bash -c 'tmp=$(mktemp) && curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh -o $tmp && bash $tmp; status=$?; rm -f $tmp; exit $status'".to_string()),
+            _ => None,
+        },
+        ToolLifecycleAction::Update => match tool {
+            "claude" => Some("claude update || npm i -g @anthropic-ai/claude-code@latest".to_string()),
+            "codex" => Some("codex update || npm i -g @openai/codex@latest".to_string()),
+            "gemini" => Some("npm i -g @google/gemini-cli@latest".to_string()),
+            "opencode" => Some("opencode upgrade || npm i -g opencode-ai@latest".to_string()),
+            "openclaw" => Some("openclaw update --yes || npm i -g openclaw@latest".to_string()),
+            "hermes" => Some("hermes update || bash -c 'tmp=$(mktemp) && curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh -o $tmp && bash $tmp; status=$?; rm -f $tmp; exit $status'".to_string()),
+            _ => None,
+        },
+    }
+}
+
+fn installer_with_npm_fallback(installer: &str, npm: &str) -> String {
+    format!("{installer} || {npm}")
+}
+
+fn extract_semver(raw: &str) -> Option<String> {
+    raw.split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' || ch == '+'))
+        .find_map(|token| {
+            let normalized = token.trim_start_matches(['v', 'V']);
+            let core = normalized.split(['-', '+']).next().unwrap_or(normalized);
+            let parts: Vec<_> = core.split('.').collect();
+            if parts.len() >= 3 && parts.iter().take(3).all(|part| part.parse::<u64>().is_ok()) {
+                Some(normalized.to_string())
+            } else {
+                None
+            }
+        })
+}
+
+fn finish_command_output(output: &std::process::Output) -> Result<(), String> {
+    if output.status.success() {
+        return Ok(());
+    }
+    Err(command_error_detail(output))
+}
+
+fn command_error_detail(output: &std::process::Output) -> String {
+    let stderr = decode_command_output(&output.stderr);
+    let stdout = decode_command_output(&output.stdout);
+    let raw = if stderr.trim().is_empty() {
+        stdout.trim()
+    } else {
+        stderr.trim()
+    };
+    let detail = last_lines(raw, 8);
+    if detail.is_empty() {
+        format!("Command failed with status {}", output.status)
+    } else {
+        detail
+    }
+}
+
+fn last_lines(text: &str, n: usize) -> String {
+    let mut lines: Vec<&str> = text.lines().collect();
+    let start = lines.len().saturating_sub(n);
+    lines.drain(..start);
+    lines.join("\n")
+}
+
+fn decode_command_output(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes).into_owned()
 }
 
 pub fn list_sessions() -> Result<Vec<crate::session_manager::SessionMeta>, String> {
@@ -107,6 +328,13 @@ pub fn current_provider(app: AppType) -> Result<String, String> {
     let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
     let state = AppState::new(db);
     ProviderService::current(&state, app).map_err(|e| e.to_string())
+}
+
+pub fn provider_state(app: AppType) -> Result<ProviderStatePayload, String> {
+    Ok(ProviderStatePayload {
+        providers: list_providers(app.clone())?,
+        current_provider_id: current_provider(app)?,
+    })
 }
 
 pub fn switch_provider(app: AppType, id: &str) -> Result<crate::services::SwitchResult, String> {

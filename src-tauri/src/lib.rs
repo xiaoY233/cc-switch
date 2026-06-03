@@ -1324,6 +1324,8 @@ pub fn run() {
             commands::remote_install_helper,
             commands::remote_export_config_to_file,
             commands::remote_import_config_from_file,
+            commands::remote_get_tool_versions,
+            commands::remote_run_tool_lifecycle_action,
             commands::remote_get_providers,
             commands::remote_get_current_provider,
             commands::remote_get_provider_state,

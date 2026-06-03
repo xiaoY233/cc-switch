@@ -24,6 +24,7 @@ export type {
   RemoteConnectionSecret,
   RemoteHealth,
   RemoteHostProfile,
+  RemoteToolVersion,
 } from "./remote";
 export type {
   CopilotDeviceCodeResponse,

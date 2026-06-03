@@ -72,6 +72,7 @@ import { AddProviderDialog } from "@/components/providers/AddProviderDialog";
 import { EditProviderDialog } from "@/components/providers/EditProviderDialog";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SettingsPage } from "@/components/settings/SettingsPage";
+import { RemoteSettingsPage } from "@/components/settings/RemoteSettingsPage";
 import { UpdateBadge } from "@/components/UpdateBadge";
 import { EnvWarningBanner } from "@/components/env/EnvWarningBanner";
 import { ProxyToggle } from "@/components/proxy/ProxyToggle";
@@ -1034,6 +1035,17 @@ function App() {
     const content = (() => {
       switch (currentView) {
         case "settings":
+          if (managementTarget.type === "remote") {
+            return (
+              <RemoteSettingsPage
+                open={true}
+                onOpenChange={() => setCurrentView("providers")}
+                onImportSuccess={handleImportSuccess}
+                defaultTab={settingsDefaultTab}
+                target={managementTarget}
+              />
+            );
+          }
           return (
             <SettingsPage
               open={true}
