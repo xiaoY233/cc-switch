@@ -168,23 +168,21 @@ jobs:
               fi
             fi
           fi
-          # 将“完整两行内容”作为环境变量注入（Tauri 支持传入完整私钥文本或文件路径）
-          # 使用多行写入语法，保持换行以便解析
-          # 将完整两行私钥内容进行 base64 编码，作为单行内容注入环境变量
-          if command -v base64 >/dev/null 2>&1; then
-            KEY_B64=$(base64 < "$KEY_PATH" | tr -d '\r\n')
-          elif command -v openssl >/dev/null 2>&1; then
-            KEY_B64=$(openssl base64 -A -in "$KEY_PATH")
-          else
-            KEY_B64=$(KEY_PATH="$KEY_PATH" node -e "process.stdout.write(require('fs').readFileSync(process.env.KEY_PATH).toString('base64'))")
-          fi
-          if [ -z "$KEY_B64" ]; then
-            echo "❌ 无法生成私钥 base64 内容" >&2
-            exit 1
-          fi
-          echo "TAURI_SIGNING_PRIVATE_KEY=$KEY_B64" >> "$GITHUB_ENV"
+          # Tauri build/updater signing and `tauri signer sign` use different
+          # environment variable names. Export both forms from the normalized
+          # two-line key file so fallback MSI signing works on Windows.
+          {
+            echo "TAURI_SIGNING_PRIVATE_KEY<<__TAURI_SIGNING_KEY__"
+            cat "$KEY_PATH"
+            echo "__TAURI_SIGNING_KEY__"
+            echo "TAURI_PRIVATE_KEY<<__TAURI_PRIVATE_KEY__"
+            cat "$KEY_PATH"
+            echo "__TAURI_PRIVATE_KEY__"
+            echo "TAURI_PRIVATE_KEY_PATH=$KEY_PATH"
+          } >> "$GITHUB_ENV"
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW" ]; then
             echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW" >> $GITHUB_ENV
+            echo "TAURI_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW" >> $GITHUB_ENV
           fi
           echo "✅ Tauri signing key prepared"
 
@@ -503,7 +501,10 @@ jobs:
               Write-Host "Signature copied: $dest.sig"
             } else {
               Write-Warning "Signature not found for $($msi.Name); signing copied MSI for updater metadata"
-              pnpm tauri signer sign $assetPath
+              if (-not $env:TAURI_PRIVATE_KEY_PATH) {
+                throw "TAURI_PRIVATE_KEY_PATH is not available for Windows MSI signing"
+              }
+              pnpm tauri signer sign --private-key-path $env:TAURI_PRIVATE_KEY_PATH $assetPath
               if ($LASTEXITCODE -ne 0) {
                 throw "Failed to sign Windows MSI updater artifact"
               }
