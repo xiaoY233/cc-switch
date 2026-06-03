@@ -1,7 +1,7 @@
 {
   "app": {
-    "title": "CC Switch",
-    "description": "Claude Code / Codex / Gemini CLI 全方位辅助工具"
+    "title": "CC Switch Remote",
+    "description": "面向本地与远程管理的 Claude Code / Codex / Gemini CLI 辅助工具"
   },
   "common": {
     "add": "添加",
@@ -43,9 +43,9 @@
     "notSet": "未设置"
   },
   "firstRunNotice": {
-    "title": "欢迎使用 CC Switch",
-    "bodyDefault": "CC Switch 可以帮你在 Claude Code / Codex / Gemini CLI 的多个供应商之间一键切换。如果你之前已经配置过这些工具，CC Switch 会自动把现有设置保存为名为 “default” 的供应商，保证你的配置不会丢失。",
-    "bodyOfficial": "列表里还预置了 “官方（Official）” 供应商，随时点一下即可切回官方默认配置。切换前 CC Switch 会自动把当前配置备份回 default，可以放心来回切。CC Switch 就是这样工作的 😊",
+    "title": "欢迎使用 CC Switch Remote",
+    "bodyDefault": "CC Switch Remote 可以帮你在本地或已连接的远程服务器上，一键切换 Claude Code / Codex / Gemini CLI 的多个供应商。如果你之前已经在本机配置过这些工具，应用会自动把现有设置保存为名为 “default” 的供应商，保证你的配置不会丢失。",
+    "bodyOfficial": "列表里还预置了 “官方（Official）” 供应商，随时点一下即可切回官方默认配置。切换前 CC Switch Remote 会自动把当前本地配置备份回 default，可以放心来回切换。",
     "confirm": "我知道了"
   },
   "apiKeyInput": {

@@ -4,10 +4,10 @@
 
 ### Remote-first fork of CC Switch for Claude Code, Codex, Gemini CLI, OpenCode, OpenClaw & Hermes Agent
 
-[![Version](https://img.shields.io/github/v/release/xiaoY233/cc-switch?color=blue&label=version)](https://github.com/xiaoY233/cc-switch/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/xiaoY233/cc-switch/releases)
+[![Version](https://img.shields.io/github/v/release/xiaoY233/cc-switch-remote?color=blue&label=version)](https://github.com/xiaoY233/cc-switch-remote/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/xiaoY233/cc-switch-remote/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
-[![Downloads](https://img.shields.io/github/downloads/xiaoY233/cc-switch/total)](https://github.com/xiaoY233/cc-switch/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/xiaoY233/cc-switch-remote/total)](https://github.com/xiaoY233/cc-switch-remote/releases/latest)
 
 CC Switch Remote keeps the upstream local-management features while adding independent remote server management. The product branch is `main`; `upstream-main` tracks `farion1231/cc-switch/main` for periodic upstream feature syncs.
 
@@ -513,7 +513,7 @@ For new features, please open an issue for discussion before submitting a PR. PR
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=farion1231/cc-switch&type=Date)](https://www.star-history.com/#farion1231/cc-switch&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=xiaoY233/cc-switch-remote&type=Date)](https://www.star-history.com/#xiaoY233/cc-switch-remote&Date)
 
 ## License
 

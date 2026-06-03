@@ -18,7 +18,8 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-const APP_RELEASES_LATEST_URL: &str = "https://github.com/xiaoY233/cc-switch/releases/latest";
+const APP_RELEASES_LATEST_URL: &str =
+    "https://github.com/xiaoY233/cc-switch-remote/releases/latest";
 
 /// 打开外部链接
 #[tauri::command]

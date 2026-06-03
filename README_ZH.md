@@ -4,10 +4,10 @@
 
 ### 面向远程服务器管理增强的 CC Switch Fork
 
-[![Version](https://img.shields.io/github/v/release/xiaoY233/cc-switch?color=blue&label=version)](https://github.com/xiaoY233/cc-switch/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/xiaoY233/cc-switch/releases)
+[![Version](https://img.shields.io/github/v/release/xiaoY233/cc-switch-remote?color=blue&label=version)](https://github.com/xiaoY233/cc-switch-remote/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/xiaoY233/cc-switch-remote/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
-[![Downloads](https://img.shields.io/github/downloads/xiaoY233/cc-switch/total)](https://github.com/xiaoY233/cc-switch/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/xiaoY233/cc-switch-remote/total)](https://github.com/xiaoY233/cc-switch-remote/releases/latest)
 
 CC Switch Remote 保留上游本地管理能力，同时新增相互独立的远程服务器管理。`main` 是产品主线；`upstream-main` 仅用于同步 `farion1231/cc-switch/main` 的上游功能更新。
 
@@ -515,7 +515,7 @@ pnpm test:unit --coverage
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=farion1231/cc-switch&type=Date)](https://www.star-history.com/#farion1231/cc-switch&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=xiaoY233/cc-switch-remote&type=Date)](https://www.star-history.com/#xiaoY233/cc-switch-remote&Date)
 
 ## License
 

@@ -1,7 +1,7 @@
 {
   "app": {
-    "title": "CC Switch",
-    "description": "Claude Code・Codex・Gemini CLI のためのオールインワンアシスタント"
+    "title": "CC Switch Remote",
+    "description": "Claude Code・Codex・Gemini CLI のローカル/リモート管理アシスタント"
   },
   "common": {
     "add": "追加",
@@ -43,9 +43,9 @@
     "notSet": "未設定"
   },
   "firstRunNotice": {
-    "title": "CC Switch へようこそ",
-    "bodyDefault": "CC Switch は Claude Code / Codex / Gemini CLI の複数プロバイダーをワンクリックで切り替えられるツールです。すでにこれらのツールを設定済みの場合、CC Switch は現在の設定を「default」という名前のプロバイダーとして自動的に保存するので、既存の設定が失われることはありません。",
-    "bodyOfficial": "リストには「Official（公式）」プリセットも用意されており、公式バージョンに戻したくなったらクリックするだけで切り替えられます。切り替える前に現在の設定は自動で default にバックアップされるので、自由に行き来できます。これが CC Switch の仕組みです 😊",
+    "title": "CC Switch Remote へようこそ",
+    "bodyDefault": "CC Switch Remote は、ローカルまたは接続済みのリモートサーバー上で Claude Code / Codex / Gemini CLI の複数プロバイダーをワンクリックで切り替えられるツールです。すでにローカルでこれらのツールを設定済みの場合、アプリは現在の設定を「default」という名前のプロバイダーとして自動的に保存するので、既存の設定が失われることはありません。",
+    "bodyOfficial": "リストには「Official（公式）」プリセットも用意されており、公式バージョンに戻したくなったらクリックするだけで切り替えられます。切り替える前に現在のローカル設定は CC Switch Remote によって default にバックアップされるので、自由に行き来できます。",
     "confirm": "了解しました"
   },
   "apiKeyInput": {

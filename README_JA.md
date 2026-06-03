@@ -4,10 +4,10 @@
 
 ### リモートサーバー管理を強化した CC Switch fork
 
-[![Version](https://img.shields.io/github/v/release/xiaoY233/cc-switch?color=blue&label=version)](https://github.com/xiaoY233/cc-switch/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/xiaoY233/cc-switch/releases)
+[![Version](https://img.shields.io/github/v/release/xiaoY233/cc-switch-remote?color=blue&label=version)](https://github.com/xiaoY233/cc-switch-remote/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/xiaoY233/cc-switch-remote/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
-[![Downloads](https://img.shields.io/github/downloads/xiaoY233/cc-switch/total)](https://github.com/xiaoY233/cc-switch/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/xiaoY233/cc-switch-remote/total)](https://github.com/xiaoY233/cc-switch-remote/releases/latest)
 
 CC Switch Remote は上流のローカル管理機能を維持しながら、独立したリモートサーバー管理を追加します。`main` は製品ブランチ、`upstream-main` は `farion1231/cc-switch/main` を追跡する上流同期用ブランチです。
 
@@ -513,7 +513,7 @@ PR を送る前に以下をご確認ください：
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=farion1231/cc-switch&type=Date)](https://www.star-history.com/#farion1231/cc-switch&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=xiaoY233/cc-switch-remote&type=Date)](https://www.star-history.com/#xiaoY233/cc-switch-remote&Date)
 
 ## ライセンス
 

@@ -1153,7 +1153,7 @@ mod tests {
         let command = args.last().expect("remote command");
 
         assert!(command.contains(
-            "https://api.github.com/repos/xiaoY233/cc-switch/releases/tags/remote-helper-latest"
+            "https://api.github.com/repos/xiaoY233/cc-switch-remote/releases/tags/remote-helper-latest"
         ));
         assert!(command.contains("cc-switch-remote-helper"));
         assert!(command.contains("cc-switch-cli"));

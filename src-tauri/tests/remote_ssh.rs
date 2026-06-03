@@ -260,8 +260,9 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
     let remote_command = args.last().expect("remote command");
 
     assert!(args.contains(&"alice@example.com".to_string()));
-    assert!(remote_command
-        .contains("api.github.com/repos/xiaoY233/cc-switch/releases/tags/remote-helper-latest"));
+    assert!(remote_command.contains(
+        "api.github.com/repos/xiaoY233/cc-switch-remote/releases/tags/remote-helper-latest"
+    ));
     assert!(remote_command.contains("fetch_url_to_stdout()"));
     assert!(remote_command.contains("curl -fsSL \"$1\" -o \"$2\""));
     assert!(remote_command.contains("wget -qO- \"$1\""));

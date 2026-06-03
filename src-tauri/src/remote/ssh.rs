@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 use sha2::{Digest, Sha256};
 use std::process::Command;
 
-const HELPER_RELEASE_REPO: &str = "xiaoY233/cc-switch";
+const HELPER_RELEASE_REPO: &str = "xiaoY233/cc-switch-remote";
 const HELPER_RELEASE_TAG: &str = "remote-helper-latest";
 const HELPER_RELEASE_REPO_ENV: &str = "CC_SWITCH_REMOTE_HELPER_RELEASE_REPO";
 const HELPER_RELEASE_TAG_ENV: &str = "CC_SWITCH_REMOTE_HELPER_RELEASE_TAG";
