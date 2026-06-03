@@ -91,9 +91,11 @@ jobs:
           set -euo pipefail
           mkdir -p helper-artifacts
           short_sha="${GITHUB_SHA::8}"
-          asset="cc-switch-remote-helper-${short_sha}-${{ matrix.helper_os }}-${{ matrix.helper_arch }}"
-          cp "${{ matrix.helper_path }}" "helper-artifacts/${asset}"
-          chmod +x "helper-artifacts/${asset}"
+          sha_asset="cc-switch-remote-helper-${short_sha}-${{ matrix.helper_os }}-${{ matrix.helper_arch }}"
+          latest_asset="cc-switch-remote-helper-latest-${{ matrix.helper_os }}-${{ matrix.helper_arch }}"
+          cp "${{ matrix.helper_path }}" "helper-artifacts/${sha_asset}"
+          cp "${{ matrix.helper_path }}" "helper-artifacts/${latest_asset}"
+          chmod +x "helper-artifacts/${sha_asset}" "helper-artifacts/${latest_asset}"
           ls -la helper-artifacts
 
       - name: Upload helper artifact
