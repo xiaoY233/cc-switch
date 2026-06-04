@@ -188,8 +188,13 @@ jobs:
             echo "❌ 无法生成私钥 base64 内容" >&2
             exit 1
           fi
+          SIGNER_KEY=$(tail -n +2 "$KEY_PATH" | tr -d '\r\n[:space:]')
+          if [ -z "$SIGNER_KEY" ]; then
+            echo "❌ 无法提取用于 tauri signer 的私钥正文" >&2
+            exit 1
+          fi
           SIGNER_KEY_PATH="$RUNNER_TEMP/tauri_signing.b64"
-          printf '%s' "$KEY_B64" > "$SIGNER_KEY_PATH"
+          printf '%s' "$SIGNER_KEY" > "$SIGNER_KEY_PATH"
           # Tauri build/updater signing expects a base64 key in
           # TAURI_SIGNING_PRIVATE_KEY. The standalone `tauri signer sign`
           # command also expects base64 content when using --private-key-path.
