@@ -197,7 +197,6 @@ jobs:
           } >> "$GITHUB_ENV"
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW" ]; then
             echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW" >> $GITHUB_ENV
-            echo "TAURI_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW" >> $GITHUB_ENV
           fi
           echo "✅ Tauri signing key prepared"
 
@@ -529,19 +528,7 @@ jobs:
               Copy-Item $sigPath (Join-Path release-assets ("$dest.sig"))
               Write-Host "Signature copied: $dest.sig"
             } else {
-              Write-Warning "Signature not found for $($msi.Name); signing copied MSI for updater metadata"
-              if (-not $env:TAURI_PRIVATE_KEY) {
-                throw "TAURI_PRIVATE_KEY is not available for Windows MSI signing"
-              }
-              pnpm tauri signer sign $assetPath
-              if ($LASTEXITCODE -ne 0) {
-                throw "Failed to sign Windows MSI updater artifact"
-              }
-              $generatedSig = "$assetPath.sig"
-              if (-not (Test-Path $generatedSig)) {
-                throw "Windows MSI signing completed but $generatedSig was not created"
-              }
-              Write-Host "Signature generated: $dest.sig"
+              Write-Warning "Signature not found for $($msi.Name); publishing MSI without Windows updater signature"
             }
           } else {
             Write-Warning 'No Windows MSI installer found'
