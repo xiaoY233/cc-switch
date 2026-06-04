@@ -91,9 +91,18 @@ jobs:
               exit 1
             fi
           fi
+          if command -v base64 >/dev/null 2>&1; then
+            KEY_B64=$(base64 < "$KEY_PATH" | tr -d '\r\n')
+          elif command -v openssl >/dev/null 2>&1; then
+            KEY_B64=$(openssl base64 -A -in "$KEY_PATH")
+          else
+            KEY_B64=$(KEY_PATH="$KEY_PATH" node -e "process.stdout.write(require('fs').readFileSync(process.env.KEY_PATH).toString('base64'))")
+          fi
+          SIGNER_KEY_PATH="$RUNNER_TEMP/tauri_signing.base64.key"
+          printf '%s' "$KEY_B64" > "$SIGNER_KEY_PATH"
 
           {
-            echo "TAURI_PRIVATE_KEY_PATH=$KEY_PATH"
+            echo "TAURI_PRIVATE_KEY_PATH=$SIGNER_KEY_PATH"
             echo "TAURI_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW"
           } >> "$GITHUB_ENV"
 
