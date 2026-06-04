@@ -1,0 +1,149 @@
+name: Release Maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to repair, for example v3.16.2
+        required: true
+        type: string
+      operation:
+        description: Maintenance operation
+        required: true
+        default: sign-windows-msi-and-refresh-latest
+        type: choice
+        options:
+          - sign-windows-msi-and-refresh-latest
+          - refresh-latest-json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-maintenance-${{ github.event.inputs.tag }}
+  cancel-in-progress: true
+
+jobs:
+  maintain-release:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euxo pipefail
+          mkdir -p dl
+          gh release download "$TAG" --dir dl --repo "$GITHUB_REPOSITORY" --clobber \
+            --pattern '*macOS.tar.gz*' \
+            --pattern '*Linux-x86_64.AppImage*' \
+            --pattern '*Linux-arm64.AppImage*' \
+            --pattern '*Windows.msi*'
+          ls -la dl
+
+      - name: Setup Node.js
+        if: github.event.inputs.operation == 'sign-windows-msi-and-refresh-latest'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        if: github.event.inputs.operation == 'sign-windows-msi-and-refresh-latest'
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.12.3
+          run_install: false
+
+      - name: Install frontend deps
+        if: github.event.inputs.operation == 'sign-windows-msi-and-refresh-latest'
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare Tauri signing key
+        if: github.event.inputs.operation == 'sign-windows-msi-and-refresh-latest'
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY_RAW: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY_RAW" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY Secret is missing; cannot sign Windows MSI" >&2
+            exit 1
+          fi
+
+          RAW="$TAURI_SIGNING_PRIVATE_KEY_RAW"
+          RAW_COMPACT=$(TAURI_SIGNING_PRIVATE_KEY_RAW="$RAW" node -e "process.stdout.write(process.env.TAURI_SIGNING_PRIVATE_KEY_RAW.replace(/\\s+/g, ''))")
+          RAW_FIRST_LINE="${RAW%%$'\n'*}"
+          KEY_PATH="$RUNNER_TEMP/tauri_signing.key"
+          if [[ "$RAW_FIRST_LINE" == untrusted\ comment:* ]]; then
+            printf '%s\n' "$RAW" > "$KEY_PATH"
+          else
+            if RAW_COMPACT="$RAW_COMPACT" KEY_PATH="$KEY_PATH" node -e 'const fs=require("fs");const raw=process.env.RAW_COMPACT||"";try{const decoded=Buffer.from(raw,"base64").toString("utf8");const firstLine=decoded.split(/\r?\n/,1)[0]||"";if(!firstLine.startsWith("untrusted comment:"))process.exit(2);fs.writeFileSync(process.env.KEY_PATH,decoded.endsWith("\n")?decoded:`${decoded}\n`);}catch(_){process.exit(1);}'
+            then
+              true
+            elif [[ "$RAW_COMPACT" =~ ^[A-Za-z0-9+/=]+$ ]]; then
+              printf '%s\n%s\n' "untrusted comment: tauri signing key" "$RAW_COMPACT" > "$KEY_PATH"
+            else
+              echo "TAURI_SIGNING_PRIVATE_KEY format is not recognized" >&2
+              exit 1
+            fi
+          fi
+
+          {
+            echo "TAURI_PRIVATE_KEY_PATH=$KEY_PATH"
+            echo "TAURI_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW"
+          } >> "$GITHUB_ENV"
+
+      - name: Sign Windows MSI if needed
+        if: github.event.inputs.operation == 'sign-windows-msi-and-refresh-latest'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euxo pipefail
+          shopt -s nullglob
+          msi_files=(dl/*-Windows.msi)
+          if [ "${#msi_files[@]}" -eq 0 ]; then
+            echo "No Windows MSI asset found on release $TAG" >&2
+            exit 1
+          fi
+          if [ "${#msi_files[@]}" -gt 1 ]; then
+            echo "Expected one Windows MSI asset, found ${#msi_files[@]}: ${msi_files[*]}" >&2
+            exit 1
+          fi
+
+          msi="${msi_files[0]}"
+          sig="$msi.sig"
+          if [ -f "$sig" ]; then
+            echo "Windows MSI signature already exists: $sig"
+          else
+            pnpm tauri signer sign -f "$TAURI_PRIVATE_KEY_PATH" "$msi"
+          fi
+          test -f "$sig"
+          gh release upload "$TAG" "$sig" --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Generate latest.json
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euxo pipefail
+          PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          node scripts/assemble-tauri-latest-json.mjs \
+            --assets-dir dl \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" \
+            --pub-date "$PUB_DATE" \
+            --output latest.json
+          cat latest.json
+
+      - name: Upload latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euxo pipefail
+          gh release upload "$TAG" latest.json --clobber --repo "$GITHUB_REPOSITORY"

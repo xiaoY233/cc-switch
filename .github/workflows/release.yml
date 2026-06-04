@@ -194,10 +194,10 @@ jobs:
           {
             echo "TAURI_SIGNING_PRIVATE_KEY=$KEY_B64"
             echo "TAURI_PRIVATE_KEY=$KEY_B64"
+            echo "TAURI_PRIVATE_KEY_PATH=$KEY_PATH"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW"
+            echo "TAURI_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW"
           } >> "$GITHUB_ENV"
-          if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW" ]; then
-            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW" >> $GITHUB_ENV
-          fi
           echo "✅ Tauri signing key prepared"
 
       - name: Import Apple signing certificate
@@ -503,6 +503,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
           New-Item -ItemType Directory -Force -Path release-assets | Out-Null
           $VERSION = $env:GITHUB_REF_NAME  # e.g., v3.5.0
           # 仅打包 MSI 安装器 + .sig（用于 Updater）
@@ -528,7 +529,19 @@ jobs:
               Copy-Item $sigPath (Join-Path release-assets ("$dest.sig"))
               Write-Host "Signature copied: $dest.sig"
             } else {
-              Write-Warning "Signature not found for $($msi.Name); publishing MSI without Windows updater signature"
+              if (-not $env:TAURI_PRIVATE_KEY_PATH) {
+                throw 'TAURI_PRIVATE_KEY_PATH is missing; cannot sign Windows MSI for updater metadata'
+              }
+              Write-Warning "Signature not found for $($msi.Name); signing copied MSI for Windows updater metadata"
+              pnpm tauri signer sign -f $env:TAURI_PRIVATE_KEY_PATH $assetPath
+              if ($LASTEXITCODE -ne 0) {
+                throw "Failed to sign Windows MSI for updater metadata, exit code $LASTEXITCODE"
+              }
+              $generatedSigPath = "$assetPath.sig"
+              if (-not (Test-Path $generatedSigPath)) {
+                throw "Windows MSI signing completed but $generatedSigPath was not created"
+              }
+              Write-Host "Signature generated: $dest.sig"
             }
           } else {
             Write-Warning 'No Windows MSI installer found'
@@ -687,6 +700,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
       - name: Prepare GH
         run: |
           gh --version || (type -p curl >/dev/null && sudo apt-get update && sudo apt-get install -y gh || true)
@@ -699,7 +714,11 @@ jobs:
           set -euxo pipefail
           TAG="${GITHUB_REF_NAME}"
           mkdir -p dl
-          gh release download "$TAG" --dir dl --repo "$GITHUB_REPOSITORY"
+          gh release download "$TAG" --dir dl --repo "$GITHUB_REPOSITORY" \
+            --pattern '*macOS.tar.gz*' \
+            --pattern '*Linux-x86_64.AppImage*' \
+            --pattern '*Linux-arm64.AppImage*' \
+            --pattern '*Windows.msi*'
           ls -la dl || true
       - name: Generate latest.json
         env:
@@ -707,69 +726,14 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          VERSION="${TAG#v}"
           PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          base_url="https://github.com/$REPO/releases/download/$TAG"
-          # 初始化空平台映射
-          mac_url=""; mac_sig=""
-          win_url=""; win_sig=""
-          linux_x64_url=""; linux_x64_sig=""
-          linux_arm64_url=""; linux_arm64_sig=""
-          shopt -s nullglob
-          for sig in dl/*.sig; do
-            base=${sig%.sig}
-            fname=$(basename "$base")
-            url="$base_url/$fname"
-            sig_content=$(cat "$sig")
-            case "$fname" in
-              *.tar.gz)
-                # 视为 macOS updater artifact
-                mac_url="$url"; mac_sig="$sig_content";;
-              *-Linux-arm64.AppImage|*-Linux-arm64.appimage)
-                linux_arm64_url="$url"; linux_arm64_sig="$sig_content";;
-              *-Linux-x86_64.AppImage|*-Linux-x86_64.appimage)
-                linux_x64_url="$url"; linux_x64_sig="$sig_content";;
-              *.msi|*.exe)
-                win_url="$url"; win_sig="$sig_content";;
-            esac
-          done
-          # 构造 JSON（仅包含存在的目标）
-          tmp_json=$(mktemp)
-          {
-            echo '{'
-            echo "  \"version\": \"$VERSION\",";
-            echo "  \"notes\": \"Release $TAG\",";
-            echo "  \"pub_date\": \"$PUB_DATE\",";
-            echo '  "platforms": {'
-            first=1
-            if [ -n "$mac_url" ] && [ -n "$mac_sig" ]; then
-              # 为兼容 arm64 / x64，重复写入两个键，指向同一 universal 包
-              for key in darwin-aarch64 darwin-x86_64; do
-                [ $first -eq 0 ] && echo ','
-                echo "    \"$key\": {\"signature\": \"$mac_sig\", \"url\": \"$mac_url\"}"
-                first=0
-              done
-            fi
-            if [ -n "$win_url" ] && [ -n "$win_sig" ]; then
-              [ $first -eq 0 ] && echo ','
-              echo "    \"windows-x86_64\": {\"signature\": \"$win_sig\", \"url\": \"$win_url\"}"
-              first=0
-            fi
-            if [ -n "$linux_x64_url" ] && [ -n "$linux_x64_sig" ]; then
-              [ $first -eq 0 ] && echo ','
-              echo "    \"linux-x86_64\": {\"signature\": \"$linux_x64_sig\", \"url\": \"$linux_x64_url\"}"
-              first=0
-            fi
-            if [ -n "$linux_arm64_url" ] && [ -n "$linux_arm64_sig" ]; then
-              [ $first -eq 0 ] && echo ','
-              echo "    \"linux-aarch64\": {\"signature\": \"$linux_arm64_sig\", \"url\": \"$linux_arm64_url\"}"
-              first=0
-            fi
-            echo '  }'
-            echo '}'
-          } > "$tmp_json"
-          echo "Generated latest.json:" && cat "$tmp_json"
-          mv "$tmp_json" latest.json
+          node scripts/assemble-tauri-latest-json.mjs \
+            --assets-dir dl \
+            --repo "$REPO" \
+            --tag "$TAG" \
+            --pub-date "$PUB_DATE" \
+            --output latest.json
+          echo "Generated latest.json:" && cat latest.json
       - name: Upload latest.json to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
