@@ -16,6 +16,7 @@ jobs:
   release:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-2022
@@ -179,12 +180,14 @@ jobs:
             echo "❌ 无法生成私钥 base64 内容" >&2
             exit 1
           fi
+          SIGNER_KEY_PATH="$RUNNER_TEMP/tauri_signing.b64"
+          printf '%s\n' "$KEY_B64" > "$SIGNER_KEY_PATH"
           # Tauri build/updater signing expects a base64 key in
           # TAURI_SIGNING_PRIVATE_KEY. The standalone `tauri signer sign`
-          # command uses TAURI_PRIVATE_KEY_PATH for fallback MSI signing.
+          # command also expects base64 content when using --private-key-path.
           {
             echo "TAURI_SIGNING_PRIVATE_KEY=$KEY_B64"
-            echo "TAURI_PRIVATE_KEY_PATH=$KEY_PATH"
+            echo "TAURI_PRIVATE_KEY_PATH=$SIGNER_KEY_PATH"
           } >> "$GITHUB_ENV"
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW" ]; then
             echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW" >> $GITHUB_ENV
