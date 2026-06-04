@@ -188,19 +188,12 @@ jobs:
             echo "❌ 无法生成私钥 base64 内容" >&2
             exit 1
           fi
-          SIGNER_KEY=$(tail -n +2 "$KEY_PATH" | tr -d '\r\n[:space:]')
-          if [ -z "$SIGNER_KEY" ]; then
-            echo "❌ 无法提取用于 tauri signer 的私钥正文" >&2
-            exit 1
-          fi
-          SIGNER_KEY_PATH="$RUNNER_TEMP/tauri_signing.b64"
-          printf '%s' "$SIGNER_KEY" > "$SIGNER_KEY_PATH"
           # Tauri build/updater signing expects a base64 key in
           # TAURI_SIGNING_PRIVATE_KEY. The standalone `tauri signer sign`
-          # command also expects base64 content when using --private-key-path.
+          # command reads the same value from TAURI_PRIVATE_KEY.
           {
             echo "TAURI_SIGNING_PRIVATE_KEY=$KEY_B64"
-            echo "TAURI_PRIVATE_KEY_PATH=$SIGNER_KEY_PATH"
+            echo "TAURI_PRIVATE_KEY=$KEY_B64"
           } >> "$GITHUB_ENV"
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW" ]; then
             echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW" >> $GITHUB_ENV
@@ -537,10 +530,10 @@ jobs:
               Write-Host "Signature copied: $dest.sig"
             } else {
               Write-Warning "Signature not found for $($msi.Name); signing copied MSI for updater metadata"
-              if (-not $env:TAURI_PRIVATE_KEY_PATH) {
-                throw "TAURI_PRIVATE_KEY_PATH is not available for Windows MSI signing"
+              if (-not $env:TAURI_PRIVATE_KEY) {
+                throw "TAURI_PRIVATE_KEY is not available for Windows MSI signing"
               }
-              pnpm tauri signer sign --private-key-path $env:TAURI_PRIVATE_KEY_PATH $assetPath
+              pnpm tauri signer sign $assetPath
               if ($LASTEXITCODE -ne 0) {
                 throw "Failed to sign Windows MSI updater artifact"
               }
