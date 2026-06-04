@@ -168,16 +168,22 @@ jobs:
               fi
             fi
           fi
-          # Tauri build/updater signing and `tauri signer sign` use different
-          # environment variable names. Export both forms from the normalized
-          # two-line key file so fallback MSI signing works on Windows.
+          if command -v base64 >/dev/null 2>&1; then
+            KEY_B64=$(base64 < "$KEY_PATH" | tr -d '\r\n')
+          elif command -v openssl >/dev/null 2>&1; then
+            KEY_B64=$(openssl base64 -A -in "$KEY_PATH")
+          else
+            KEY_B64=$(KEY_PATH="$KEY_PATH" node -e "process.stdout.write(require('fs').readFileSync(process.env.KEY_PATH).toString('base64'))")
+          fi
+          if [ -z "$KEY_B64" ]; then
+            echo "❌ 无法生成私钥 base64 内容" >&2
+            exit 1
+          fi
+          # Tauri build/updater signing expects a base64 key in
+          # TAURI_SIGNING_PRIVATE_KEY. The standalone `tauri signer sign`
+          # command uses TAURI_PRIVATE_KEY_PATH for fallback MSI signing.
           {
-            echo "TAURI_SIGNING_PRIVATE_KEY<<__TAURI_SIGNING_KEY__"
-            cat "$KEY_PATH"
-            echo "__TAURI_SIGNING_KEY__"
-            echo "TAURI_PRIVATE_KEY<<__TAURI_PRIVATE_KEY__"
-            cat "$KEY_PATH"
-            echo "__TAURI_PRIVATE_KEY__"
+            echo "TAURI_SIGNING_PRIVATE_KEY=$KEY_B64"
             echo "TAURI_PRIVATE_KEY_PATH=$KEY_PATH"
           } >> "$GITHUB_ENV"
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD_RAW" ]; then

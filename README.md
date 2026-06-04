@@ -2,519 +2,164 @@
 
 # CC Switch Remote
 
-### Remote-first fork of CC Switch for Claude Code, Codex, Gemini CLI, OpenCode, OpenClaw & Hermes Agent
+### Local and remote management for Claude Code, Codex, Gemini CLI, OpenCode, OpenClaw and Hermes Agent
 
 [![Version](https://img.shields.io/github/v/release/xiaoY233/cc-switch-remote?color=blue&label=version)](https://github.com/xiaoY233/cc-switch-remote/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/xiaoY233/cc-switch-remote/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
 [![Downloads](https://img.shields.io/github/downloads/xiaoY233/cc-switch-remote/total)](https://github.com/xiaoY233/cc-switch-remote/releases/latest)
 
-CC Switch Remote keeps the upstream local-management features while adding independent remote server management. The product branch is `main`; `upstream-main` tracks `farion1231/cc-switch/main` for periodic upstream feature syncs.
+CC Switch Remote is a remote-management focused fork of CC Switch. It keeps the upstream local desktop experience while adding an independent remote target mode backed by a Rust CLI helper installed on each server.
 
-English | [中文](README_ZH.md) | [日本語](README_JA.md) | [Deutsch](README_DE.md) | [Changelog](CHANGELOG.md)
+[Download](https://github.com/xiaoY233/cc-switch-remote/releases/latest) | [Changelog](CHANGELOG.md) | [User Manual](docs/user-manual/en/README.md)
 
 </div>
 
-## Remote Fork Strategy
+## Project Direction
 
 - `main` is the CC Switch Remote product branch and is used for application releases.
-- `upstream-main` mirrors the upstream CC Switch `main` branch and is used only as the sync baseline.
-- The desktop app release and the remote helper release are separate workflows. App releases are tag-based; helper binaries are published by the `Remote Helper Artifacts` workflow to `remote-helper-latest`.
-- Remote helper assets use the `cc-switch-remote-helper-*` prefix and are pure CLI binaries built without desktop GTK/WebKit dependencies.
-
-## ❤️Sponsor
-
-> [Want to appear here?](mailto:farion1231@gmail.com)
-
-<details open>
-<summary>Click to collapse</summary>
-
-[![MiniMax](assets/partners/banners/minimax-en.jpeg)](https://platform.minimax.io/subscribe/coding-plan?code=ClLhgxr2je&source=link)
-
-MiniMax-M2.7 is a next-generation large language model designed for autonomous evolution and real-world productivity. Unlike traditional models, M2.7 actively participates in its own improvement through agent teams, dynamic tool use, and reinforcement learning loops. It delivers strong performance in software engineering (56.22% on SWE-Pro, 55.6% on VIBE-Pro, 57.0% on Terminal Bench 2) and excels in complex office workflows, achieving a leading 1495 ELO on GDPval-AA. With high-fidelity editing across Word, Excel, and PowerPoint, and a 97% adherence rate across 40+ complex skills, M2.7 sets a new standard for building AI-native workflows and organizations.
-
-[Click](https://platform.minimax.io/subscribe/coding-plan?code=ClLhgxr2je&source=link) to get an exclusive 12% off the MiniMax Token Plan!
-
----
-
-<table>
-<tr>
-<td width="180"><a href="https://www.packyapi.com/register?aff=cc-switch"><img src="assets/partners/logos/packycode.png" alt="PackyCode" width="150"></a></td>
-<td>Thanks to PackyCode for sponsoring this project! PackyCode is a reliable and efficient API relay service provider, offering relay services for Claude Code, Codex, Gemini, and more. PackyCode provides special discounts for our software users: register using <a href="https://www.packyapi.com/register?aff=cc-switch">this link</a> and enter the "cc-switch" promo code during first recharge to get 10% off.</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://aigocode.com/invite/CC-SWITCH"><img src="assets/partners/logos/aigocode.png" alt="AIGoCode" width="150"></a></td>
-<td>Thanks to AIGoCode for sponsoring this project! AIGoCode is an all-in-one platform that integrates Claude Code, Codex, and the latest Gemini models, providing you with stable, efficient, and highly cost-effective AI coding services. The platform offers flexible subscription plans, zero risk of account suspension, direct access with no VPN required, and lightning-fast responses. AIGoCode has prepared a special benefit for CC Switch users: if you register via <a href="https://aigocode.com/invite/CC-SWITCH">this link</a>, you'll receive an extra 10% bonus credit on your first top-up!</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://www.aicodemirror.com/register?invitecode=9915W3"><img src="assets/partners/logos/aicodemirror.jpg" alt="AICodeMirror" width="150"></a></td>
-<td>Thanks to AICodeMirror for sponsoring this project! AICodeMirror provides official high-stability relay services for Claude Code / Codex / Gemini CLI, with enterprise-grade concurrency, fast invoicing, and 24/7 dedicated technical support.
-Claude Code / Codex / Gemini official channels at 38% / 2% / 9% of original price, with extra discounts on top-ups! AICodeMirror offers special benefits for CC Switch users: register via <a href="https://www.aicodemirror.com/register?invitecode=9915W3">this link</a> to enjoy 20% off your first top-up, and enterprise customers can get up to 25% off!</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://www.shengsuanyun.com/?from=CH_4HHXMRYF"><img src="assets/partners/logos/shengsuanyun.png" alt="Shengsuanyun" width="150"></a></td>
-<td>Thanks to Shengsuanyun for sponsoring this project! Shengsuanyun is a super factory serving AI Native Teams — an industrial-grade AI task parallel execution platform. Its model marketplace aggregates Claude, ChatGPT, Gemini, and other domestic and international LLM and multimedia model capabilities with direct supply. Absolutely no reverse engineering or dilution — platform-wide model SLA availability reaches 99.7%, with <a href="https://watch.shengsuanyun.com/status/shengsuanyun">monitoring dashboards</a> showing green across the board. It also offers enterprise-grade custom gateways for fine-grained team cost and permission management, smart routing, security protection, and BYOK (Bring Your Own Key) hosting. The platform charges on a pay-per-use and tokens plan (coming soon) basis, with invoicing available. Register via <a href="https://www.shengsuanyun.com/?from=CH_4HHXMRYF">this link</a> as a new user to receive ¥10 in credits plus a 10% bonus on your first top-up.</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://pateway.ai/?ch=etzpm8&aff=WB6M6F67#/"><img src="assets/partners/logos/pateway.png" alt="PatewayAI" width="150"></a></td>
-<td>Thanks to PatewayAI for sponsoring this project! PatewayAI is an API relay service provider built for heavy AI developers, focused on directly relaying official high-quality model APIs. It offers the full Claude lineup and the Codex series, 100% sourced from official channels — no dilution, no fakes, verification welcome. Billing is transparent and every token-level invoice can be audited line by line.
-It also supports enterprise-grade concurrency and provides a dedicated management platform for enterprise customers — formal contracts and invoicing are available; visit the official website for contact details.
-Register now via <a href="https://pateway.ai/?ch=etzpm8&aff=WB6M6F67#/">this link</a> to receive $3 in trial credit. Top-ups go as low as 60% of the original price, with a two-way referral bonus of up to $150!</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://www.byteplus.com/en/product/modelark?utm_campaign=hw&utm_content=ccswitch&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=ccswitch"><img src="assets/partners/logos/byteplus.png" alt="BytePlus" width="150"></a></td>
-<td>Thanks to Dola seed for sponsoring this project! Dola Seed 2.0 is a full‑modal general large model independently developed by ByteDance for the global market. Built on a unified multimodal architecture, it supports joint understanding and generation of text, images, audio, and video. It natively enables agent collaboration, with strong reasoning, long‑task execution, tool integration, and coding capabilities. It is widely applicable to smart cockpits, personal assistants, education, customer support, marketing, retail, and other scenarios. It excels in multimodal perception, end‑to‑end complex task delivery, stable interaction, and data security, and is readily accessible and deployable via the ModelArk platform.Register via <a href="https://www.byteplus.com/en/product/modelark?utm_campaign=hw&utm_content=ccswitch&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=ccswitch">this link</a> to get 500,000 tokens of free inference quota per model.<a href="https://www.volcengine.com/activity/agentplan?utm_campaign=hw&utm_content=ccswitch&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=ccswitch"> >>中国大陆地区的开发者请点击这里</a></td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://cloud.siliconflow.cn/i/drGuwc9k"><img src="assets/partners/logos/silicon_en.jpg" alt="SiliconFlow" width="150"></a></td>
-<td>Thanks to SiliconFlow for sponsoring this project! SiliconFlow is a high-performance AI infrastructure and model API platform, providing fast and reliable access to language, speech, image, and video models in one place. With pay-as-you-go billing, broad multimodal model support, high-speed inference, and enterprise-grade stability, SiliconFlow helps developers and teams build and scale AI applications more efficiently. Register via <a href="https://cloud.siliconflow.cn/i/drGuwc9k">this link</a> and complete real-name verification to receive ¥16 in bonus credit, usable across models on the platform. SiliconFlow is also now compatible with OpenClaw, allowing users to connect a SiliconFlow API key and call major AI models for free.</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://cubence.com/signup?code=CCSWITCH&source=ccs"><img src="assets/partners/logos/cubence.png" alt="Cubence" width="150"></a></td>
-<td>Thanks to Cubence for sponsoring this project! Cubence is a reliable and efficient API relay service provider, offering relay services for Claude Code, Codex, Gemini, and more with flexible billing options including pay-as-you-go and monthly plans. Cubence provides special discounts for CC Switch users: register using <a href="https://cubence.com/signup?code=CCSWITCH&source=ccs">this link</a> and enter the "CCSWITCH" promo code during recharge to get 10% off every top-up!</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://www.dmxapi.cn/register?aff=bUHu"><img src="assets/partners/logos/dmx-en.jpg" alt="DMXAPI" width="150"></a></td>
-<td>Thanks to DMXAPI for sponsoring this project! DMXAPI provides global large model API services to 200+ enterprise users. One API key for all global models. Features include: instant invoicing, unlimited concurrency, starting from $0.15, 24/7 technical support. GPT/Claude/Gemini all at 32% off, domestic models 20-50% off, Claude Code exclusive models at 66% off! <a href="https://www.dmxapi.cn/register?aff=bUHu">Register here</a></td>
-</tr>
+- `upstream-main` mirrors `farion1231/cc-switch/main` and is used only as the upstream sync baseline.
+- Local and remote management are separate targets. Local state remains on the desktop machine; remote state remains on the selected server.
+- Remote operations are executed through SSH commands that call a pure Rust helper binary and return stable JSON.
+- The desktop app stores remote connection profiles and cached health metadata. Provider secrets, MCP data, prompts, skills and tool configuration stay on the remote host unless the user explicitly imports or exports them.
 
-<tr>
-<td width="180"><a href="https://www.compshare.cn/coding-plan?ytag=GPU_YY_YX_git_cc-switch"><img src="assets/partners/logos/ucloud.png" alt="Compshare" width="150"></a></td>
-<td>Thanks to Compshare for sponsoring this project! Compshare is UCloud's AI cloud platform, providing stable and comprehensive domestic and international model APIs with just one key. Featuring cost-effective monthly and per-use domestic-model Coding Plan packages, alongside stable officially-relayed overseas models. Supports Claude Code, Codex, and API access. Enterprise-grade high concurrency, 24/7 technical support, and self-service invoicing. Users who register via <a href="https://www.compshare.cn/coding-plan?ytag=GPU_YY_YX_git_cc-switch">this link</a> will receive a free 5 CNY platform trial credit!</td>
-</tr>
+## What It Manages
 
-<tr>
-<td width="180"><a href="https://crazyrouter.com/register?aff=OZcm&ref=cc-switch"><img src="assets/partners/logos/crazyrouter.png" alt="Crazyrouter" width="150"></a></td>
-<td>Thanks to Crazyrouter for sponsoring this project! Crazyrouter is a high-performance AI API aggregation platform — one API key for 300+ models including Claude Code, Codex, Gemini CLI, and more. All models at 55% of official pricing with auto-failover, smart routing, and unlimited concurrency. Crazyrouter offers an exclusive deal for CC Switch users: register via <a href="https://crazyrouter.com/register?aff=OZcm&ref=cc-switch">this link</a> and contact customer support to claim <strong>$2 free credit</strong>, plus enter promo code `CCSWITCH` on your first top-up for an extra <strong>30% bonus credit</strong>! </td>
-</tr>
+CC Switch Remote provides a single desktop UI for managing multiple AI coding tools:
 
-<tr>
-<td width="180"><a href="https://www.right.codes/register?aff=CCSWITCH"><img src="assets/partners/logos/rightcode.jpg" alt="RightCode" width="150"></a></td>
-<td>Thank you to Right Code for sponsoring this project! Right Code reliably provides routing services for models such as Claude Code, Codex, and Gemini, with both pay-as-you-go and monthly subscription billing options available. Invoices are available upon top-up, and enterprise and team users can receive dedicated one-on-one support. Right Code also offers an exclusive discount for CC Switch users: register via <a href="https://www.right.codes/register?aff=CCSWITCH">this link</a>, and with every top-up you will receive pay-as-you-go credit equivalent to 5% of the amount paid.</td>
-</tr>
+- Provider presets and provider switching for Claude Code, Codex, Gemini CLI, OpenCode and OpenClaw
+- MCP server management
+- Prompt and instruction file management
+- Skill management and synchronization
+- Import and export workflows
+- Tool environment checks
+- Local proxy and failover features for local desktop use
+- Remote health checks and helper installation
 
-<tr>
-<td width="180"><a href="https://www.sssaicode.com/register?ref=DCP0SM"><img src="assets/partners/logos/sssaicode.png" alt="SSSAiCode" width="150"></a></td>
-<td>Thanks to SSSAiCode for sponsoring this project! SSSAiCode is a stable and reliable API relay service, dedicated to providing stable, reliable, and affordable Claude and Codex model services, with same-day fast invoicing. SSSAiCode offers a special deal for CC Switch users: register via <a href="https://www.sssaicode.com/register?ref=DCP0SM">this link</a> to enjoy $10 extra credit on every top-up!</td>
-</tr>
+## Remote Management
 
-<tr>
-<td width="180"><a href="https://www.micuapi.ai/register?aff=aOYQ"><img src="assets/partners/logos/mikubanner.svg" alt="Micu" width="150"></a></td>
-<td>Thanks to Micu API for sponsoring this project! Micu API is a global LLM relay service provider dedicated to delivering the best cost-performance ratio with high stability. Backed by a registered enterprise for core assurance, eliminating any risk of service discontinuation, with fast official invoicing support! We champion "zero cost to try": top up from as low as ¥1 with no minimum, and get fee-free refunds anytime! Micu API offers an exclusive deal for CC Switch users: register via <a href="https://www.micuapi.ai/register?aff=aOYQ">this link</a> and enter promo code "ccswitch" when topping up to enjoy a <strong>10% discount</strong>!</td>
-</tr>
+Remote management is designed as a separate execution target rather than a mirror of local state.
 
-<tr>
-<td width="180"><a href="https://lemondata.cc/r/FFX1ZDUP"><img src="assets/partners/logos/lemondata.png" alt="LemonData" width="150"></a></td>
-<td>Thanks to LemonData for sponsoring this project! LemonData is a high-performance AI API aggregation platform — one API key for 300+ models including GPT, Claude, Gemini, DeepSeek, and more. All models priced 30–70% below official rates with auto-failover, smart routing, and unlimited concurrency. New users get $1 free credit instantly upon registration — sign up via <a href="https://lemondata.cc/r/FFX1ZDUP">this link</a>to claim your bonus and start building right away</strong>!</td>
-</tr>
+1. Add a remote server profile from the remote server manager.
+2. Install or update the remote helper from GitHub release assets.
+3. Switch the target selector from local to the remote server.
+4. Use supported pages through the same desktop shell. Remote commands run on the selected server and operate on that server's own CC Switch data.
 
-<tr>
-<td width="180"><a href="https://ctok.ai"><img src="assets/partners/logos/ctok.png" alt="CTok" width="150"></a></td>
-<td>Thanks to CTok.ai for sponsoring this project! CTok.ai is dedicated to building a one-stop AI programming tool service platform. We offer professional Claude Code packages and technical community services, with support for Google Gemini and OpenAI Codex. Through carefully designed plans and a professional tech community, we provide developers with reliable service guarantees and continuous technical support, making AI-assisted programming a true productivity tool. Click <a href="https://ctok.ai">here</a> to register!</td>
-</tr>
+The remote helper is published separately from the desktop application:
 
-<tr>
-<td width="180"><a href="https://console.claudeapi.com/register?aff=pCLD"><img src="assets/partners/logos/claudeapi.png" alt="ClaudeAPI" width="150"></a></td>
-<td>This project is sponsored by <a href="https://console.claudeapi.com/register?aff=pCLD">Claude API</a>. Direct Claude API access — connect Claude Code and Agent apps in 3 minutes. New users can claim a free trial credit.Powered by official Anthropic API keys + AWS Bedrock official channels. No reverse engineering, no model degradation. Full support for Opus / Sonnet / Haiku model lineup, with official capabilities preserved including Tool Use, 1M context window, and more. Built for Claude Code power users, Agent engineers, and enterprise engineering teams. Invoicing and dedicated team support available. Click <a href="https://console.claudeapi.com/register?aff=pCLD">here</a> to register!</td>
-</tr>
+- Helper release tag: [`remote-helper-latest`](https://github.com/xiaoY233/cc-switch-remote/releases/tag/remote-helper-latest)
+- Asset prefix: `cc-switch-remote-helper-*`
+- Supported helper targets: Linux x86_64, Linux arm64 and macOS universal
+- Build mode: pure CLI Rust binary, built without Tauri desktop GTK/WebKit dependencies
 
-<tr>
-<td width="180"><a href="https://claudecn.top"><img src="assets/partners/logos/claudecn.jpg" alt="ClaudeCN" width="150"></a></td>
-<td>Thanks to ClaudeCN for sponsoring this project! ClaudeCN is an enterprise-grade AI gateway platform operated by a registered company. It delivers high-availability commercial API access to popular models including Claude, GPT, and DeepSeek, and is built around formal enterprise procurement workflows — corporate bank transfers, signed contracts, and full compliance. Register via <a href="https://claudecn.top">this link</a>!</td>
-</tr>
+Remote feature parity is explicit:
 
-<tr>
-<td width="180"><a href="https://runapi.co"><img src="assets/partners/logos/runapi.jpg" alt="RunAPI" width="150"></a></td>
-<td>Thanks to RunAPI for sponsoring this project! RunAPI is a high-performance and reliable AI model API gateway — one API key gives you access to 150+ mainstream models including OpenAI, Claude, Gemini, DeepSeek, and Grok, with prices as low as 10% of the official rate and excellent stability. It works seamlessly with Claude Code, OpenClaw, and other tools. Exclusive benefit for CC Switch users: register and contact customer support to claim a free ¥14 credit. Register via <a href="https://runapi.co">this link</a>!</td>
-</tr>
+- Supported or actively targeted: providers, MCP, prompts, skills, import/export and health checks
+- Local-only unless a remote-safe equivalent is designed: tray controls, desktop deep links, browser OAuth flows, local terminal launch and local proxy takeover
 
-<tr>
-<td width="180"><a href="https://apikey.fun/register?aff=CCSwitch"><img src="assets/partners/logos/apikey_banner.png" alt="APIKEY.FUN" width="150"></a></td>
-<td>Thanks to APIKEY.FUN for sponsoring this project! APIKEY.FUN is a professional enterprise-grade AI relay platform dedicated to providing stable, efficient, and low-cost AI model API access for enterprises and individual developers. The platform supports popular mainstream models such as Claude, OpenAI, and Gemini, with prices as low as 7% of official rates. Register through this project's <a href="https://apikey.fun/register?aff=CCSwitch">exclusive link</a> to enjoy an exclusive offer of up to <strong>permanent 5% off top-ups</strong>.</td>
-</tr>
+## Download
 
-<tr>
-<td width="180"><a href="https://apinebula.com/02rw5X"><img src="assets/partners/logos/apinebula_banner.png" alt="APINebula" width="150"></a></td>
-<td>Thanks to APINEBULA for sponsoring this project! APINEBULA, an enterprise-grade AI aggregation platform under Galaxy Video Bureau, leverages extensive platform resources to provide developers, teams, and enterprises with stable, cost-effective access to large language model APIs. The platform integrates leading, full-powered models like Claude, GPT, and Gemini, allowing you to connect to the world's top AI models through a single API, with prices starting as low as 10% of the original cost. Designed for AI programming, Agent development, and business system integration, APINEBULA supports enterprise-grade high concurrency, formal contracts, corporate bank transfers, and invoicing services. APINEBULA provides special discounts for our software users: register using <a href="https://apinebula.com/02rw5X">this link</a> and enter the <strong>"ccswitch"</strong> promo code during your first recharge to get <strong>10% off</strong>.</td>
-</tr>
+Get the latest desktop application from the [Releases](https://github.com/xiaoY233/cc-switch-remote/releases/latest) page.
 
-<tr>
-<td width="180"><a href="https://www.atlascloud.ai/coding-plan?utm_source=github&utm_campaign=cc-switch"><img src="assets/partners/logos/atlascloud_banner.png" alt="Atlas Cloud" width="150"></a></td>
-<td>Atlas Cloud is a full-modal AI inference platform that gives developers a single AI API to access video generation, image generation, and LLM APIs. Instead of managing multiple vendor integrations, you connect once and get unified access to 300+ curated models across all modalities. Check out Atlas Cloud's new <a href="https://www.atlascloud.ai/coding-plan?utm_source=github&utm_campaign=cc-switch">coding plan</a> promotion for more budget-friendly API access!</td>
-</tr>
+### Windows
 
-</table>
+- `CC-Switch-Remote-v{version}-Windows.msi`
+- `CC-Switch-Remote-v{version}-Windows-Portable.zip`
 
-</details>
+### macOS
 
-## Why CC Switch?
+- `CC-Switch-Remote-v{version}-macOS.dmg`
+- `CC-Switch-Remote-v{version}-macOS.zip`
 
-Modern AI-powered coding relies on CLI tools like Claude Code, Codex, Gemini CLI, OpenCode, and OpenClaw — but each has its own configuration format. Switching API providers means manually editing JSON, TOML, or `.env` files, and there is no unified way to manage MCP and Skills across multiple tools.
+### Linux
 
-**CC Switch** gives you a single desktop app to manage all five CLI tools. Instead of editing config files by hand, you get a visual interface to import providers with one click, switch between them instantly, with 50+ built-in provider presets, unified MCP and Skills management, and system tray quick switching — all backed by a reliable SQLite database with atomic writes that protect your configs from corruption.
+- `CC-Switch-Remote-v{version}-Linux-x86_64.AppImage`
+- `CC-Switch-Remote-v{version}-Linux-arm64.AppImage`
+- `CC-Switch-Remote-v{version}-Linux-x86_64.deb`
+- `CC-Switch-Remote-v{version}-Linux-arm64.deb`
+- `CC-Switch-Remote-v{version}-Linux-x86_64.rpm`
+- `CC-Switch-Remote-v{version}-Linux-arm64.rpm`
 
-- **One App, Five CLI Tools** — Manage Claude Code, Codex, Gemini CLI, OpenCode, and OpenClaw from a single interface
-- **No More Manual Editing** — 50+ provider presets including AWS Bedrock, NVIDIA NIM, and community relays; just pick and switch
-- **Unified MCP & Skills Management** — One panel to manage MCP servers and Skills across four apps with bidirectional sync
-- **System Tray Quick Switch** — Switch providers instantly from the tray menu, no need to open the full app
-- **Cloud Sync** — Sync provider data across devices via Dropbox, OneDrive, iCloud, or WebDAV servers
-- **Cross-Platform** — Native desktop app for Windows, macOS, and Linux, built with Tauri 2
-- **Built-in Utilities** — Includes various utilities for first-launch login confirmation, signature bypass, plugin extension sync, and more
+## Data Model
 
-## Screenshots
+Local data is stored in the desktop user's CC Switch data directory:
 
-|                  Main Interface                   |                  Add Provider                  |
-| :-----------------------------------------------: | :--------------------------------------------: |
-| ![Main Interface](assets/screenshots/main-en.png) | ![Add Provider](assets/screenshots/add-en.png) |
+- Database: `~/.cc-switch/cc-switch.db`
+- Settings: `~/.cc-switch/settings.json`
+- Backups: `~/.cc-switch/backups/`
+- Skills: `~/.cc-switch/skills/`
 
-## Features
+Remote data is stored on the remote host and managed by the helper. The desktop app does not treat local data as the source of truth for a remote server.
 
-[Full Changelog](CHANGELOG.md) | [Release Notes](docs/release-notes/v3.15.0-en.md)
+## Release Model
 
-### Provider Management
+Desktop application releases and remote helper releases are intentionally separate:
 
-- **5 CLI tools, 50+ presets** — Claude Code, Codex, Gemini CLI, OpenCode, OpenClaw; copy your key and import with one click
-- **Universal providers** — One config syncs to multiple apps (OpenCode, OpenClaw)
-- One-click switching, system tray quick access, drag-and-drop sorting, import/export
+- App release: tag-driven workflow using `v*` tags
+- Helper release: `Remote Helper Artifacts` workflow publishing to `remote-helper-latest`
+- Updater metadata: `latest.json` is generated by the app release workflow
 
-### Proxy & Failover
+When preparing a full version, publish both:
 
-- **Local proxy with hot-switching** — Format conversion, auto-failover, circuit breaker, provider health monitoring, and request rectifier
-- **App-level takeover** — Independently proxy Claude, Codex, or Gemini, down to individual providers
+1. Push the version bump and release workflow changes to `main`.
+2. Ensure `remote-helper-latest` points to the final release commit.
+3. Push the `v{version}` tag for the desktop application.
+4. Verify GitHub release assets and `latest.json`.
 
-### MCP, Prompts & Skills
+## Development
 
-- **Unified MCP panel** — Manage MCP servers across 4 apps with bidirectional sync and Deep Link import
-- **Prompts** — Markdown editor with cross-app sync (CLAUDE.md / AGENTS.md / GEMINI.md) and backfill protection
-- **Skills** — One-click install from GitHub repos or ZIP files, custom repository management, with symlink and file copy support
+### Requirements
 
-### Usage & Cost Tracking
+- Node.js 20+
+- pnpm
+- Rust stable
+- Tauri 2
 
-- **Usage dashboard** — Track spending, requests, and tokens with trend charts, detailed request logs, and custom per-model pricing
-
-### Session Manager & Workspace
-
-- Browse, search, and restore conversation history across all apps
-- **Workspace editor** (OpenClaw) — Edit agent files (AGENTS.md, SOUL.md, etc.) with Markdown preview
-
-### System & Platform
-
-- **Cloud sync** — Custom config directory (Dropbox, OneDrive, iCloud, NAS) and WebDAV server sync
-- **Deep Link** (`ccswitch://`) — Import providers, MCP servers, prompts, and skills via URL
-- Dark / Light / System theme, auto-launch, auto-updater, atomic writes, auto-backups, i18n (zh/en/ja)
-
-## FAQ
-
-<details>
-<summary><strong>Which AI CLI tools does CC Switch support?</strong></summary>
-
-CC Switch supports five tools: **Claude Code**, **Codex**, **Gemini CLI**, **OpenCode**, and **OpenClaw**. Each tool has dedicated provider presets and configuration management.
-
-</details>
-
-<details>
-<summary><strong>Do I need to restart the terminal after switching providers?</strong></summary>
-
-For most tools, yes — restart your terminal or the CLI tool for changes to take effect. The exception is **Claude Code**, which currently supports hot-switching of provider data without a restart.
-
-</details>
-
-<details>
-<summary><strong>My plugin configuration disappeared after switching providers — what happened?</strong></summary>
-
-CC Switch provides a "Shared Config Snippet" feature to pass common data (beyond API keys and endpoints) between providers. Go to "Edit Provider" → "Shared Config Panel" → click "Extract from Current Provider" to save all common data. When creating a new provider, check "Write Shared Config" (enabled by default) to include plugin data in the new provider. All your configuration items are preserved in the default provider imported when you first launched the app.
-
-</details>
-
-<details>
-<summary><strong>macOS installation</strong></summary>
-
-CC Switch for macOS is code-signed and notarized by Apple. You can download and install it directly — no extra steps needed. We recommend using the `.dmg` installer.
-
-</details>
-
-<details>
-<summary><strong>Why can't I delete the currently active provider?</strong></summary>
-
-CC Switch follows a "minimal intrusion" design principle — even if you uninstall the app, your CLI tools will continue to work normally. The system always keeps one active configuration, because deleting all configurations would make the corresponding CLI tool unusable. If you rarely use a specific CLI tool, you can hide it in Settings. To switch back to official login, see the next question.
-
-</details>
-
-<details>
-<summary><strong>How do I switch back to official login?</strong></summary>
-
-Add an official provider from the preset list. After switching to it, run the Log out / Log in flow, and then you can freely switch between the official provider and third-party providers. Codex supports switching between different official providers, making it easy to switch between multiple Plus or Team accounts.
-
-</details>
-
-<details>
-<summary><strong>Where is my data stored?</strong></summary>
-
-- **Database**: `~/.cc-switch/cc-switch.db` (SQLite — providers, MCP, prompts, skills)
-- **Local settings**: `~/.cc-switch/settings.json` (device-level UI preferences)
-- **Backups**: `~/.cc-switch/backups/` (auto-rotated, keeps 10 most recent)
-- **Skills**: `~/.cc-switch/skills/` (symlinked to corresponding apps by default)
-- **Skill Backups**: `~/.cc-switch/skill-backups/` (created automatically before uninstall, keeps 20 most recent)
-
-</details>
-
-## Documentation
-
-For detailed guides on every feature, check out the **[User Manual](docs/user-manual/en/README.md)** — covering provider management, MCP/Prompts/Skills, proxy & failover, and more.
-
-## Quick Start
-
-### Basic Usage
-
-1. **Add Provider**: Click "Add Provider" → Choose a preset or create custom configuration
-2. **Switch Provider**:
-   - Main UI: Select provider → Click "Enable"
-   - System Tray: Click provider name directly (instant effect)
-3. **Takes Effect**: Restart your terminal or the corresponding CLI tool to apply changes (Claude Code does not require a restart)
-4. **Back to Official**: Add an "Official Login" preset, restart the CLI tool, then follow its login/OAuth flow
-
-### MCP, Prompts, Skills & Sessions
-
-- **MCP**: Click the "MCP" button → Add servers via templates or custom config → Toggle per-app sync
-- **Prompts**: Click "Prompts" → Create presets with Markdown editor → Activate to sync to live files
-- **Skills**: Click "Skills" → Browse GitHub repos → One-click install to all apps
-- **Sessions**: Click "Sessions" → Browse, search, and restore conversation history across all apps
-
-> **Note**: On first launch, you can manually import existing CLI tool configs as the default provider.
-
-## Download & Installation
-
-### System Requirements
-
-- **Windows**: Windows 10 and above
-- **macOS**: macOS 12 (Monterey) and above
-- **Linux**: Ubuntu 22.04+ / Debian 11+ / Fedora 34+ and other mainstream distributions
-
-### Windows Users
-
-Download the latest `CC-Switch-Remote-v{version}-Windows.msi` installer or `CC-Switch-Remote-v{version}-Windows-Portable.zip` portable version from the [Releases](../../releases) page.
-
-### macOS Users
-
-Download `CC-Switch-Remote-v{version}-macOS.dmg` (recommended) or `.zip` from the [Releases](../../releases) page.
-
-> **Note**: Homebrew packages currently refer to upstream CC Switch, not this remote fork.
-
-### Arch Linux Users
-
-The AUR package currently refers to upstream CC Switch, not this remote fork.
-
-### Linux Users
-
-Download the latest Linux build from the [Releases](../../releases) page:
-
-- `CC-Switch-Remote-v{version}-Linux-x86_64.deb` / `CC-Switch-Remote-v{version}-Linux-arm64.deb` (Debian/Ubuntu)
-- `CC-Switch-Remote-v{version}-Linux-x86_64.rpm` / `CC-Switch-Remote-v{version}-Linux-arm64.rpm` (Fedora/RHEL/openSUSE)
-- `CC-Switch-Remote-v{version}-Linux-x86_64.AppImage` / `CC-Switch-Remote-v{version}-Linux-arm64.AppImage` (Universal)
-
-> **Flatpak**: Not included in official releases. You can build it yourself from the `.deb` — see [`flatpak/README.md`](flatpak/README.md) for instructions.
-
-<details>
-<summary><strong>Architecture Overview</strong></summary>
-
-### Design Principles
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Frontend (React + TS)                    │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐    │
-│  │ Components  │  │    Hooks     │  │  TanStack Query  │    │
-│  │   (UI)      │──│ (Bus. Logic) │──│   (Cache/Sync)   │    │
-│  └─────────────┘  └──────────────┘  └──────────────────┘    │
-└────────────────────────┬────────────────────────────────────┘
-                         │ Tauri IPC
-┌────────────────────────▼────────────────────────────────────┐
-│                  Backend (Tauri + Rust)                     │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐    │
-│  │  Commands   │  │   Services   │  │  Models/Config   │    │
-│  │ (API Layer) │──│ (Bus. Layer) │──│     (Data)       │    │
-│  └─────────────┘  └──────────────┘  └──────────────────┘    │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Core Design Patterns**
-
-- **SSOT** (Single Source of Truth): All data stored in `~/.cc-switch/cc-switch.db` (SQLite)
-- **Dual-layer Storage**: SQLite for syncable data, JSON for device-level settings
-- **Dual-way Sync**: Write to live files on switch, backfill from live when editing active provider
-- **Atomic Writes**: Temp file + rename pattern prevents config corruption
-- **Concurrency Safe**: Mutex-protected database connection avoids race conditions
-- **Layered Architecture**: Clear separation (Commands → Services → DAO → Database)
-
-**Key Components**
-
-- **ProviderService**: Provider CRUD, switching, backfill, sorting
-- **McpService**: MCP server management, import/export, live file sync
-- **ProxyService**: Local proxy mode with hot-switching and format conversion
-- **SessionManager**: Conversation history browsing across all supported apps
-- **ConfigService**: Config import/export, backup rotation
-- **SpeedtestService**: API endpoint latency measurement
-
-</details>
-
-<details>
-<summary><strong>Development Guide</strong></summary>
-
-### Environment Requirements
-
-- Node.js 18+
-- pnpm 8+
-- Rust 1.85+
-- Tauri CLI 2.8+
-
-### Development Commands
+### Common Commands
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Dev mode (hot reload)
 pnpm dev
-
-# Type check
-pnpm typecheck
-
-# Format code
-pnpm format
-
-# Check code format
-pnpm format:check
-
-# Run frontend unit tests
-pnpm test:unit
-
-# Run tests in watch mode (recommended for development)
-pnpm test:unit:watch
-
-# Build application
+pnpm exec tsc --noEmit
 pnpm build
-
-# Build debug version
-pnpm tauri build --debug
+pnpm tauri build
 ```
 
-### Rust Backend Development
+### Rust Checks
 
 ```bash
-cd src-tauri
-
-# Format Rust code
-cargo fmt
-
-# Run clippy checks
-cargo clippy
-
-# Run backend tests
-cargo test
-
-# Run specific tests
-cargo test test_name
-
-# Run tests with test-hooks feature
-cargo test --features test-hooks
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+cargo test --manifest-path src-tauri/Cargo.toml
+cargo check --manifest-path src-tauri/Cargo.toml --bin cc-switch-remote-helper --no-default-features
 ```
 
-### Testing Guide
-
-**Frontend Testing**:
-
-- Uses **vitest** as test framework
-- Uses **MSW (Mock Service Worker)** to mock Tauri API calls
-- Uses **@testing-library/react** for component testing
-
-**Running Tests**:
+### Remote-Focused Tests
 
 ```bash
-# Run all tests
-pnpm test:unit
-
-# Watch mode (auto re-run)
-pnpm test:unit:watch
-
-# With coverage report
-pnpm test:unit --coverage
+cargo test --manifest-path src-tauri/Cargo.toml remote::tests
+cargo test --manifest-path src-tauri/Cargo.toml --test remote_ssh
 ```
 
-### Tech Stack
+## Repository Layout
 
-**Frontend**: React 18 · TypeScript · Vite · TailwindCSS 3.4 · TanStack Query v5 · react-i18next · react-hook-form · zod · shadcn/ui · @dnd-kit
-
-**Backend**: Tauri 2.8 · Rust · serde · tokio · thiserror · tauri-plugin-updater/process/dialog/store/log
-
-**Testing**: vitest · MSW · @testing-library/react
-
-</details>
-
-<details>
-<summary><strong>Project Structure</strong></summary>
-
-```
-├── src/                        # Frontend (React + TypeScript)
-│   ├── components/
-│   │   ├── providers/          # Provider management
-│   │   ├── mcp/                # MCP panel
-│   │   ├── prompts/            # Prompts management
-│   │   ├── skills/             # Skills management
-│   │   ├── sessions/           # Session Manager
-│   │   ├── proxy/              # Proxy mode panel
-│   │   ├── openclaw/           # OpenClaw config panels
-│   │   ├── settings/           # Settings (Terminal/Backup/About)
-│   │   ├── deeplink/           # Deep Link import
-│   │   ├── env/                # Environment variable management
-│   │   ├── universal/          # Cross-app configuration
-│   │   ├── usage/              # Usage statistics
-│   │   └── ui/                 # shadcn/ui component library
-│   ├── hooks/                  # Custom hooks (business logic)
-│   ├── lib/
-│   │   ├── api/                # Tauri API wrapper (type-safe)
-│   │   └── query/              # TanStack Query config
-│   ├── locales/                # Translations (zh/en/ja)
-│   ├── config/                 # Presets (providers/mcp)
-│   └── types/                  # TypeScript definitions
-├── src-tauri/                  # Backend (Rust)
-│   └── src/
-│       ├── commands/           # Tauri command layer (by domain)
-│       ├── services/           # Business logic layer
-│       ├── database/           # SQLite DAO layer
-│       ├── proxy/              # Proxy module
-│       ├── session_manager/    # Session management
-│       ├── deeplink/           # Deep Link handling
-│       └── mcp/                # MCP sync module
-├── tests/                      # Frontend tests
-└── assets/                     # Screenshots & partner resources
+```text
+src/                         React frontend
+src/components/remote/        Remote target UI
+src/components/settings/      Local and remote settings surfaces
+src/lib/api/                  Tauri API wrappers
+src-tauri/src/commands/       Tauri command layer
+src-tauri/src/remote/         SSH and remote helper integration
+src-tauri/src/cli/            Rust helper CLI entrypoints
+src-tauri/src/services/       Core service logic reused by app and helper
+.github/workflows/            App and helper release workflows
 ```
 
-</details>
+## Upstream Sync
 
-## Contributing
+This project is not intended as an upstream PR branch. The goal is to keep CC Switch Remote as a product branch while periodically syncing upstream features through `upstream-main`.
 
-Issues and suggestions are welcome!
-
-Before submitting PRs, please ensure:
-
-- Pass type check: `pnpm typecheck`
-- Pass format check: `pnpm format:check`
-- Pass unit tests: `pnpm test:unit`
-
-For new features, please open an issue for discussion before submitting a PR. PRs for features that are not a good fit for the project may be closed.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=xiaoY233/cc-switch-remote&type=Date)](https://www.star-history.com/#xiaoY233/cc-switch-remote&Date)
+Keep remote-specific code isolated behind remote adapters, helper commands and remote UI shells so upstream local feature updates remain mergeable.
 
 ## License
 
-MIT © Jason Young
+MIT
