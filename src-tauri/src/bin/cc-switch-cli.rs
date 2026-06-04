@@ -9,6 +9,9 @@ mod claude_desktop_config;
 #[path = "../claude_mcp.rs"]
 #[cfg(not(feature = "desktop"))]
 mod claude_mcp;
+#[path = "../claude_plugin.rs"]
+#[cfg(not(feature = "desktop"))]
+mod claude_plugin;
 #[path = "../cli/mod.rs"]
 #[cfg(not(feature = "desktop"))]
 mod cli;
