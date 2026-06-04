@@ -2,7 +2,7 @@ use crate::app_config::{InstalledSkill, UnmanagedSkill};
 use crate::prompt::Prompt;
 use crate::services::skill::{
     DiscoverableSkill, ImportSkillSelection, SkillBackupEntry, SkillRepo, SkillService,
-    SkillUninstallResult, SkillUpdateInfo,
+    SkillStorageLocation, SkillUninstallResult, SkillUpdateInfo,
 };
 use crate::services::ProviderSortUpdate;
 use crate::{
@@ -22,14 +22,20 @@ const REDACTED_SECRET_SENTINEL: &str = "[redacted]";
 #[serde(rename_all = "camelCase")]
 pub struct StatusPayload {
     pub version: String,
+    pub build: Option<String>,
     pub platform: String,
+    pub arch: String,
     pub capabilities: Vec<String>,
 }
 
 pub fn status_payload() -> StatusPayload {
     StatusPayload {
         version: env!("CARGO_PKG_VERSION").to_string(),
+        build: option_env!("CC_SWITCH_REMOTE_HELPER_BUILD")
+            .filter(|value| !value.trim().is_empty() && *value != "unknown")
+            .map(str::to_string),
         platform: std::env::consts::OS.to_string(),
+        arch: std::env::consts::ARCH.to_string(),
         capabilities: vec![
             "providers".to_string(),
             "openclaw".to_string(),
@@ -40,7 +46,61 @@ pub fn status_payload() -> StatusPayload {
             "hermes-memory".to_string(),
             "import-export".to_string(),
             "tools".to_string(),
+            "settings".to_string(),
+            "plugin".to_string(),
         ],
+    }
+}
+
+pub fn get_settings() -> crate::settings::AppSettings {
+    crate::settings::get_settings_for_frontend()
+}
+
+pub fn save_settings(settings_json: &str) -> Result<bool, String> {
+    let settings: crate::settings::AppSettings =
+        serde_json::from_str(settings_json).map_err(|e| e.to_string())?;
+    crate::settings::update_settings(settings).map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+pub fn migrate_skill_storage(
+    target: &str,
+) -> Result<crate::services::skill::MigrationResult, String> {
+    let target = parse_skill_storage_location(target)?;
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    SkillService::migrate_storage(&db, target).map_err(|e| e.to_string())
+}
+
+pub fn apply_claude_plugin_config(official: &str) -> Result<bool, String> {
+    let official = parse_bool(official)?;
+    if official {
+        crate::claude_plugin::clear_claude_config().map_err(|e| e.to_string())
+    } else {
+        crate::claude_plugin::write_claude_config().map_err(|e| e.to_string())
+    }
+}
+
+pub fn set_claude_onboarding_skip(enabled: &str) -> Result<bool, String> {
+    if parse_bool(enabled)? {
+        crate::claude_mcp::set_has_completed_onboarding().map_err(|e| e.to_string())
+    } else {
+        crate::claude_mcp::clear_has_completed_onboarding().map_err(|e| e.to_string())
+    }
+}
+
+fn parse_skill_storage_location(value: &str) -> Result<SkillStorageLocation, String> {
+    match value {
+        "cc_switch" => Ok(SkillStorageLocation::CcSwitch),
+        "unified" => Ok(SkillStorageLocation::Unified),
+        _ => Err(format!("Unsupported skill storage location: {value}")),
+    }
+}
+
+fn parse_bool(value: &str) -> Result<bool, String> {
+    match value {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        _ => Err(format!("Expected boolean true or false, got: {value}")),
     }
 }
 

@@ -166,6 +166,51 @@ fn run_normalized(args: &[String]) -> Value {
                 }
             }
         }
+        [group, cmd] if group == "settings" && cmd == "get" => {
+            serde_json::to_value(types::ok(commands::get_settings())).expect("serialize settings")
+        }
+        [group, cmd, settings_json] if group == "settings" && cmd == "save" => {
+            match commands::save_settings(settings_json) {
+                Ok(value) => serde_json::to_value(types::ok(value)).expect("serialize settings"),
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("settings_save_failed", message))
+                        .expect("serialize settings error")
+                }
+            }
+        }
+        [group, cmd, target] if group == "skills" && cmd == "migrate-storage" => {
+            match commands::migrate_skill_storage(target) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize skill migration")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("skill_migration_failed", message))
+                        .expect("serialize skill migration error")
+                }
+            }
+        }
+        [group, cmd, official] if group == "plugin" && cmd == "apply-claude" => {
+            match commands::apply_claude_plugin_config(official) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize plugin apply")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("plugin_apply_failed", message))
+                        .expect("serialize plugin apply error")
+                }
+            }
+        }
+        [group, cmd, enabled] if group == "plugin" && cmd == "onboarding-skip" => {
+            match commands::set_claude_onboarding_skip(enabled) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize plugin onboarding")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("plugin_onboarding_failed", message))
+                        .expect("serialize plugin onboarding error")
+                }
+            }
+        }
         [group, cmd, app, updates_json] if group == "providers" && cmd == "sort" => {
             match app.parse() {
                 Ok(app_type) => match commands::sort_providers(app_type, updates_json) {
@@ -656,7 +701,7 @@ fn run_normalized(args: &[String]) -> Value {
         }
         _ => serde_json::to_value(types::err::<()>(
             "unsupported_command",
-            "Supported commands: status, providers, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools",
+            "Supported commands: status, providers, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools, settings, plugin",
         ))
         .expect("serialize error response"),
     }

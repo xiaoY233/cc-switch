@@ -40,10 +40,56 @@ fn status_returns_stable_json_envelope() {
             "skills",
             "sessions",
             "hermes-memory",
-            "import-export"
+            "import-export",
+            "tools",
+            "settings",
+            "plugin"
         ])
     );
     assert!(response["error"].is_null());
+}
+
+#[test]
+#[serial]
+fn settings_round_trip_through_json_cli() {
+    let (save_response, get_response) = with_temp_home(|| {
+        let settings_json = serde_json::json!({
+            "showInTray": true,
+            "minimizeToTrayOnClose": true,
+            "useAppWindowControls": false,
+            "enableClaudePluginIntegration": true,
+            "skipClaudeOnboarding": true,
+            "launchOnStartup": false,
+            "silentStartup": false,
+            "enableLocalProxy": false,
+            "visibleApps": {
+                "claude": true,
+                "claude-desktop": false,
+                "codex": true,
+                "gemini": false,
+                "opencode": true,
+                "openclaw": true,
+                "hermes": true
+            },
+            "skillSyncMethod": "auto",
+            "skillStorageLocation": "unified"
+        })
+        .to_string();
+
+        let save_response =
+            cc_switch_lib::cli::run(&["settings".to_string(), "save".to_string(), settings_json]);
+        let get_response = cc_switch_lib::cli::run(&["settings".to_string(), "get".to_string()]);
+        (save_response, get_response)
+    });
+
+    assert_eq!(save_response["ok"], true);
+    assert!(save_response["error"].is_null());
+    assert_eq!(get_response["ok"], true);
+    assert_eq!(get_response["data"]["visibleApps"]["claude-desktop"], false);
+    assert_eq!(get_response["data"]["visibleApps"]["hermes"], true);
+    assert_eq!(get_response["data"]["skillStorageLocation"], "unified");
+    assert_eq!(get_response["data"]["enableClaudePluginIntegration"], true);
+    assert_eq!(get_response["data"]["skipClaudeOnboarding"], true);
 }
 
 #[test]
@@ -299,6 +345,6 @@ fn unsupported_command_returns_stable_error_envelope() {
     assert_eq!(response["error"]["code"], "unsupported_command");
     assert_eq!(
         response["error"]["message"],
-        "Supported commands: status, providers, sessions, hermes, openclaw, mcp, prompts, skills, import-export"
+        "Supported commands: status, providers, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools, settings, plugin"
     );
 }

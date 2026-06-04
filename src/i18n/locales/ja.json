@@ -2724,6 +2724,42 @@
       "keyFile": "キーファイル",
       "password": "パスワード"
     },
+    "settings": {
+      "tabs": {
+        "environment": "リモート環境",
+        "general": "一般",
+        "data": "データ"
+      },
+      "tasks": {
+        "checkHealth": "SSH でリモート Helper の状態を確認しています...",
+        "loadTools": "リモートツールのバージョンと更新情報を読み込んでいます...",
+        "installHelper": "リモート Helper をインストールしています: SSH 接続、バイナリ取得、能力確認を実行中...",
+        "runToolAction": "リモートで {{tool}} の {{action}} を実行しています...",
+        "loadSettings": "リモート一般設定を読み込んでいます...",
+        "saveSettings": "リモート一般設定を保存しています..."
+      },
+      "environment": {
+        "host": "リモートホスト",
+        "helperRequired": "先にヘルスチェックを行い、利用可能なリモート Helper をインストールしてください。",
+        "helperUnsupported": "現在のリモート Helper は環境チェックをサポートしていません。tools capability を含む新しい Helper をインストールしてください。",
+        "toolsTitle": "リモート環境チェック更新",
+        "toolsDescription": "リモートサーバー上の Claude Code、Codex、Gemini、OpenCode、OpenClaw、Hermes を確認します",
+        "loadToolsFailed": "リモート環境チェックに失敗しました"
+      },
+      "general": {
+        "title": "リモート一般設定",
+        "description": "これらの設定は選択中のリモートホスト自身の設定ディレクトリに保存されます。",
+        "loading": "リモート一般設定を読み込んでいます...",
+        "unsupported": "現在のリモート Helper は一般設定管理をサポートしていません。settings capability を含む Helper に更新してください。",
+        "loadFailed": "リモート一般設定の読み込みに失敗しました",
+        "saveFailed": "リモート一般設定の保存に失敗しました",
+        "skillsUnsupported": "現在のリモート Helper は Skills 保存先の移行をサポートしていません。",
+        "pluginUnsupportedBadge": "新しい Helper が必要"
+      },
+      "data": {
+        "description": "選択中のリモートサーバー自身の CC Switch データをインポートまたはエクスポートします"
+      }
+    },
     "errors": {
       "tauriUnavailable": "現在のブラウザプレビューはデスクトップバックエンドに接続されていません。保存とリモート操作は Tauri アプリウィンドウでテストしてください。",
       "unknown": "不明なエラー"
@@ -2739,6 +2775,11 @@
       "installFailed": "リモート Helper のインストールに失敗しました: {{error}}",
       "check": "確認",
       "helperVersion": "Helper バージョン",
+      "helperLatestVersion": "最新 Helper",
+      "updateHelper": "Helper を更新",
+      "helperUpdateAvailable": "新しい Helper があります",
+      "helperUpdateDescription": "新しいリモート Helper をインストールできます。リモート管理機能を使う前に更新してください。",
+      "helperUpdateCheckFailed": "Helper 更新確認に失敗しました: {{error}}",
       "platform": "プラットフォーム",
       "capabilities": "リモート機能サポート",
       "missingCapabilities": "不足している機能サポート",
@@ -2754,7 +2795,9 @@
       "sessions": "セッション管理",
       "hermesMemory": "Hermes メモリ",
       "tools": "環境チェック更新",
-      "importExport": "インポート / エクスポート"
+      "importExport": "インポート / エクスポート",
+      "settings": "一般設定",
+      "plugin": "Claude プラグイン"
     }
   },
   "subscription": {

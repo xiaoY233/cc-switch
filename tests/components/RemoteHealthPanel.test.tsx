@@ -55,7 +55,7 @@ describe("RemoteHealthPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "检查" }));
 
     await waitFor(() => {
-      expect(screen.getByText("缺少能力")).toBeInTheDocument();
+      expect(screen.getByText("缺少功能支持")).toBeInTheDocument();
     });
     expect(screen.getAllByText("OpenClaw").length).toBeGreaterThan(0);
     expect(screen.getByText("供应商")).toBeInTheDocument();
@@ -76,7 +76,12 @@ describe("RemoteHealthPanel", () => {
         "mcp",
         "prompts",
         "skills",
+        "sessions",
+        "hermes-memory",
+        "tools",
         "import-export",
+        "settings",
+        "plugin",
       ],
     });
 
@@ -87,7 +92,33 @@ describe("RemoteHealthPanel", () => {
     await waitFor(() => {
       expect(screen.getByText("OpenClaw")).toBeInTheDocument();
     });
-    expect(screen.queryByText("缺少能力")).not.toBeInTheDocument();
+    expect(screen.queryByText("缺少功能支持")).not.toBeInTheDocument();
+  });
+
+  it("shows an update action when the remote helper is behind the latest release", async () => {
+    checkHealthMock.mockResolvedValueOnce({
+      reachable: true,
+      helperInstalled: true,
+      helperVersion: "3.16.2",
+      helperLatestVersion: "3.16.2",
+      helperLatestBuild: "abcdef12",
+      helperLatestAsset: "cc-switch-remote-helper-abcdef12-Linux-x86_64",
+      helperUpdateAvailable: true,
+      platform: "linux",
+      capabilities: ["providers"],
+    });
+
+    render(<RemoteHealthPanel profile={profile} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "检查" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("发现新版 Helper")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole("button", { name: "更新 Helper" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/abcdef12/).length).toBeGreaterThan(0);
   });
 
   it("keeps the configured helper path visible after a health check", async () => {

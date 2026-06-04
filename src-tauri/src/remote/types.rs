@@ -34,6 +34,13 @@ pub struct RemoteHealth {
     pub reachable: bool,
     pub helper_installed: bool,
     pub helper_version: Option<String>,
+    pub helper_build: Option<String>,
+    pub helper_arch: Option<String>,
+    pub helper_latest_version: Option<String>,
+    pub helper_latest_build: Option<String>,
+    pub helper_latest_asset: Option<String>,
+    pub helper_update_available: bool,
+    pub helper_update_error: Option<String>,
     pub platform: Option<RemotePlatform>,
     pub capabilities: Vec<RemoteCapability>,
     pub last_error: Option<String>,
@@ -59,6 +66,8 @@ pub enum RemoteCapability {
     HermesMemory,
     ImportExport,
     Tools,
+    Settings,
+    Plugin,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

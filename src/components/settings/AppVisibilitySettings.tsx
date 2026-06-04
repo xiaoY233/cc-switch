@@ -2,13 +2,12 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ProviderIcon } from "@/components/ProviderIcon";
-import type { SettingsFormState } from "@/hooks/useSettings";
 import type { VisibleApps } from "@/types";
 import type { AppId } from "@/lib/api";
 
 interface AppVisibilitySettingsProps {
-  settings: SettingsFormState;
-  onChange: (updates: Partial<SettingsFormState>) => void;
+  settings: { visibleApps?: VisibleApps };
+  onChange: (updates: { visibleApps: VisibleApps }) => void;
 }
 
 const APP_CONFIG: Array<{

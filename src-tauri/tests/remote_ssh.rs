@@ -271,6 +271,14 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
     assert!(remote_command.contains("verify_helper_status()"));
     assert!(remote_command.contains("grep -q '\"openclaw\"'"));
     assert!(remote_command.contains("grep -q '\"hermes-memory\"'"));
+    assert!(
+        !remote_command.contains("grep -q '\"settings\"'"),
+        "settings is an optional helper capability and must not block installation"
+    );
+    assert!(
+        !remote_command.contains("grep -q '\"plugin\"'"),
+        "plugin is an optional helper capability and must not block installation"
+    );
     assert!(remote_command.contains("cc-switch-remote helper is missing required capabilities"));
     assert!(remote_command.contains("cc-switch-remote-helper"));
     assert!(remote_command.contains("cc-switch-cli"));

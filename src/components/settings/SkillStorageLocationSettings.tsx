@@ -19,12 +19,14 @@ export interface SkillStorageLocationSettingsProps {
   value: SkillStorageLocation;
   installedCount: number;
   onMigrated: (target: SkillStorageLocation) => void;
+  onMigrate?: (target: SkillStorageLocation) => Promise<MigrationResult>;
 }
 
 export function SkillStorageLocationSettings({
   value,
   installedCount,
   onMigrated,
+  onMigrate,
 }: SkillStorageLocationSettingsProps) {
   const { t } = useTranslation();
   const [pendingTarget, setPendingTarget] =
@@ -44,7 +46,9 @@ export function SkillStorageLocationSettings({
     setIsMigrating(true);
     setPendingTarget(null);
     try {
-      const result: MigrationResult = await skillsApi.migrateStorage(target);
+      const result: MigrationResult = await (onMigrate ?? skillsApi.migrateStorage)(
+        target,
+      );
       if (result.errors.length > 0) {
         toast.warning(
           t("settings.skillStorage.migrationPartial", {

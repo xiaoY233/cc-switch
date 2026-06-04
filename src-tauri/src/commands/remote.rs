@@ -5,19 +5,39 @@ use crate::remote::{
     build_helper_install_args, build_ssh_args, delete_profile, delete_profile_secret,
     install_helper_json, load_profiles, run_helper_json, save_profile_secret, upsert_profile,
     validate_profile, RemoteAuthMethod, RemoteCapability, RemoteConnectionSecret, RemoteHealth,
-    RemoteHostProfile, RemotePlatform,
+    RemoteHelperInstallSource, RemoteHostProfile, RemotePlatform,
 };
 use crate::services::skill::{
-    DiscoverableSkill, ImportSkillSelection, SkillBackupEntry, SkillRepo, SkillUninstallResult,
-    SkillUpdateInfo,
+    DiscoverableSkill, ImportSkillSelection, MigrationResult, SkillBackupEntry, SkillRepo,
+    SkillStorageLocation, SkillUninstallResult, SkillUpdateInfo,
 };
 use crate::services::{ProviderSortUpdate, SwitchResult};
 use crate::session_manager;
+use crate::settings::AppSettings;
 use indexmap::IndexMap;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::path::PathBuf;
+
+const GITHUB_API_USER_AGENT: &str = "cc-switch-remote";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RemoteHelperLatest {
+    version: String,
+    build: Option<String>,
+    asset_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubRelease {
+    assets: Vec<GitHubReleaseAsset>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubReleaseAsset {
+    name: String,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -92,7 +112,8 @@ pub async fn remote_check_health(
     .await
     .map_err(|e| format!("Remote health task failed: {e}"))??;
 
-    Ok(remote_health_from_status(status))
+    let latest = fetch_remote_helper_latest(&status).await;
+    Ok(remote_health_from_status_with_latest_result(status, latest))
 }
 
 #[tauri::command]
@@ -107,7 +128,95 @@ pub async fn remote_install_helper(
     .await
     .map_err(|e| format!("Remote helper install task failed: {e}"))??;
 
-    Ok(remote_health_from_status(status))
+    let latest = fetch_remote_helper_latest(&status).await;
+    Ok(remote_health_from_status_with_latest_result(status, latest))
+}
+
+#[tauri::command]
+pub async fn remote_get_settings(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<AppSettings, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["settings".to_string(), "get".to_string()],
+        secret,
+        "Remote settings get",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_save_settings(
+    profile: RemoteHostProfile,
+    settings: AppSettings,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    let settings_json = serde_json::to_string(&settings).map_err(|e| e.to_string())?;
+    run_remote_helper_json(
+        profile,
+        vec!["settings".to_string(), "save".to_string(), settings_json],
+        secret,
+        "Remote settings save",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_migrate_skill_storage(
+    profile: RemoteHostProfile,
+    target: SkillStorageLocation,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<MigrationResult, String> {
+    let target = serde_json::to_value(target)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_string))
+        .ok_or_else(|| "Invalid skill storage location".to_string())?;
+    run_remote_helper_json(
+        profile,
+        vec!["skills".to_string(), "migrate-storage".to_string(), target],
+        secret,
+        "Remote skill storage migration",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_apply_claude_plugin_config(
+    profile: RemoteHostProfile,
+    official: bool,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    run_remote_helper_json(
+        profile,
+        vec![
+            "plugin".to_string(),
+            "apply-claude".to_string(),
+            official.to_string(),
+        ],
+        secret,
+        "Remote Claude plugin apply",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_set_claude_onboarding_skip(
+    profile: RemoteHostProfile,
+    enabled: bool,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    run_remote_helper_json(
+        profile,
+        vec![
+            "plugin".to_string(),
+            "onboarding-skip".to_string(),
+            enabled.to_string(),
+        ],
+        secret,
+        "Remote Claude onboarding skip",
+    )
+    .await
 }
 
 #[tauri::command]
@@ -208,14 +317,51 @@ pub async fn remote_run_tool_lifecycle_action(
     .map_err(|e| format!("Remote tool action task failed: {e}"))?
 }
 
-fn remote_health_from_status(status: serde_json::Value) -> RemoteHealth {
+fn remote_health_from_status_with_latest_result(
+    status: serde_json::Value,
+    latest: Result<Option<RemoteHelperLatest>, String>,
+) -> RemoteHealth {
+    let update_error = latest.as_ref().err().cloned();
+    let latest = latest.ok().flatten();
+    let mut health = remote_health_from_status_with_latest(status, latest);
+    health.helper_update_error = update_error;
+    health
+}
+
+fn remote_health_from_status_with_latest(
+    status: serde_json::Value,
+    latest: Option<RemoteHelperLatest>,
+) -> RemoteHealth {
+    let helper_version = status
+        .get("version")
+        .and_then(|value| value.as_str())
+        .map(str::to_string);
+    let helper_build = status
+        .get("build")
+        .and_then(|value| value.as_str())
+        .map(str::to_string);
+    let latest_version = latest.as_ref().map(|item| item.version.clone());
+    let latest_build = latest.as_ref().and_then(|item| item.build.clone());
+    let helper_update_available = is_helper_update_available(
+        helper_version.as_deref(),
+        helper_build.as_deref(),
+        latest.as_ref(),
+    );
+
     RemoteHealth {
         reachable: true,
         helper_installed: true,
-        helper_version: status
-            .get("version")
+        helper_version,
+        helper_build,
+        helper_arch: status
+            .get("arch")
             .and_then(|value| value.as_str())
             .map(str::to_string),
+        helper_latest_version: latest_version,
+        helper_latest_build: latest_build,
+        helper_latest_asset: latest.and_then(|item| item.asset_name),
+        helper_update_available,
+        helper_update_error: None,
         platform: status
             .get("platform")
             .and_then(|value| value.as_str())
@@ -233,6 +379,117 @@ fn remote_health_from_status(status: serde_json::Value) -> RemoteHealth {
             .unwrap_or_default(),
         last_error: None,
     }
+}
+
+async fn fetch_remote_helper_latest(
+    status: &serde_json::Value,
+) -> Result<Option<RemoteHelperLatest>, String> {
+    let platform = status.get("platform").and_then(|value| value.as_str());
+    let arch = status.get("arch").and_then(|value| value.as_str());
+    let Some(asset_os) = helper_asset_os(platform) else {
+        return Ok(None);
+    };
+    let Some(asset_arch) = helper_asset_arch(asset_os, arch) else {
+        return Ok(None);
+    };
+
+    let source = RemoteHelperInstallSource::from_env();
+    let url = format!(
+        "https://api.github.com/repos/{}/releases/tags/{}",
+        source.release_repo, source.release_tag
+    );
+    let release = reqwest::Client::new()
+        .get(&url)
+        .header(reqwest::header::USER_AGENT, GITHUB_API_USER_AGENT)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to query helper release: {e}"))?
+        .error_for_status()
+        .map_err(|e| format!("Failed to query helper release: {e}"))?
+        .json::<GitHubRelease>()
+        .await
+        .map_err(|e| format!("Failed to parse helper release: {e}"))?;
+
+    Ok(select_remote_helper_latest(
+        &release.assets,
+        asset_os,
+        asset_arch,
+    ))
+}
+
+fn select_remote_helper_latest(
+    assets: &[GitHubReleaseAsset],
+    asset_os: &str,
+    asset_arch: &str,
+) -> Option<RemoteHelperLatest> {
+    assets
+        .iter()
+        .find_map(|asset| parse_remote_helper_asset(&asset.name, asset_os, asset_arch))
+}
+
+fn parse_remote_helper_asset(
+    asset_name: &str,
+    asset_os: &str,
+    asset_arch: &str,
+) -> Option<RemoteHelperLatest> {
+    for prefix in ["cc-switch-remote-helper-", "cc-switch-cli-"] {
+        let Some(rest) = asset_name.strip_prefix(prefix) else {
+            continue;
+        };
+        let suffix = format!("-{asset_os}-{asset_arch}");
+        if let Some(build) = rest.strip_suffix(&suffix) {
+            if build != "latest" && !build.trim().is_empty() {
+                return Some(RemoteHelperLatest {
+                    version: env!("CARGO_PKG_VERSION").to_string(),
+                    build: Some(build.to_string()),
+                    asset_name: Some(asset_name.to_string()),
+                });
+            }
+        }
+    }
+    None
+}
+
+fn helper_asset_os(platform: Option<&str>) -> Option<&'static str> {
+    match platform? {
+        "linux" => Some("Linux"),
+        "macos" => Some("macOS"),
+        _ => None,
+    }
+}
+
+fn helper_asset_arch(asset_os: &str, arch: Option<&str>) -> Option<&'static str> {
+    if asset_os == "macOS" {
+        return Some("universal");
+    }
+
+    match arch? {
+        "x86_64" | "amd64" => Some("x86_64"),
+        "aarch64" | "arm64" => Some("arm64"),
+        _ => None,
+    }
+}
+
+fn is_helper_update_available(
+    current_version: Option<&str>,
+    current_build: Option<&str>,
+    latest: Option<&RemoteHelperLatest>,
+) -> bool {
+    let Some(latest) = latest else {
+        return false;
+    };
+
+    if let (Some(current_build), Some(latest_build)) = (current_build, latest.build.as_deref()) {
+        return current_build != latest_build;
+    }
+
+    if current_build.is_none() && latest.build.is_some() {
+        return true;
+    }
+
+    current_version
+        .map(|version| version != latest.version)
+        .unwrap_or(false)
 }
 
 fn normalize_remote_tool_versions(mut value: Value) -> Value {
@@ -298,6 +555,8 @@ fn parse_remote_capability(value: &str) -> Option<RemoteCapability> {
         "hermes-memory" => Some(RemoteCapability::HermesMemory),
         "import-export" => Some(RemoteCapability::ImportExport),
         "tools" => Some(RemoteCapability::Tools),
+        "settings" => Some(RemoteCapability::Settings),
+        "plugin" => Some(RemoteCapability::Plugin),
         _ => None,
     }
 }
@@ -1332,6 +1591,32 @@ mod tests {
         assert_eq!(normalized[0]["error"], "not installed or not executable");
         assert_eq!(normalized[1]["installed_but_broken"], false);
         assert_eq!(normalized[1]["error"], "not installed or not executable");
+    }
+
+    #[test]
+    fn marks_helper_update_available_when_current_build_is_unknown() {
+        let status = json!({
+            "version": "3.16.2",
+            "platform": "linux",
+            "capabilities": ["providers", "tools"]
+        });
+
+        let health = remote_health_from_status_with_latest(
+            status,
+            Some(RemoteHelperLatest {
+                version: "3.16.2".to_string(),
+                build: Some("abcdef12".to_string()),
+                asset_name: Some("cc-switch-remote-helper-abcdef12-Linux-x86_64".to_string()),
+            }),
+        );
+
+        assert_eq!(health.helper_latest_version.as_deref(), Some("3.16.2"));
+        assert_eq!(health.helper_latest_build.as_deref(), Some("abcdef12"));
+        assert_eq!(
+            health.helper_latest_asset.as_deref(),
+            Some("cc-switch-remote-helper-abcdef12-Linux-x86_64")
+        );
+        assert!(health.helper_update_available);
     }
 
     #[test]

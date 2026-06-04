@@ -25,7 +25,9 @@ import type {
   SkillUninstallResult,
   SkillUpdateInfo,
   UnmanagedSkill,
+  MigrationResult,
 } from "./skills";
+import type { Settings, SkillStorageLocation } from "@/types";
 
 export type RemoteAuthMethod =
   | { type: "sshAgent" }
@@ -52,6 +54,13 @@ export interface RemoteHealth {
   reachable: boolean;
   helperInstalled: boolean;
   helperVersion?: string;
+  helperBuild?: string;
+  helperArch?: string;
+  helperLatestVersion?: string;
+  helperLatestBuild?: string;
+  helperLatestAsset?: string;
+  helperUpdateAvailable?: boolean;
+  helperUpdateError?: string;
   platform?: "linux" | "macos" | "unknown";
   capabilities: string[];
   lastError?: string;
@@ -255,6 +264,61 @@ export const remoteApi = {
     secret?: RemoteConnectionSecret,
   ): Promise<RemoteHealth> {
     return invoke<RemoteHealth>("remote_install_helper", { profile, secret });
+  },
+
+  getSettings(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<Settings> {
+    return invoke<Settings>("remote_get_settings", { profile, secret });
+  },
+
+  saveSettings(
+    profile: RemoteHostProfile,
+    settings: Settings,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_save_settings", {
+      profile,
+      settings,
+      secret,
+    });
+  },
+
+  migrateSkillStorage(
+    profile: RemoteHostProfile,
+    target: SkillStorageLocation,
+    secret?: RemoteConnectionSecret,
+  ): Promise<MigrationResult> {
+    return invoke<MigrationResult>("remote_migrate_skill_storage", {
+      profile,
+      target,
+      secret,
+    });
+  },
+
+  applyClaudePluginConfig(
+    profile: RemoteHostProfile,
+    official: boolean,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_apply_claude_plugin_config", {
+      profile,
+      official,
+      secret,
+    });
+  },
+
+  setClaudeOnboardingSkip(
+    profile: RemoteHostProfile,
+    enabled: boolean,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_set_claude_onboarding_skip", {
+      profile,
+      enabled,
+      secret,
+    });
   },
 
   exportConfigToFile(

@@ -232,7 +232,7 @@ export function RemoteHostDialog({
             </Field>
 
             <div className="grid gap-2">
-              <Label>
+              <Label htmlFor="remote-auth-mode">
                 {t("remote.fields.authentication", {
                   defaultValue: "认证方式",
                 })}
@@ -242,7 +242,7 @@ export function RemoteHostDialog({
                 onValueChange={(value) => setAuthMode(value as RemoteAuthMode)}
                 disabled={formDisabled}
               >
-                <SelectTrigger>
+                <SelectTrigger id="remote-auth-mode">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

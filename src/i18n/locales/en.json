@@ -2724,6 +2724,42 @@
       "keyFile": "Key file",
       "password": "Password"
     },
+    "settings": {
+      "tabs": {
+        "environment": "Remote Environment",
+        "general": "General",
+        "data": "Data"
+      },
+      "tasks": {
+        "checkHealth": "Checking remote helper status over SSH...",
+        "loadTools": "Reading remote tool versions and update information...",
+        "installHelper": "Installing remote helper: connecting over SSH, downloading the binary, and verifying capabilities...",
+        "runToolAction": "Running remote {{action}} for {{tool}}...",
+        "loadSettings": "Reading remote general settings...",
+        "saveSettings": "Saving remote general settings..."
+      },
+      "environment": {
+        "host": "Remote Host",
+        "helperRequired": "Run health check and install a usable remote helper first.",
+        "helperUnsupported": "The current remote helper does not support environment checks. Install a newer helper with the tools capability.",
+        "toolsTitle": "Remote Environment Check Updates",
+        "toolsDescription": "Check Claude Code, Codex, Gemini, OpenCode, OpenClaw, and Hermes on the remote server",
+        "loadToolsFailed": "Remote environment check failed"
+      },
+      "general": {
+        "title": "Remote General Settings",
+        "description": "These settings are saved to the selected remote host's own config directory.",
+        "loading": "Loading remote general settings...",
+        "unsupported": "The current remote helper does not support general settings management. Update to a helper with the settings capability.",
+        "loadFailed": "Failed to load remote general settings",
+        "saveFailed": "Failed to save remote general settings",
+        "skillsUnsupported": "The current remote helper does not support Skills storage migration.",
+        "pluginUnsupportedBadge": "New helper required"
+      },
+      "data": {
+        "description": "Import or export the selected remote server's own CC Switch data"
+      }
+    },
     "errors": {
       "tauriUnavailable": "The browser preview is not connected to the desktop backend. Test saving and remote operations in the Tauri app window.",
       "unknown": "Unknown error"
@@ -2739,6 +2775,11 @@
       "installFailed": "Failed to install remote helper: {{error}}",
       "check": "Check",
       "helperVersion": "Helper Version",
+      "helperLatestVersion": "Latest Helper",
+      "updateHelper": "Update Helper",
+      "helperUpdateAvailable": "New helper available",
+      "helperUpdateDescription": "A newer remote helper is available. Update it before using remote management features.",
+      "helperUpdateCheckFailed": "Helper update check failed: {{error}}",
       "platform": "Platform",
       "capabilities": "Remote Feature Support",
       "missingCapabilities": "Missing feature support",
@@ -2754,7 +2795,9 @@
       "sessions": "Sessions",
       "hermesMemory": "Hermes Memory",
       "tools": "Environment Check Updates",
-      "importExport": "Import / Export"
+      "importExport": "Import / Export",
+      "settings": "General Settings",
+      "plugin": "Claude Plugin"
     }
   },
   "subscription": {

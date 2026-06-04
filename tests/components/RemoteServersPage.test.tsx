@@ -60,7 +60,8 @@ describe("RemoteServersPage", () => {
     );
 
     await user.click(screen.getAllByRole("button", { name: "新增服务器" })[0]);
-    await user.click(screen.getByRole("button", { name: "密码" }));
+    await user.click(screen.getByRole("combobox", { name: "认证方式" }));
+    await user.click(await screen.findByRole("option", { name: "密码" }));
 
     const textboxes = screen.getAllByRole("textbox");
     await user.type(textboxes[0], "测试服务器");

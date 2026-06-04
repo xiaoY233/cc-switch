@@ -2724,6 +2724,42 @@
       "keyFile": "密钥文件",
       "password": "密码"
     },
+    "settings": {
+      "tabs": {
+        "environment": "远程环境",
+        "general": "通用",
+        "data": "数据"
+      },
+      "tasks": {
+        "checkHealth": "正在通过 SSH 检查远程 Helper 状态...",
+        "loadTools": "正在读取远程工具版本和更新信息...",
+        "installHelper": "正在安装远程 Helper：连接 SSH、下载二进制并验证能力...",
+        "runToolAction": "正在远程{{action}}{{tool}}...",
+        "loadSettings": "正在读取远程通用设置...",
+        "saveSettings": "正在保存远程通用设置..."
+      },
+      "environment": {
+        "host": "远程主机",
+        "helperRequired": "请先完成健康检查并安装可用的远程 Helper。",
+        "helperUnsupported": "当前远程 Helper 不支持环境检查更新。请安装包含 tools capability 的新版 Helper。",
+        "toolsTitle": "远程环境检查更新",
+        "toolsDescription": "检查远程服务器上的 Claude Code、Codex、Gemini、OpenCode、OpenClaw 和 Hermes",
+        "loadToolsFailed": "远程环境检查失败"
+      },
+      "general": {
+        "title": "远程通用设置",
+        "description": "这些设置保存到当前远程主机自己的配置目录。",
+        "loading": "正在加载远程通用设置...",
+        "unsupported": "当前远程 Helper 不支持通用设置管理。请更新到包含 settings capability 的新版 Helper。",
+        "loadFailed": "远程通用设置加载失败",
+        "saveFailed": "远程通用设置保存失败",
+        "skillsUnsupported": "当前远程 Helper 不支持 Skills 存储位置迁移。",
+        "pluginUnsupportedBadge": "需要新版 Helper"
+      },
+      "data": {
+        "description": "导入或导出当前远程服务器自己的 CC Switch 数据"
+      }
+    },
     "errors": {
       "tauriUnavailable": "当前浏览器预览没有连接桌面端后端，请在 Tauri 应用窗口中测试保存和远程操作。",
       "unknown": "未知错误"
@@ -2739,6 +2775,11 @@
       "installFailed": "安装远程 Helper 失败: {{error}}",
       "check": "检查",
       "helperVersion": "Helper 版本",
+      "helperLatestVersion": "最新 Helper",
+      "updateHelper": "更新 Helper",
+      "helperUpdateAvailable": "发现新版 Helper",
+      "helperUpdateDescription": "远程 Helper 有新版可安装。建议更新后再使用远程管理功能。",
+      "helperUpdateCheckFailed": "Helper 更新检测失败: {{error}}",
       "platform": "平台",
       "capabilities": "远程功能支持",
       "missingCapabilities": "缺少功能支持",
@@ -2754,7 +2795,9 @@
       "sessions": "会话管理",
       "hermesMemory": "Hermes 记忆",
       "tools": "环境检查更新",
-      "importExport": "导入 / 导出"
+      "importExport": "导入 / 导出",
+      "settings": "通用设置",
+      "plugin": "Claude 插件"
     }
   },
   "subscription": {

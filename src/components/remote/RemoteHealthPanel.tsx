@@ -61,6 +61,16 @@ const EXPECTED_REMOTE_CAPABILITIES = [
     labelKey: "remote.capabilities.importExport",
     defaultLabel: "导入 / 导出",
   },
+  {
+    id: "settings",
+    labelKey: "remote.capabilities.settings",
+    defaultLabel: "通用设置",
+  },
+  {
+    id: "plugin",
+    labelKey: "remote.capabilities.plugin",
+    defaultLabel: "Claude 插件",
+  },
 ] as const;
 
 export function RemoteHealthPanel({
@@ -82,6 +92,11 @@ export function RemoteHealthPanel({
         (capability) => !capabilitySet.has(capability.id),
       )
     : [];
+  const helperVersionText = formatHelperVersion(health);
+  const helperLatestText = formatHelperLatest(health);
+  const helperInstallLabel = health?.helperUpdateAvailable
+    ? t("remote.health.updateHelper", { defaultValue: "更新 Helper" })
+    : t("remote.health.install", { defaultValue: "安装 Helper" });
 
   const handleCheck = async () => {
     if (!profile) return;
@@ -161,7 +176,7 @@ export function RemoteHealthPanel({
             <Download className="mr-2 h-4 w-4" />
             {installing
               ? t("remote.health.installing", { defaultValue: "安装中" })
-              : t("remote.health.install", { defaultValue: "安装 Helper" })}
+              : helperInstallLabel}
           </Button>
           <Button
             size="sm"
@@ -177,7 +192,7 @@ export function RemoteHealthPanel({
           </Button>
         </div>
       </div>
-      <div className="grid min-w-0 grid-cols-1 gap-0 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid min-w-0 grid-cols-1 gap-0 sm:grid-cols-2 xl:grid-cols-5">
         <Metric
           label={t("remote.fields.host", { defaultValue: "主机" })}
           value={profile?.host ?? "-"}
@@ -190,13 +205,48 @@ export function RemoteHealthPanel({
           label={t("remote.health.helperVersion", {
             defaultValue: "Helper 版本",
           })}
-          value={health?.helperVersion ?? "-"}
+          value={helperVersionText}
+        />
+        <Metric
+          label={t("remote.health.helperLatestVersion", {
+            defaultValue: "最新 Helper",
+          })}
+          value={helperLatestText}
         />
         <Metric
           label={t("remote.health.platform", { defaultValue: "平台" })}
           value={health?.platform ?? "-"}
         />
       </div>
+      {health?.helperUpdateAvailable && (
+        <div className="border-t border-border-default px-4 py-3">
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <div className="min-w-0">
+              <div className="font-medium">
+                {t("remote.health.helperUpdateAvailable", {
+                  defaultValue: "发现新版 Helper",
+                })}
+              </div>
+              <div className="mt-0.5 break-all">
+                {t("remote.health.helperUpdateDescription", {
+                  defaultValue:
+                    "远程 Helper 有新版可安装。建议更新后再使用远程管理功能。",
+                })}
+                {health.helperLatestAsset ? ` ${health.helperLatestAsset}` : ""}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {health?.helperUpdateError && (
+        <div className="border-t border-border-default px-4 py-3 text-xs text-muted-foreground">
+          {t("remote.health.helperUpdateCheckFailed", {
+            defaultValue: "Helper 更新检测失败: {{error}}",
+            error: health.helperUpdateError,
+          })}
+        </div>
+      )}
       {health?.lastError && (
         <div className="border-t border-border-default px-4 py-3 text-xs text-destructive">
           {health.lastError}
@@ -254,6 +304,21 @@ export function RemoteHealthPanel({
       )}
     </Card>
   );
+}
+
+function formatHelperVersion(health: RemoteHealth | null) {
+  if (!health?.helperVersion) return "-";
+  return health.helperBuild
+    ? `${health.helperVersion} (${health.helperBuild})`
+    : health.helperVersion;
+}
+
+function formatHelperLatest(health: RemoteHealth | null) {
+  if (!health?.helperLatestVersion && !health?.helperLatestBuild) return "-";
+  if (health?.helperLatestVersion && health.helperLatestBuild) {
+    return `${health.helperLatestVersion} (${health.helperLatestBuild})`;
+  }
+  return health?.helperLatestVersion ?? health?.helperLatestBuild ?? "-";
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
