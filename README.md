@@ -112,6 +112,7 @@ For release validation and repair:
 - Use the `Release` workflow `platform` input to validate only one platform before pushing a formal tag.
 - Use `Release Maintenance` with `sign-windows-msi-and-refresh-latest` when an existing release needs Windows updater metadata repaired.
 - Use `Release Maintenance` with `refresh-latest-json` when all updater signatures already exist and only metadata needs regeneration.
+- Maintenance metadata refresh uses GitHub release asset names plus `.sig` files, so it does not download AppImage, DMG, ZIP, DEB or RPM packages.
 - `latest.json` generation fails if a required updater platform is missing or if an updater artifact has no `.sig`.
 
 ## Development

@@ -30,19 +30,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Download release assets
+      - name: Fetch release asset names
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euxo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > asset-names.txt
+          cat asset-names.txt
+
+      - name: Download updater signatures
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.inputs.tag }}
         run: |
           set -euxo pipefail
           mkdir -p dl
-          gh release download "$TAG" --dir dl --repo "$GITHUB_REPOSITORY" --clobber \
-            --pattern '*macOS.tar.gz*' \
-            --pattern '*Linux-x86_64.AppImage*' \
-            --pattern '*Linux-arm64.AppImage*' \
-            --pattern '*Windows.msi*'
+          gh release download "$TAG" --dir dl --repo "$GITHUB_REPOSITORY" --clobber --pattern '*.sig'
           ls -la dl
+
+      - name: Download Windows MSI
+        if: github.event.inputs.operation == 'sign-windows-msi-and-refresh-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euxo pipefail
+          mkdir -p dl
+          gh release download "$TAG" --dir dl --repo "$GITHUB_REPOSITORY" --clobber --pattern '*Windows.msi'
+          ls -la dl/*-Windows.msi
 
       - name: Setup Node.js
         if: github.event.inputs.operation == 'sign-windows-msi-and-refresh-latest'
@@ -143,6 +159,7 @@ jobs:
           PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           node scripts/assemble-tauri-latest-json.mjs \
             --assets-dir dl \
+            --asset-names-file asset-names.txt \
             --repo "$GITHUB_REPOSITORY" \
             --tag "$TAG" \
             --pub-date "$PUB_DATE" \

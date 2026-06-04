@@ -709,18 +709,22 @@ jobs:
           gh --version || (type -p curl >/dev/null && sudo apt-get update && sudo apt-get install -y gh || true)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Download all release assets
+      - name: Fetch release asset names
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euxo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > asset-names.txt
+          cat asset-names.txt
+      - name: Download updater signatures
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euxo pipefail
           TAG="${GITHUB_REF_NAME}"
           mkdir -p dl
-          gh release download "$TAG" --dir dl --repo "$GITHUB_REPOSITORY" \
-            --pattern '*macOS.tar.gz*' \
-            --pattern '*Linux-x86_64.AppImage*' \
-            --pattern '*Linux-arm64.AppImage*' \
-            --pattern '*Windows.msi*'
+          gh release download "$TAG" --dir dl --repo "$GITHUB_REPOSITORY" --pattern '*.sig'
           ls -la dl || true
       - name: Generate latest.json
         env:
@@ -731,6 +735,7 @@ jobs:
           PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           node scripts/assemble-tauri-latest-json.mjs \
             --assets-dir dl \
+            --asset-names-file asset-names.txt \
             --repo "$REPO" \
             --tag "$TAG" \
             --pub-date "$PUB_DATE" \

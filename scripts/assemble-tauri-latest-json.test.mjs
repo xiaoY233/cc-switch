@@ -55,3 +55,33 @@ test('fails when an updater artifact is missing its signature', () => {
     /missing \.sig files.*Windows\.msi/,
   );
 });
+
+test('uses an asset names file so metadata repair does not download large artifacts', () => {
+  const dir = makeAssets({
+    'CC-Switch-Remote-v3.16.2-macOS.tar.gz.sig': 'mac-sig',
+    'CC-Switch-Remote-v3.16.2-Linux-x86_64.AppImage.sig': 'linux-x64-sig',
+    'CC-Switch-Remote-v3.16.2-Linux-arm64.AppImage.sig': 'linux-arm64-sig',
+    'CC-Switch-Remote-v3.16.2-Windows.msi.sig': 'windows-sig',
+  });
+  const assetNamesFile = path.join(dir, 'asset-names.txt');
+  fs.writeFileSync(assetNamesFile, [
+    'CC-Switch-Remote-v3.16.2-macOS.tar.gz',
+    'CC-Switch-Remote-v3.16.2-macOS.tar.gz.sig',
+    'CC-Switch-Remote-v3.16.2-Linux-x86_64.AppImage',
+    'CC-Switch-Remote-v3.16.2-Linux-x86_64.AppImage.sig',
+    'CC-Switch-Remote-v3.16.2-Linux-arm64.AppImage',
+    'CC-Switch-Remote-v3.16.2-Linux-arm64.AppImage.sig',
+    'CC-Switch-Remote-v3.16.2-Windows.msi',
+    'CC-Switch-Remote-v3.16.2-Windows.msi.sig',
+  ].join('\n'));
+
+  const latest = assembleLatestJson({
+    assetsDir: dir,
+    assetNamesFile,
+    repo: 'xiaoY233/cc-switch-remote',
+    tag: 'v3.16.2',
+  });
+
+  assert.equal(latest.platforms['windows-x86_64'].signature, 'windows-sig');
+  assert.equal(latest.platforms['linux-aarch64'].signature, 'linux-arm64-sig');
+});

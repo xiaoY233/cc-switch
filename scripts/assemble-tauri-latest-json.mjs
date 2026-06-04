@@ -31,6 +31,7 @@ function parseArgs(argv) {
     else if (arg === '--repo') args.repo = next();
     else if (arg === '--tag') args.tag = next();
     else if (arg === '--output') args.output = next();
+    else if (arg === '--asset-names-file') args.assetNamesFile = next();
     else if (arg === '--pub-date') args.pubDate = next();
     else if (arg === '--notes') args.notes = next();
     else if (arg === '--required-platforms') {
@@ -53,6 +54,7 @@ function usage() {
 
 Options:
   --assets-dir <dir>              Release assets directory, default: dl
+  --asset-names-file <file>       Optional release asset names, JSON or newline text
   --output <file>                 Output file, default: latest.json
   --pub-date <iso-date>           Publication date, default: current UTC time
   --notes <text>                  Release notes, default: Release <tag>
@@ -60,20 +62,41 @@ Options:
 `;
 }
 
-function readAssetMap(assetsDir) {
-  const entries = fs.readdirSync(assetsDir, { withFileTypes: true })
-    .filter((entry) => entry.isFile())
-    .map((entry) => entry.name);
-  const files = new Set(entries);
+function readAssetNamesFile(assetNamesFile) {
+  if (!assetNamesFile) return [];
+
+  const text = fs.readFileSync(assetNamesFile, 'utf8');
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => typeof item === 'string' ? item : item?.name).filter(Boolean);
+    }
+    if (Array.isArray(parsed?.assets)) {
+      return parsed.assets.map((item) => typeof item === 'string' ? item : item?.name).filter(Boolean);
+    }
+  } catch (_) {
+    // Fall through to newline text format.
+  }
+
+  return text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+}
+
+function readAssetMap(assetsDir, assetNamesFile) {
+  const localEntries = fs.existsSync(assetsDir)
+    ? fs.readdirSync(assetsDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name)
+    : [];
+  const entries = [...new Set([...localEntries, ...readAssetNamesFile(assetNamesFile)])];
   const signatures = new Map();
 
-  for (const name of entries) {
+  for (const name of localEntries) {
     if (!name.endsWith('.sig')) continue;
     const assetName = name.slice(0, -4);
     signatures.set(assetName, fs.readFileSync(path.join(assetsDir, name), 'utf8').trim());
   }
 
-  return { entries, files, signatures };
+  return { entries, signatures };
 }
 
 function classifyUpdaterArtifact(name) {
@@ -88,6 +111,7 @@ export function assembleLatestJson({
   assetsDir,
   repo,
   tag,
+  assetNamesFile,
   pubDate = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
   notes = `Release ${tag}`,
   requiredPlatforms = DEFAULT_REQUIRED_PLATFORMS,
@@ -97,7 +121,7 @@ export function assembleLatestJson({
 
   const version = tag.replace(/^v/, '');
   const baseUrl = `https://github.com/${repo}/releases/download/${tag}`;
-  const { entries, signatures } = readAssetMap(assetsDir);
+  const { entries, signatures } = readAssetMap(assetsDir, assetNamesFile);
   const platforms = {};
   const updaterArtifacts = [];
   const unsignedUpdaterArtifacts = [];
@@ -156,6 +180,7 @@ function main() {
     assetsDir: args.assetsDir,
     repo: args.repo,
     tag: args.tag,
+    assetNamesFile: args.assetNamesFile,
     pubDate: args.pubDate,
     notes: args.notes,
     requiredPlatforms: args.requiredPlatforms,
