@@ -4,6 +4,19 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to build for manual validation
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - windows
+          - macos
+          - linux-x64
+          - linux-arm64
 
 permissions:
   contents: write
@@ -18,12 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: windows-2022
-          - os: ubuntu-22.04
-          - os: ubuntu-22.04-arm
-            arch: arm64
-          - os: macos-14
+        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'windows' && '[{"os":"windows-2022","platform":"windows"}]' || github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'macos' && '[{"os":"macos-14","platform":"macos"}]' || github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'linux-x64' && '[{"os":"ubuntu-22.04","platform":"linux-x64"}]' || github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'linux-arm64' && '[{"os":"ubuntu-22.04-arm","arch":"arm64","platform":"linux-arm64"}]' || '[{"os":"windows-2022","platform":"windows"},{"os":"ubuntu-22.04","platform":"linux-x64"},{"os":"ubuntu-22.04-arm","arch":"arm64","platform":"linux-arm64"},{"os":"macos-14","platform":"macos"}]') }}
 
     steps:
       - name: Checkout
@@ -181,7 +189,7 @@ jobs:
             exit 1
           fi
           SIGNER_KEY_PATH="$RUNNER_TEMP/tauri_signing.b64"
-          printf '%s\n' "$KEY_B64" > "$SIGNER_KEY_PATH"
+          printf '%s' "$KEY_B64" > "$SIGNER_KEY_PATH"
           # Tauri build/updater signing expects a base64 key in
           # TAURI_SIGNING_PRIVATE_KEY. The standalone `tauri signer sign`
           # command also expects base64 content when using --private-key-path.
@@ -236,6 +244,20 @@ jobs:
 
           # Cleanup certificate file
           rm -f "$CERT_PATH"
+
+      - name: Build macOS remote helper sidecar
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --target aarch64-apple-darwin --bin cc-switch-remote-helper
+          cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --target x86_64-apple-darwin --bin cc-switch-remote-helper
+          mkdir -p src-tauri/target/universal-apple-darwin/release
+          lipo -create \
+            -output src-tauri/target/universal-apple-darwin/release/cc-switch-remote-helper \
+            src-tauri/target/aarch64-apple-darwin/release/cc-switch-remote-helper \
+            src-tauri/target/x86_64-apple-darwin/release/cc-switch-remote-helper
+          chmod +x src-tauri/target/universal-apple-darwin/release/cc-switch-remote-helper
 
       - name: Build Tauri App (macOS)
         if: runner.os == 'macOS'
@@ -626,6 +648,7 @@ jobs:
     name: Publish GitHub Release
     runs-on: ubuntu-22.04
     needs: release
+    if: github.event_name == 'push'
     permissions:
       contents: write
     steps:
@@ -675,6 +698,7 @@ jobs:
     name: Assemble latest.json
     runs-on: ubuntu-22.04
     needs: publish-release
+    if: github.event_name == 'push'
     permissions:
       contents: write
     steps:
