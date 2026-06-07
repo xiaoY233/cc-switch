@@ -66,6 +66,22 @@ export interface RemoteHealth {
   lastError?: string;
 }
 
+export type RemoteSessionState =
+  | "idle"
+  | "connecting"
+  | "ready"
+  | "busy"
+  | "reconnecting"
+  | "failed"
+  | "closed";
+
+export interface RemoteSessionStatus {
+  profileId: string;
+  state: RemoteSessionState;
+  lastError?: string;
+  activeRequestId?: string;
+}
+
 export interface RemoteProviderState {
   providers: Record<string, Provider>;
   currentProviderId: string;
@@ -264,6 +280,16 @@ export const remoteApi = {
     secret?: RemoteConnectionSecret,
   ): Promise<RemoteHealth> {
     return invoke<RemoteHealth>("remote_install_helper", { profile, secret });
+  },
+
+  getSessionStatus(profileId: string): Promise<RemoteSessionStatus> {
+    return invoke<RemoteSessionStatus>("remote_get_session_status", {
+      profileId,
+    });
+  },
+
+  closeSession(profileId: string): Promise<boolean> {
+    return invoke<boolean>("remote_close_session", { profileId });
   },
 
   getSettings(
