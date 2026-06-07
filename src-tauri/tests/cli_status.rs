@@ -43,10 +43,28 @@ fn status_returns_stable_json_envelope() {
             "import-export",
             "tools",
             "settings",
-            "plugin"
+            "plugin",
+            "session"
         ])
     );
     assert!(response["error"].is_null());
+}
+
+#[test]
+fn status_advertises_session_capability() {
+    let response = cc_switch_lib::cli::run(&["status".to_string()]);
+    let capabilities = response
+        .get("data")
+        .and_then(|data| data.get("capabilities"))
+        .and_then(|value| value.as_array())
+        .expect("status capabilities");
+
+    assert!(
+        capabilities
+            .iter()
+            .any(|value| value.as_str() == Some("session")),
+        "remote helper status must advertise persistent session support"
+    );
 }
 
 #[test]

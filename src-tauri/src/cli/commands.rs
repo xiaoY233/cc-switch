@@ -48,6 +48,7 @@ pub fn status_payload() -> StatusPayload {
             "tools".to_string(),
             "settings".to_string(),
             "plugin".to_string(),
+            "session".to_string(),
         ],
     }
 }
