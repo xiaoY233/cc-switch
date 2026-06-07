@@ -1320,6 +1320,8 @@ pub fn run() {
             commands::remote_build_status_command,
             commands::remote_build_helper_install_command,
             commands::remote_parse_helper_response,
+            commands::remote_get_session_status,
+            commands::remote_close_session,
             commands::remote_check_health,
             commands::remote_install_helper,
             commands::remote_get_settings,

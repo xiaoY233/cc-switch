@@ -4,6 +4,7 @@ use crate::remote::types::{
     RemoteCommandError, RemoteConnectionSecret, RemoteHostProfile, RemoteSessionState,
     RemoteSessionStatus,
 };
+use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -18,6 +19,13 @@ use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::sync::Mutex;
 
 const REMOTE_SESSION_REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
+
+static REMOTE_SESSION_MANAGER: Lazy<RemoteSessionManager> =
+    Lazy::new(RemoteSessionManager::default);
+
+pub fn remote_session_manager() -> &'static RemoteSessionManager {
+    &REMOTE_SESSION_MANAGER
+}
 
 #[cfg(unix)]
 type PasswordAuthGuard = tempfile::TempPath;

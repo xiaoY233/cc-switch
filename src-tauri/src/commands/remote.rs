@@ -3,9 +3,10 @@ use crate::prompt::Prompt;
 use crate::provider::Provider;
 use crate::remote::{
     build_helper_install_args, build_ssh_args, delete_profile, delete_profile_secret,
-    install_helper_json, load_profiles, run_helper_json, save_profile_secret, upsert_profile,
-    validate_profile, RemoteAuthMethod, RemoteCapability, RemoteConnectionSecret, RemoteHealth,
-    RemoteHelperInstallSource, RemoteHostProfile, RemotePlatform,
+    install_helper_json, load_profiles, remote_session_manager, run_helper_json,
+    save_profile_secret, upsert_profile, validate_profile, RemoteAuthMethod, RemoteCapability,
+    RemoteConnectionSecret, RemoteHealth, RemoteHelperInstallSource, RemoteHostProfile,
+    RemotePlatform, RemoteSessionStatus,
 };
 use crate::services::skill::{
     DiscoverableSkill, ImportSkillSelection, MigrationResult, SkillBackupEntry, SkillRepo,
@@ -97,6 +98,16 @@ pub fn remote_build_helper_install_command(
 #[tauri::command]
 pub fn remote_parse_helper_response(raw: String) -> Result<serde_json::Value, String> {
     serde_json::from_str(&raw).map_err(|e| format!("Invalid helper JSON: {e}"))
+}
+
+#[tauri::command]
+pub async fn remote_get_session_status(profile_id: String) -> Result<RemoteSessionStatus, String> {
+    Ok(remote_session_manager().status(&profile_id).await)
+}
+
+#[tauri::command]
+pub async fn remote_close_session(profile_id: String) -> Result<bool, String> {
+    Ok(remote_session_manager().close(&profile_id).await)
 }
 
 #[tauri::command]
@@ -659,11 +670,10 @@ where
     T: DeserializeOwned + Send + 'static,
 {
     validate_profile(&profile).map_err(|e| e.to_string())?;
-    tokio::task::spawn_blocking(move || {
-        run_helper_json(&profile, &helper_args, secret.as_ref()).map_err(|e| e.to_string())
-    })
-    .await
-    .map_err(|e| format!("{task_name} task failed: {e}"))?
+    remote_session_manager()
+        .execute_json(profile, secret, helper_args)
+        .await
+        .map_err(|e| format!("{task_name} task failed: {e}"))
 }
 
 #[tauri::command]
@@ -1568,6 +1578,16 @@ mod tests {
         assert!(command.contains("\"$helper_path\" --json status"));
         assert!(!command.contains("rustup.rs"));
         assert!(!command.contains("cargo install --git"));
+    }
+
+    #[tokio::test]
+    async fn remote_session_status_defaults_to_idle() {
+        let status = remote_get_session_status("missing".to_string())
+            .await
+            .unwrap();
+
+        assert_eq!(status.profile_id, "missing");
+        assert_eq!(status.state, crate::remote::RemoteSessionState::Idle);
     }
 
     #[test]
