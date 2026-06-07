@@ -57,3 +57,10 @@ async fn new_manager_reports_idle_for_unknown_profile() {
     assert_eq!(status.state, RemoteSessionState::Idle);
     assert_eq!(status.last_error, None);
 }
+
+#[tokio::test]
+async fn close_unknown_session_returns_false() {
+    let manager = RemoteSessionManager::default();
+
+    assert!(!manager.close("missing").await);
+}

@@ -8,6 +8,8 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
@@ -85,7 +87,22 @@ pub fn build_session_request_line(
 
 #[derive(Default)]
 pub struct RemoteSessionManager {
-    sessions: Arc<Mutex<HashMap<String, RemoteSessionStatus>>>,
+    sessions: Arc<Mutex<HashMap<String, ManagedRemoteSession>>>,
+}
+
+struct ManagedRemoteSession {
+    status: RemoteSessionStatus,
+    executor: Option<Arc<dyn RemoteSessionExecutor>>,
+}
+
+trait RemoteSessionExecutor: Send + Sync {
+    fn execute<'a>(
+        &'a self,
+        request_id: &'a str,
+        command: &'a [String],
+    ) -> Pin<Box<dyn Future<Output = Result<Value, RemoteSessionError>> + Send + 'a>>;
+
+    fn close<'a>(&'a self) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 }
 
 impl RemoteSessionManager {
@@ -94,7 +111,7 @@ impl RemoteSessionManager {
             .lock()
             .await
             .get(profile_id)
-            .cloned()
+            .map(|session| session.status.clone())
             .unwrap_or(RemoteSessionStatus {
                 profile_id: profile_id.to_string(),
                 state: RemoteSessionState::Idle,
@@ -105,10 +122,26 @@ impl RemoteSessionManager {
 
     #[allow(dead_code)]
     async fn set_status(&self, status: RemoteSessionStatus) {
-        self.sessions
-            .lock()
-            .await
-            .insert(status.profile_id.clone(), status);
+        let mut sessions = self.sessions.lock().await;
+        sessions
+            .entry(status.profile_id.clone())
+            .and_modify(|session| session.status = status.clone())
+            .or_insert(ManagedRemoteSession {
+                status,
+                executor: None,
+            });
+    }
+
+    pub async fn close(&self, profile_id: &str) -> bool {
+        let session = self.sessions.lock().await.remove(profile_id);
+        if let Some(session) = session {
+            if let Some(executor) = session.executor {
+                executor.close().await;
+            }
+            true
+        } else {
+            false
+        }
     }
 
     pub async fn execute_json<T>(
@@ -141,7 +174,9 @@ impl RemoteSessionManager {
         })
         .await;
 
-        let mut process = RemoteSessionProcess::start(&profile, secret.as_ref()).await?;
+        let executor = self
+            .get_or_start_executor(&profile, secret.as_ref())
+            .await?;
         self.set_status(RemoteSessionStatus {
             profile_id: profile.id.clone(),
             state: RemoteSessionState::Busy,
@@ -152,7 +187,7 @@ impl RemoteSessionManager {
 
         let result = tokio::time::timeout(
             REMOTE_SESSION_REQUEST_TIMEOUT,
-            process.execute_value(&request_id, &helper_args),
+            executor.execute(&request_id, &helper_args),
         )
         .await
         .map_err(|_| AppError::Message(RemoteSessionError::Timeout.to_string()))?
@@ -169,22 +204,69 @@ impl RemoteSessionManager {
                 .await;
             }
             Err(error) => {
-                self.set_status(RemoteSessionStatus {
-                    profile_id: profile.id.clone(),
-                    state: RemoteSessionState::Failed,
-                    last_error: Some(error.to_string()),
-                    active_request_id: None,
-                })
-                .await;
+                let mut sessions = self.sessions.lock().await;
+                sessions.insert(
+                    profile.id.clone(),
+                    ManagedRemoteSession {
+                        status: RemoteSessionStatus {
+                            profile_id: profile.id.clone(),
+                            state: RemoteSessionState::Failed,
+                            last_error: Some(error.to_string()),
+                            active_request_id: None,
+                        },
+                        executor: None,
+                    },
+                );
             }
         }
 
         result
     }
+
+    async fn get_or_start_executor(
+        &self,
+        profile: &RemoteHostProfile,
+        secret: Option<&RemoteConnectionSecret>,
+    ) -> Result<Arc<dyn RemoteSessionExecutor>, AppError> {
+        if let Some(executor) = self
+            .sessions
+            .lock()
+            .await
+            .get(&profile.id)
+            .and_then(|session| session.executor.clone())
+        {
+            return Ok(executor);
+        }
+
+        self.set_status(RemoteSessionStatus {
+            profile_id: profile.id.clone(),
+            state: RemoteSessionState::Connecting,
+            last_error: None,
+            active_request_id: None,
+        })
+        .await;
+
+        let process = RemoteSessionProcess::start(profile, secret).await?;
+        let executor: Arc<dyn RemoteSessionExecutor> = Arc::new(Mutex::new(process));
+        let mut sessions = self.sessions.lock().await;
+        sessions.insert(
+            profile.id.clone(),
+            ManagedRemoteSession {
+                status: RemoteSessionStatus {
+                    profile_id: profile.id.clone(),
+                    state: RemoteSessionState::Ready,
+                    last_error: None,
+                    active_request_id: None,
+                },
+                executor: Some(executor.clone()),
+            },
+        );
+        Ok(executor)
+    }
 }
 
 struct RemoteSessionProcess {
-    _child: Child,
+    child: Child,
     stdin: ChildStdin,
     stdout: BufReader<ChildStdout>,
     _askpass: Option<PasswordAuthGuard>,
@@ -214,7 +296,7 @@ impl RemoteSessionProcess {
         })?;
 
         Ok(Self {
-            _child: child,
+            child,
             stdin,
             stdout: BufReader::new(stdout),
             _askpass: askpass,
@@ -264,5 +346,129 @@ impl RemoteSessionProcess {
                 },
             )))
         }
+    }
+}
+
+impl RemoteSessionExecutor for Mutex<RemoteSessionProcess> {
+    fn execute<'a>(
+        &'a self,
+        request_id: &'a str,
+        command: &'a [String],
+    ) -> Pin<Box<dyn Future<Output = Result<Value, RemoteSessionError>> + Send + 'a>> {
+        Box::pin(async move { self.lock().await.execute_value(request_id, command).await })
+    }
+
+    fn close<'a>(&'a self) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
+        Box::pin(async move {
+            let mut process = self.lock().await;
+            let _ = process.child.kill().await;
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    struct FakeExecutor {
+        response: Value,
+        execute_count: Arc<AtomicUsize>,
+        closed: Arc<AtomicBool>,
+    }
+
+    impl FakeExecutor {
+        fn new(response: Value) -> Self {
+            Self {
+                response,
+                execute_count: Arc::new(AtomicUsize::new(0)),
+                closed: Arc::new(AtomicBool::new(false)),
+            }
+        }
+    }
+
+    impl RemoteSessionExecutor for FakeExecutor {
+        fn execute<'a>(
+            &'a self,
+            _request_id: &'a str,
+            _command: &'a [String],
+        ) -> Pin<Box<dyn Future<Output = Result<Value, RemoteSessionError>> + Send + 'a>> {
+            Box::pin(async move {
+                self.execute_count.fetch_add(1, Ordering::SeqCst);
+                Ok(self.response.clone())
+            })
+        }
+
+        fn close<'a>(&'a self) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
+            Box::pin(async move {
+                self.closed.store(true, Ordering::SeqCst);
+            })
+        }
+    }
+
+    fn profile() -> RemoteHostProfile {
+        RemoteHostProfile {
+            id: "prod".to_string(),
+            name: "Production".to_string(),
+            host: "example.com".to_string(),
+            port: 22,
+            username: "ccswitch".to_string(),
+            auth_method: crate::remote::types::RemoteAuthMethod::SshAgent,
+            helper_path: "/usr/local/bin/cc-switch-helper".to_string(),
+            created_at: 1,
+            updated_at: 1,
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_json_reuses_existing_executor() {
+        let manager = RemoteSessionManager::default();
+        let executor = Arc::new(FakeExecutor::new(serde_json::json!({"value": 42})));
+        manager.sessions.lock().await.insert(
+            "prod".to_string(),
+            ManagedRemoteSession {
+                status: RemoteSessionStatus {
+                    profile_id: "prod".to_string(),
+                    state: RemoteSessionState::Ready,
+                    last_error: None,
+                    active_request_id: None,
+                },
+                executor: Some(executor.clone()),
+            },
+        );
+
+        let value: Value = manager
+            .execute_json(profile(), None, vec!["status".to_string()])
+            .await
+            .expect("session value");
+
+        assert_eq!(value, serde_json::json!({"value": 42}));
+        assert_eq!(executor.execute_count.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            manager.status("prod").await.state,
+            RemoteSessionState::Ready
+        );
+    }
+
+    #[tokio::test]
+    async fn close_existing_session_closes_executor() {
+        let manager = RemoteSessionManager::default();
+        let executor = Arc::new(FakeExecutor::new(Value::Null));
+        manager.sessions.lock().await.insert(
+            "prod".to_string(),
+            ManagedRemoteSession {
+                status: RemoteSessionStatus {
+                    profile_id: "prod".to_string(),
+                    state: RemoteSessionState::Ready,
+                    last_error: None,
+                    active_request_id: None,
+                },
+                executor: Some(executor.clone()),
+            },
+        );
+
+        assert!(manager.close("prod").await);
+        assert!(executor.closed.load(Ordering::SeqCst));
+        assert_eq!(manager.status("prod").await.state, RemoteSessionState::Idle);
     }
 }
