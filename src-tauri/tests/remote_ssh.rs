@@ -38,6 +38,19 @@ fn ssh_args_include_port_identity_and_json_command() {
 }
 
 #[test]
+fn ssh_serve_args_start_helper_in_serve_mode() {
+    let args = cc_switch_lib::remote::build_ssh_serve_args(&profile());
+
+    assert!(args.contains(&"alice@example.com".to_string()));
+    assert_eq!(
+        args.last().expect("remote command"),
+        "~/.local/bin/cc-switch-remote-helper --json serve"
+    );
+    assert!(args.contains(&"ControlMaster=no".to_string()));
+    assert!(!args.iter().any(|arg| arg == "-S"));
+}
+
+#[test]
 fn ssh_args_accept_new_host_keys_without_disabling_changed_host_protection() {
     let args = build_ssh_args(&profile(), &["status".to_string()]);
 

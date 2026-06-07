@@ -88,6 +88,15 @@ pub fn build_ssh_args(profile: &RemoteHostProfile, helper_args: &[String]) -> Ve
     args
 }
 
+pub fn build_ssh_serve_args(profile: &RemoteHostProfile) -> Vec<String> {
+    let mut args = build_ssh_base_args(profile);
+    args.push(format!(
+        "{} --json serve",
+        shell_quote_helper_path(&profile.helper_path)
+    ));
+    args
+}
+
 pub fn build_helper_install_args(profile: &RemoteHostProfile) -> Vec<String> {
     build_helper_install_args_with_source(profile, &RemoteHelperInstallSource::from_env())
 }

@@ -30,6 +30,27 @@ pub struct RemoteConnectionSecret {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct RemoteSessionStatus {
+    pub profile_id: String,
+    pub state: RemoteSessionState,
+    pub last_error: Option<String>,
+    pub active_request_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum RemoteSessionState {
+    Idle,
+    Connecting,
+    Ready,
+    Busy,
+    Reconnecting,
+    Failed,
+    Closed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct RemoteHealth {
     pub reachable: bool,
     pub helper_installed: bool,
@@ -68,6 +89,7 @@ pub enum RemoteCapability {
     Tools,
     Settings,
     Plugin,
+    Session,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
