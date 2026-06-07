@@ -1537,13 +1537,14 @@ mod tests {
             .any(|pair| pair == ["-o", "NumberOfPasswordPrompts=1"]));
         assert!(args
             .windows(2)
-            .any(|pair| pair == ["-o", "ControlMaster=auto"]));
+            .any(|pair| pair == ["-o", "ControlMaster=no"]));
         assert!(args
             .windows(2)
-            .any(|pair| pair == ["-o", "ControlPersist=10m"]));
-        assert!(args.windows(2).any(|pair| pair[0] == "-S"
-            && pair[1].starts_with("/tmp/ccsw-")
-            && pair[1].len() < 80));
+            .any(|pair| pair == ["-o", "ControlPersist=no"]));
+        assert!(!args
+            .windows(2)
+            .any(|pair| pair == ["-o", "ControlMaster=auto"]));
+        assert!(!args.iter().any(|arg| arg == "-S"));
         assert!(args.windows(2).any(|pair| pair == ["-o", "BatchMode=yes"]));
         assert_eq!(args[args.len() - 2], "ccswitch@example.com");
         assert_eq!(

@@ -47,46 +47,21 @@ fn ssh_args_accept_new_host_keys_without_disabling_changed_host_protection() {
 }
 
 #[test]
-fn ssh_args_use_stable_control_master_socket_for_connection_reuse() {
-    let first = build_ssh_args(&profile(), &["providers".to_string(), "list".to_string()]);
-    let second = build_ssh_args(
-        &profile(),
-        &["providers".to_string(), "current".to_string()],
-    );
+fn ssh_args_disable_control_master_by_default() {
+    let args = build_ssh_args(&profile(), &["providers".to_string(), "list".to_string()]);
 
-    assert!(first.contains(&"ControlMaster=auto".to_string()));
-    assert!(first.contains(&"ControlPersist=10m".to_string()));
-
-    let first_path = first
-        .windows(2)
-        .find_map(|pair| (pair[0] == "-S").then(|| pair[1].clone()))
-        .expect("first control socket path");
-    let second_path = second
-        .windows(2)
-        .find_map(|pair| (pair[0] == "-S").then(|| pair[1].clone()))
-        .expect("second control socket path");
-
-    assert_eq!(first_path, second_path);
-    assert!(
-        first_path.contains("ccsw-"),
-        "socket path should be app-owned, got {first_path}"
-    );
+    assert!(args.contains(&"ControlMaster=no".to_string()));
+    assert!(args.contains(&"ControlPersist=no".to_string()));
+    assert!(!args.contains(&"ControlMaster=auto".to_string()));
+    assert!(!args.iter().any(|arg| arg == "-S"));
 }
 
 #[test]
 #[cfg(unix)]
-fn ssh_control_master_socket_path_stays_below_unix_socket_limit() {
+fn ssh_args_do_not_create_control_socket_path() {
     let args = build_ssh_args(&profile(), &["status".to_string()]);
-    let socket_path = args
-        .windows(2)
-        .find_map(|pair| (pair[0] == "-S").then(|| pair[1].clone()))
-        .expect("control socket path");
 
-    assert!(
-        socket_path.len() <= 80,
-        "OpenSSH appends a temporary suffix while creating the socket, so the base path must stay short; got {} bytes: {socket_path}",
-        socket_path.len()
-    );
+    assert!(!args.iter().any(|arg| arg == "-S"));
 }
 
 #[test]

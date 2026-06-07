@@ -4,7 +4,6 @@ use crate::remote::types::{
     RemoteHostProfile,
 };
 use serde::de::DeserializeOwned;
-use sha2::{Digest, Sha256};
 use std::process::Command;
 
 const HELPER_RELEASE_REPO: &str = "xiaoY233/cc-switch-remote";
@@ -48,11 +47,9 @@ fn build_ssh_base_args(profile: &RemoteHostProfile) -> Vec<String> {
         "-o".to_string(),
         "NumberOfPasswordPrompts=1".to_string(),
         "-o".to_string(),
-        "ControlMaster=auto".to_string(),
+        "ControlMaster=no".to_string(),
         "-o".to_string(),
-        "ControlPersist=10m".to_string(),
-        "-S".to_string(),
-        control_socket_path(profile),
+        "ControlPersist=no".to_string(),
         "-o".to_string(),
         match &profile.auth_method {
             RemoteAuthMethod::Password => "BatchMode=no".to_string(),
@@ -77,26 +74,6 @@ fn build_ssh_base_args(profile: &RemoteHostProfile) -> Vec<String> {
     args.push("--".to_string());
     args.push(format!("{}@{}", profile.username, profile.host));
     args
-}
-
-fn control_socket_path(profile: &RemoteHostProfile) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(profile.id.as_bytes());
-    hasher.update(b"\0");
-    hasher.update(profile.username.as_bytes());
-    hasher.update(b"\0");
-    hasher.update(profile.host.as_bytes());
-    hasher.update(b"\0");
-    hasher.update(profile.port.to_string().as_bytes());
-    let digest = hasher.finalize();
-    let short = digest[..8]
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
-    std::path::Path::new("/tmp")
-        .join(format!("ccsw-{short}"))
-        .to_string_lossy()
-        .into_owned()
 }
 
 pub fn build_ssh_args(profile: &RemoteHostProfile, helper_args: &[String]) -> Vec<String> {
@@ -257,6 +234,8 @@ fn normalize_remote_stderr(profile: &RemoteHostProfile, stderr: &str) -> String 
         || stderr.contains("libayatana-appindicator")
     {
         "远程 Helper 不是纯 CLI 构建，依赖服务器上不存在的桌面 GTK/WebKit 库。请重新安装最新的远程 Helper。".to_string()
+    } else if is_ssh_control_socket_error(stderr) {
+        "SSH 连接复用控制 socket 异常，连接尚未到达远程 Helper。当前版本已默认禁用 SSH ControlMaster；请升级客户端后重试。若仍然出现，请检查本机 ~/.ssh/config 中该主机的 ControlMaster/ControlPath 配置。".to_string()
     } else if is_helper_missing_error(profile, stderr) {
         format!(
             "远程 Helper 未安装或路径不正确。请点击“安装 Helper”，或在远程服务器配置中修正 Helper 路径（当前：{}）。",
@@ -265,6 +244,12 @@ fn normalize_remote_stderr(profile: &RemoteHostProfile, stderr: &str) -> String 
     } else {
         stderr.to_string()
     }
+}
+
+fn is_ssh_control_socket_error(stderr: &str) -> bool {
+    stderr.contains("getsockname failed: Not a socket")
+        || stderr.contains("Control socket connect")
+        || stderr.contains("mux_client_hello_exchange")
 }
 
 fn is_helper_missing_error(profile: &RemoteHostProfile, stderr: &str) -> bool {
@@ -406,4 +391,50 @@ fn shell_quote(value: &str) -> String {
         return value.to_string();
     }
     format!("'{}'", value.replace('\'', "'\\''"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn valid_profile() -> RemoteHostProfile {
+        RemoteHostProfile {
+            id: "prod".to_string(),
+            name: "Production".to_string(),
+            host: "example.com".to_string(),
+            port: 22,
+            username: "ccswitch".to_string(),
+            auth_method: RemoteAuthMethod::SshAgent,
+            helper_path: "/usr/local/bin/cc-switch-helper".to_string(),
+            created_at: 1,
+            updated_at: 1,
+        }
+    }
+
+    #[test]
+    fn disables_ssh_control_master_by_default() {
+        let args = build_ssh_args(&valid_profile(), &["status".to_string()]);
+
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["-o", "ControlMaster=no"]));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["-o", "ControlPersist=no"]));
+        assert!(!args
+            .windows(2)
+            .any(|pair| pair == ["-o", "ControlMaster=auto"]));
+        assert!(!args.iter().any(|arg| arg == "-S"));
+    }
+
+    #[test]
+    fn normalizes_ssh_control_socket_error() {
+        let message = normalize_remote_stderr(
+            &valid_profile(),
+            "getsockname failed: Not a socket\r\nRead from remote host 10.81.2.202: Unknown error",
+        );
+
+        assert!(message.contains("SSH 连接复用控制 socket 异常"));
+        assert!(message.contains("ControlMaster"));
+    }
 }
