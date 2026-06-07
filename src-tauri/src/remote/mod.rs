@@ -1,7 +1,12 @@
+pub mod session;
 pub mod ssh;
 pub mod store;
 pub mod types;
 
+pub use session::{
+    parse_session_response_line, RemoteSessionError, RemoteSessionManager,
+    RemoteSessionResponseLine,
+};
 pub use ssh::{
     build_helper_install_args, build_helper_install_args_with_source, build_ssh_args,
     build_ssh_serve_args, install_helper_json, run_helper_json, RemoteHelperInstallSource,
