@@ -276,15 +276,12 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
     assert!(remote_command.contains("verify_helper_status()"));
     assert!(remote_command.contains("grep -q '\"openclaw\"'"));
     assert!(remote_command.contains("grep -q '\"hermes-memory\"'"));
-    assert!(
-        !remote_command.contains("grep -q '\"settings\"'"),
-        "settings is an optional helper capability and must not block installation"
-    );
-    assert!(
-        !remote_command.contains("grep -q '\"plugin\"'"),
-        "plugin is an optional helper capability and must not block installation"
-    );
+    assert!(remote_command.contains("grep -q '\"settings\"'"));
+    assert!(remote_command.contains("grep -q '\"plugin\"'"));
     assert!(remote_command.contains("cc-switch-remote helper is missing required capabilities"));
+    assert!(remote_command.contains(
+        "providers, openclaw, mcp, prompts, skills, sessions, hermes-memory, import-export, tools, settings, plugin, session"
+    ));
     assert!(remote_command.contains("cc-switch-remote-helper"));
     assert!(remote_command.contains("cc-switch-cli"));
     assert!(!remote_command.contains("asset_arch=universal"));
@@ -419,7 +416,7 @@ fn install_helper_runs_github_release_download_command_without_local_archive() {
         &ssh_path,
         r#"#!/bin/sh
 set -eu
-printf '%s\n' '{"ok":true,"data":{"version":"test","platform":"linux","capabilities":["providers","openclaw","mcp","prompts","skills","sessions","hermes-memory","import-export"]},"error":null}'
+printf '%s\n' '{"ok":true,"data":{"version":"test","platform":"linux","capabilities":["providers","openclaw","mcp","prompts","skills","sessions","hermes-memory","import-export","tools","settings","plugin","session"]},"error":null}'
 "#,
     )
     .expect("write fake ssh");

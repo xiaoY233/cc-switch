@@ -31,10 +31,12 @@ mod provider;
 mod provider_defaults;
 mod proxy;
 pub mod remote;
+pub mod remote_capabilities;
 mod services;
 mod session_manager;
 mod settings;
 mod store;
+pub mod tool_environment;
 
 mod tray;
 mod usage_events;

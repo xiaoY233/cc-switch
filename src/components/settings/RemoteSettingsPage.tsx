@@ -32,6 +32,7 @@ import {
   type ToolName,
 } from "@/components/settings/ToolEnvironmentSection";
 import { useImportExport } from "@/hooks/useImportExport";
+import { useRemoteSettings } from "@/hooks/useRemoteSettings";
 import { remoteApi } from "@/lib/api";
 import type {
   ManagementTarget,
@@ -39,6 +40,13 @@ import type {
   RemoteToolVersion,
 } from "@/lib/api";
 import { isUpdateAvailable } from "@/lib/version";
+import {
+  formatRemoteCapabilitySummary,
+  formatRemoteHelperLatest,
+  formatRemoteHelperUpdateError,
+  formatRemoteHelperVersion,
+  formatRemotePlatform,
+} from "@/lib/remoteHealth";
 import { extractErrorMessage } from "@/utils/errorUtils";
 import type { Settings, SkillStorageLocation } from "@/types";
 import type { MigrationResult } from "@/lib/api/skills";
@@ -82,12 +90,19 @@ export function RemoteSettingsPage({
     null,
   );
   const [activeRemoteTask, setActiveRemoteTask] = useState<string | null>(null);
-  const [remoteSettings, setRemoteSettings] = useState<Settings | null>(null);
-  const [isLoadingRemoteSettings, setIsLoadingRemoteSettings] = useState(false);
-  const [isSavingRemoteSettings, setIsSavingRemoteSettings] = useState(false);
-  const [remoteInstalledSkillCount, setRemoteInstalledSkillCount] = useState(0);
 
   const importExport = useImportExport({ onImportSuccess, target });
+  const {
+    settings: remoteSettings,
+    isLoading: isLoadingRemoteSettings,
+    isSaving: isSavingRemoteSettings,
+    installedSkillCount: remoteInstalledSkillCount,
+    activeTask: remoteSettingsTask,
+    loadSettings: loadRemoteSettings,
+    clearSettings: clearRemoteSettings,
+    saveSettings: saveRemoteSettings,
+    migrateSkillStorage: migrateRemoteSkillStorage,
+  } = useRemoteSettings({ target, onSettingsSaved });
 
   const toolsCapability = health?.capabilities.includes("tools") ?? false;
   const settingsCapability = health?.capabilities.includes("settings") ?? false;
@@ -178,42 +193,6 @@ export function RemoteSettingsPage({
     }
   }, [t, target.profile, target.secret]);
 
-  const loadRemoteGeneralSettings = useCallback(
-    async (canLoadSkills: boolean) => {
-      setIsLoadingRemoteSettings(true);
-      setActiveRemoteTask(
-        t("remote.settings.tasks.loadSettings", {
-          defaultValue: "正在读取远程通用设置...",
-        }),
-      );
-      try {
-        const [settings, installedSkills] = await Promise.all([
-          remoteApi.getSettings(target.profile, target.secret),
-          canLoadSkills
-            ? remoteApi.getInstalledSkills(target.profile, target.secret)
-            : Promise.resolve([]),
-        ]);
-        setRemoteSettings(settings);
-        setRemoteInstalledSkillCount(installedSkills.length);
-        return settings;
-      } catch (error) {
-        console.error("[RemoteSettingsPage] Failed to load settings", error);
-        setRemoteSettings(null);
-        toast.error(
-          t("remote.settings.general.loadFailed", {
-            defaultValue: "远程通用设置加载失败",
-          }),
-          { description: extractErrorMessage(error) },
-        );
-        return null;
-      } finally {
-        setIsLoadingRemoteSettings(false);
-        setActiveRemoteTask(null);
-      }
-    },
-    [t, target.profile, target.secret],
-  );
-
   const refreshRemoteState = useCallback(async () => {
     const result = await loadHealth();
     const canLoadSettings =
@@ -221,12 +200,11 @@ export function RemoteSettingsPage({
       result.helperInstalled &&
       result.capabilities.includes("settings");
     if (canLoadSettings) {
-      await loadRemoteGeneralSettings(result.capabilities.includes("skills"));
+      await loadRemoteSettings(result.capabilities.includes("skills"));
     } else {
-      setRemoteSettings(null);
-      setRemoteInstalledSkillCount(0);
+      clearRemoteSettings();
     }
-  }, [loadHealth, loadRemoteGeneralSettings]);
+  }, [clearRemoteSettings, loadHealth, loadRemoteSettings]);
 
   useEffect(() => {
     if (!open) return;
@@ -237,96 +215,6 @@ export function RemoteSettingsPage({
     if (!open) return;
     void refreshRemoteState();
   }, [open, refreshRemoteState]);
-
-  const syncRemoteClaudePluginIfChanged = async (
-    nextSettings: Settings,
-    previousSettings: Settings,
-  ) => {
-    const nextEnabled = nextSettings.enableClaudePluginIntegration ?? false;
-    const previousEnabled =
-      previousSettings.enableClaudePluginIntegration ?? false;
-    if (nextEnabled === previousEnabled) return;
-
-    let official = true;
-    if (nextEnabled) {
-      const currentId = await remoteApi.getCurrentProvider(
-        target.profile,
-        "claude",
-        target.secret,
-      );
-      if (currentId) {
-        const providers = await remoteApi.getProviders(
-          target.profile,
-          "claude",
-          target.secret,
-        );
-        official = providers[currentId]?.category === "official";
-      }
-    }
-
-    await remoteApi.applyClaudePluginConfig(
-      target.profile,
-      official,
-      target.secret,
-    );
-  };
-
-  const syncRemoteClaudeOnboardingIfChanged = async (
-    nextSettings: Settings,
-    previousSettings: Settings,
-  ) => {
-    const nextEnabled = nextSettings.skipClaudeOnboarding ?? false;
-    const previousEnabled = previousSettings.skipClaudeOnboarding ?? false;
-    if (nextEnabled === previousEnabled) return;
-    await remoteApi.setClaudeOnboardingSkip(
-      target.profile,
-      nextEnabled,
-      target.secret,
-    );
-  };
-
-  const saveRemoteSettings = async (updates: Partial<Settings>) => {
-    if (!remoteSettings) return;
-    const nextSettings: Settings = { ...remoteSettings, ...updates };
-    setIsSavingRemoteSettings(true);
-    setActiveRemoteTask(
-      t("remote.settings.tasks.saveSettings", {
-        defaultValue: "正在保存远程通用设置...",
-      }),
-    );
-    try {
-      await remoteApi.saveSettings(target.profile, nextSettings, target.secret);
-      await syncRemoteClaudePluginIfChanged(nextSettings, remoteSettings);
-      await syncRemoteClaudeOnboardingIfChanged(nextSettings, remoteSettings);
-      setRemoteSettings(nextSettings);
-      onSettingsSaved?.(nextSettings);
-    } catch (error) {
-      console.error("[RemoteSettingsPage] Failed to save settings", error);
-      toast.error(
-        t("remote.settings.general.saveFailed", {
-          defaultValue: "远程通用设置保存失败",
-        }),
-        { description: extractErrorMessage(error) },
-      );
-    } finally {
-      setIsSavingRemoteSettings(false);
-      setActiveRemoteTask(null);
-    }
-  };
-
-  const migrateRemoteSkillStorage = async (
-    targetLocation: SkillStorageLocation,
-  ) => {
-    const result = await remoteApi.migrateSkillStorage(
-      target.profile,
-      targetLocation,
-      target.secret,
-    );
-    setRemoteSettings((prev) =>
-      prev ? { ...prev, skillStorageLocation: targetLocation } : prev,
-    );
-    return result;
-  };
 
   const installHelper = async () => {
     setIsInstallingHelper(true);
@@ -478,7 +366,9 @@ export function RemoteSettingsPage({
                 onInstallHelper={installHelper}
                 profileName={target.profile.name || target.profile.host}
               />
-              <RemoteTaskBanner message={activeRemoteTask} />
+              <RemoteTaskBanner
+                message={activeRemoteTask ?? remoteSettingsTask}
+              />
               <ToolEnvironmentSection
                 title={t("remote.settings.environment.toolsTitle", {
                   defaultValue: "远程环境检查更新",
@@ -522,7 +412,7 @@ export function RemoteSettingsPage({
                 isLoading={isLoadingRemoteSettings}
                 isSaving={isSavingRemoteSettings}
                 onRefresh={() => {
-                  void loadRemoteGeneralSettings(skillsCapability);
+                  void loadRemoteSettings(skillsCapability);
                 }}
                 onSave={(updates) => {
                   void saveRemoteSettings(updates);
@@ -826,13 +716,13 @@ function RemoteHealthSection({
             label={t("remote.health.helperVersion", {
               defaultValue: "Helper 版本",
             })}
-            value={formatHelperVersion(health)}
+            value={formatRemoteHelperVersion(health)}
           />
           <InfoCell
             label={t("remote.health.helperLatestVersion", {
               defaultValue: "最新 Helper",
             })}
-            value={formatHelperLatest(health)}
+            value={formatRemoteHelperLatest(health)}
           />
           <InfoCell
             label={t("remote.health.platform", { defaultValue: "系统" })}
@@ -867,10 +757,7 @@ function RemoteHealthSection({
         ) : null}
         {health?.helperUpdateError ? (
           <div className="border-t border-border/50 px-4 py-3 text-xs text-muted-foreground">
-            {t("remote.health.helperUpdateCheckFailed", {
-              defaultValue: "Helper 更新检测失败: {{error}}",
-              error: health.helperUpdateError,
-            })}
+            {formatRemoteHelperUpdateError(health.helperUpdateError, t)}
           </div>
         ) : null}
         {health?.lastError ? (
@@ -881,41 +768,6 @@ function RemoteHealthSection({
       </div>
     </div>
   );
-}
-
-function formatHelperVersion(health: RemoteHealth | null) {
-  if (!health?.helperVersion) return "-";
-  return health.helperVersion;
-}
-
-function formatHelperLatest(health: RemoteHealth | null) {
-  return health?.helperLatestVersion ?? "-";
-}
-
-function formatRemotePlatform(health: RemoteHealth | null) {
-  if (!health?.platform) return "-";
-  return health.helperArch
-    ? `${health.platform} / ${health.helperArch}`
-    : health.platform;
-}
-
-function formatRemoteCapabilitySummary(
-  health: RemoteHealth | null,
-  t: ReturnType<typeof useTranslation>["t"],
-) {
-  if (!health?.reachable || !health.helperInstalled) {
-    return "-";
-  }
-  const count = health.capabilities.length;
-  if (count === 0) {
-    return t("remote.health.noCapabilities", {
-      defaultValue: "未返回功能支持信息",
-    });
-  }
-  return t("remote.health.supportedCapabilities", {
-    defaultValue: "已支持 {{count}} 项",
-    count,
-  });
 }
 
 function InfoCell({ label, value }: { label: string; value: string }) {

@@ -60,6 +60,9 @@ mod provider_defaults;
 #[path = "../proxy/mod.rs"]
 #[cfg(not(feature = "desktop"))]
 mod proxy;
+#[path = "../remote_capabilities.rs"]
+#[cfg(not(feature = "desktop"))]
+mod remote_capabilities;
 #[path = "../services/mod.rs"]
 #[cfg(not(feature = "desktop"))]
 mod services;
@@ -72,6 +75,9 @@ mod settings;
 #[path = "../store.rs"]
 #[cfg(not(feature = "desktop"))]
 mod store;
+#[path = "../tool_environment.rs"]
+#[cfg(not(feature = "desktop"))]
+mod tool_environment;
 #[path = "../usage_script.rs"]
 #[cfg(not(feature = "desktop"))]
 mod usage_script;

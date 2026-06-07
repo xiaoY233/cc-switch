@@ -3,6 +3,7 @@ use crate::remote::types::{
     RemoteAuthMethod, RemoteCommandError, RemoteCommandResponse, RemoteConnectionSecret,
     RemoteHostProfile,
 };
+use crate::remote_capabilities::REMOTE_HELPER_REQUIRED_CAPABILITIES;
 use serde::de::DeserializeOwned;
 use std::process::Command;
 
@@ -109,6 +110,12 @@ pub fn build_helper_install_args_with_source(
     let helper_path = shell_quote_helper_path(&profile.helper_path);
     let release_repo = shell_quote(&source.release_repo);
     let release_tag = shell_quote(&source.release_tag);
+    let required_capability_checks = REMOTE_HELPER_REQUIRED_CAPABILITIES
+        .iter()
+        .map(|capability| format!("printf '%s\\n' \"$status_json\" | grep -q '\"{capability}\"'"))
+        .collect::<Vec<_>>()
+        .join(" && ");
+    let required_capabilities = REMOTE_HELPER_REQUIRED_CAPABILITIES.join(", ");
     let command = format!(
         concat!(
             "set -e; ",
@@ -136,17 +143,8 @@ pub fn build_helper_install_args_with_source(
             "}}; ",
             "status_json=$status_output; ",
             "printf '%s\\n' \"$status_json\"; ",
-            "printf '%s\\n' \"$status_json\" | grep -q '\"providers\"' && ",
-            "printf '%s\\n' \"$status_json\" | grep -q '\"openclaw\"' && ",
-            "printf '%s\\n' \"$status_json\" | grep -q '\"mcp\"' && ",
-            "printf '%s\\n' \"$status_json\" | grep -q '\"prompts\"' && ",
-            "printf '%s\\n' \"$status_json\" | grep -q '\"skills\"' && ",
-            "printf '%s\\n' \"$status_json\" | grep -q '\"sessions\"' && ",
-            "printf '%s\\n' \"$status_json\" | grep -q '\"hermes-memory\"' && ",
-            "printf '%s\\n' \"$status_json\" | grep -q '\"import-export\"' && ",
-            "printf '%s\\n' \"$status_json\" | grep -q '\"tools\"' && ",
-            "printf '%s\\n' \"$status_json\" | grep -q '\"session\"' && return 0; ",
-            "echo 'cc-switch-remote helper is missing required capabilities; install a helper build that includes providers, openclaw, mcp, prompts, skills, sessions, hermes-memory, import-export, tools, and session' >&2; ",
+            "{required_capability_checks} && return 0; ",
+            "echo 'cc-switch-remote helper is missing required capabilities; install a helper build that includes {required_capabilities}' >&2; ",
             "return 64; ",
             "}}; ",
             "try_release_asset_install() {{ ",
@@ -185,6 +183,8 @@ pub fn build_helper_install_args_with_source(
         helper_path = helper_path,
         release_repo = release_repo,
         release_tag = release_tag,
+        required_capability_checks = required_capability_checks,
+        required_capabilities = required_capabilities,
     );
     args.push(command);
     args

@@ -1580,8 +1580,12 @@ mod tests {
         assert!(command.contains("Downloaded remote helper is not compatible with this server"));
         assert!(command.contains("No compatible cc-switch-remote helper release asset found"));
         assert!(command.contains("\"$helper_path\" --json status"));
+        assert!(command.contains("'\"settings\"'"));
+        assert!(command.contains("'\"plugin\"'"));
         assert!(command.contains("'\"session\"'"));
-        assert!(command.contains("session"));
+        assert!(command.contains(
+            "providers, openclaw, mcp, prompts, skills, sessions, hermes-memory, import-export, tools, settings, plugin, session"
+        ));
         assert!(!command.contains("rustup.rs"));
         assert!(!command.contains("cargo install --git"));
     }

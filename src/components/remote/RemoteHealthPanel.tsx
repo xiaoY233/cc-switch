@@ -18,65 +18,14 @@ import {
   type RemoteHealth,
   type RemoteHostProfile,
 } from "@/lib/api";
-
-const EXPECTED_REMOTE_CAPABILITIES = [
-  {
-    id: "providers",
-    labelKey: "remote.capabilities.providers",
-    defaultLabel: "供应商",
-  },
-  {
-    id: "openclaw",
-    labelKey: "remote.capabilities.openclaw",
-    defaultLabel: "OpenClaw",
-  },
-  { id: "mcp", labelKey: "remote.capabilities.mcp", defaultLabel: "MCP" },
-  {
-    id: "prompts",
-    labelKey: "remote.capabilities.prompts",
-    defaultLabel: "提示词",
-  },
-  {
-    id: "skills",
-    labelKey: "remote.capabilities.skills",
-    defaultLabel: "技能",
-  },
-  {
-    id: "sessions",
-    labelKey: "remote.capabilities.sessions",
-    defaultLabel: "会话管理",
-  },
-  {
-    id: "hermes-memory",
-    labelKey: "remote.capabilities.hermesMemory",
-    defaultLabel: "Hermes 记忆",
-  },
-  {
-    id: "tools",
-    labelKey: "remote.capabilities.tools",
-    defaultLabel: "环境检查更新",
-  },
-  {
-    id: "import-export",
-    labelKey: "remote.capabilities.importExport",
-    defaultLabel: "导入 / 导出",
-  },
-  {
-    id: "settings",
-    labelKey: "remote.capabilities.settings",
-    defaultLabel: "通用设置",
-  },
-  {
-    id: "plugin",
-    labelKey: "remote.capabilities.plugin",
-    defaultLabel: "Claude 插件",
-  },
-  {
-    id: "session",
-    labelKey: "remote.capabilities.session",
-    defaultLabel: "持久连接",
-  },
-] as const;
+import {
+  canReportRemoteCapabilities,
+  EXPECTED_REMOTE_CAPABILITIES,
+  formatRemoteHelperLatest,
+  formatRemoteHelperUpdateError,
+  formatRemoteHelperVersion,
+  formatRemotePlatform,
+} from "@/lib/remoteHealth";
 
 export function RemoteHealthPanel({
   profile,
@@ -89,21 +38,20 @@ export function RemoteHealthPanel({
   const [health, setHealth] = useState<RemoteHealth | null>(null);
   const [checking, setChecking] = useState(false);
   const [installing, setInstalling] = useState(false);
-  const healthCanReportCapabilities =
-    health?.reachable === true && health.helperInstalled === true;
+  const healthCanReportCapabilities = canReportRemoteCapabilities(health);
   const capabilitySet = new Set(health?.capabilities ?? []);
   const missingCapabilities = healthCanReportCapabilities
     ? EXPECTED_REMOTE_CAPABILITIES.filter(
         (capability) => !capabilitySet.has(capability.id),
       )
     : [];
-  const helperVersionText = formatHelperVersion(health);
-  const helperLatestText = formatHelperLatest(health);
+  const helperVersionText = formatRemoteHelperVersion(health);
+  const helperLatestText = formatRemoteHelperLatest(health);
   const helperInstallLabel = health?.helperUpdateAvailable
     ? t("remote.health.updateHelper", { defaultValue: "更新 Helper" })
     : t("remote.health.install", { defaultValue: "安装 Helper" });
   const helperUpdateErrorText = health?.helperUpdateError
-    ? formatHelperUpdateError(health.helperUpdateError, t)
+    ? formatRemoteHelperUpdateError(health.helperUpdateError, t)
     : null;
 
   const handleCheck = async () => {
@@ -223,7 +171,7 @@ export function RemoteHealthPanel({
         />
         <Metric
           label={t("remote.health.platform", { defaultValue: "平台" })}
-          value={health?.platform ?? "-"}
+          value={formatRemotePlatform(health)}
         />
       </div>
       {health?.helperUpdateAvailable && (
@@ -308,28 +256,6 @@ export function RemoteHealthPanel({
       )}
     </Card>
   );
-}
-
-function formatHelperVersion(health: RemoteHealth | null) {
-  if (!health?.helperVersion) return "-";
-  return health.helperVersion;
-}
-
-function formatHelperLatest(health: RemoteHealth | null) {
-  return health?.helperLatestVersion ?? "-";
-}
-
-function formatHelperUpdateError(
-  error: string,
-  t: ReturnType<typeof useTranslation>["t"],
-) {
-  if (error.includes("不支持持久会话")) {
-    return error;
-  }
-  return t("remote.health.helperUpdateCheckFailed", {
-    defaultValue: "Helper 更新检测失败: {{error}}",
-    error,
-  });
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

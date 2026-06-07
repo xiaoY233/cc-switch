@@ -4,7 +4,7 @@ use tauri::{Emitter, State};
 use crate::app_config::AppType;
 use crate::commands::copilot::CopilotAuthState;
 use crate::error::AppError;
-use crate::provider::{ClaudeDesktopMode, Provider};
+use crate::provider::Provider;
 use crate::services::{
     EndpointLatency, ProviderService, ProviderSortUpdate, SpeedtestService, SwitchResult,
 };
@@ -172,54 +172,8 @@ pub fn get_claude_desktop_default_routes(
 pub fn import_claude_desktop_providers_from_claude(
     state: State<'_, AppState>,
 ) -> Result<usize, String> {
-    let claude_providers = state
-        .db
-        .get_all_providers(AppType::Claude.as_str())
-        .map_err(|e| e.to_string())?;
-    let existing_ids = state
-        .db
-        .get_provider_ids(AppType::ClaudeDesktop.as_str())
-        .map_err(|e| e.to_string())?;
-
-    let mut imported = 0usize;
-    for provider in claude_providers.values() {
-        if existing_ids.contains(&provider.id) {
-            continue;
-        }
-
-        let mut desktop_provider = provider.clone();
-        desktop_provider.in_failover_queue = false;
-        let meta = desktop_provider.meta.get_or_insert_with(Default::default);
-
-        if crate::claude_desktop_config::is_compatible_direct_provider(provider)
-            && claude_provider_models_are_claude_safe(provider)
-        {
-            meta.claude_desktop_mode = Some(ClaudeDesktopMode::Direct);
-        } else if let Some(routes) = suggested_claude_desktop_routes(provider) {
-            meta.claude_desktop_mode = Some(ClaudeDesktopMode::Proxy);
-            meta.claude_desktop_model_routes = routes;
-        } else {
-            continue;
-        }
-
-        state
-            .db
-            .save_provider(AppType::ClaudeDesktop.as_str(), &desktop_provider)
-            .map_err(|e| e.to_string())?;
-        imported += 1;
-    }
-
-    // Safety net: 用户可能手动删除过 claude-desktop-official seed。
-    // 用户主动点 import 是"重新整理 ClaudeDesktop 表"的隐式信号，把官方入口补回来。
-    // 失败只 warn，不影响 imported 主流程；imported 计数语义保持纯净。
-    if let Err(e) = state.db.ensure_official_seed_by_id(
-        crate::database::CLAUDE_DESKTOP_OFFICIAL_PROVIDER_ID,
-        AppType::ClaudeDesktop,
-    ) {
-        log::warn!("Failed to ensure claude-desktop-official seed during import: {e}");
-    }
-
-    Ok(imported)
+    ProviderService::import_claude_desktop_providers_from_claude(state.inner())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -231,145 +185,6 @@ pub fn ensure_claude_desktop_official_provider(state: State<'_, AppState>) -> Re
             AppType::ClaudeDesktop,
         )
         .map_err(|e| e.to_string())
-}
-
-pub(crate) fn claude_provider_models_are_claude_safe(provider: &Provider) -> bool {
-    let Some(env) = provider
-        .settings_config
-        .get("env")
-        .and_then(|value| value.as_object())
-    else {
-        return true;
-    };
-
-    [
-        "ANTHROPIC_MODEL",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL",
-    ]
-    .into_iter()
-    .filter_map(|key| env.get(key).and_then(|value| value.as_str()))
-    .map(str::trim)
-    .filter(|value| !value.is_empty())
-    .all(crate::claude_desktop_config::is_claude_safe_model_id)
-}
-
-pub(crate) fn suggested_claude_desktop_routes(
-    provider: &Provider,
-) -> Option<std::collections::HashMap<String, crate::provider::ClaudeDesktopModelRoute>> {
-    let env = provider
-        .settings_config
-        .get("env")
-        .and_then(|value| value.as_object())?;
-    let mut routes = std::collections::HashMap::new();
-    let supports_1m_default = !matches!(
-        provider
-            .meta
-            .as_ref()
-            .and_then(|meta| meta.provider_type.as_deref()),
-        Some("github_copilot") | Some("codex_oauth")
-    );
-
-    fn add_route(
-        routes: &mut std::collections::HashMap<String, crate::provider::ClaudeDesktopModelRoute>,
-        env: &serde_json::Map<String, serde_json::Value>,
-        route_key: &str,
-        env_key: &str,
-        supports_1m_default: bool,
-    ) {
-        let Some(raw_model) = env
-            .get(env_key)
-            .and_then(|value| value.as_str())
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        else {
-            return;
-        };
-
-        // Claude 端 env 值可能带 [1M] 后缀；Claude Desktop schema 不接受后缀，
-        // 改用 supports1m 字段表达 1M 能力。在 import 边界做单向翻译。
-        let marker = crate::claude_desktop_config::ONE_M_CONTEXT_MARKER.as_bytes();
-        let raw_bytes = raw_model.as_bytes();
-        let has_1m_marker = raw_bytes.len() >= marker.len()
-            && raw_bytes[raw_bytes.len() - marker.len()..].eq_ignore_ascii_case(marker);
-        let stripped_model: &str = if has_1m_marker {
-            raw_model[..raw_model.len() - marker.len()].trim_end()
-        } else {
-            raw_model
-        };
-        if stripped_model.is_empty() {
-            return;
-        }
-        let effective_supports_1m = supports_1m_default || has_1m_marker;
-        let explicit_label_override = env
-            .get(&format!("{env_key}_NAME"))
-            .and_then(|value| value.as_str())
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(str::to_string);
-        let label_override = explicit_label_override.clone().or_else(|| {
-            (!crate::claude_desktop_config::is_claude_safe_model_id(stripped_model))
-                .then(|| stripped_model.to_string())
-        });
-
-        // 何时覆盖既有 label_override：原本为空 / 这次来的是 explicit _NAME /
-        // 既有值只是 stripped_model 派生的占位（被 explicit 或更具体的值挤掉）。
-        let should_overwrite = |existing: Option<&str>| {
-            existing.is_none()
-                || explicit_label_override.is_some()
-                || existing == Some(stripped_model)
-        };
-
-        let merge_into = |existing: &mut crate::provider::ClaudeDesktopModelRoute| {
-            let merged = existing.supports_1m.unwrap_or(false) || effective_supports_1m;
-            existing.supports_1m = Some(merged);
-            if should_overwrite(existing.label_override.as_deref()) {
-                existing.label_override = label_override.clone();
-            }
-        };
-
-        if let Some(existing) = routes
-            .values_mut()
-            .find(|existing| existing.model == stripped_model)
-        {
-            merge_into(existing);
-            return;
-        }
-
-        routes
-            .entry(route_key.to_string())
-            .and_modify(merge_into)
-            .or_insert_with(|| crate::provider::ClaudeDesktopModelRoute {
-                model: stripped_model.to_string(),
-                label_override,
-                supports_1m: Some(effective_supports_1m),
-            });
-    }
-
-    for spec in crate::claude_desktop_config::DEFAULT_PROXY_ROUTES {
-        add_route(
-            &mut routes,
-            env,
-            spec.route_id,
-            spec.env_key,
-            supports_1m_default,
-        );
-    }
-
-    // 三个 default env_key 全空时用 ANTHROPIC_MODEL 派生兜底路由。
-    if routes.is_empty() {
-        let primary_route = crate::claude_desktop_config::DEFAULT_PROXY_ROUTES[0].route_id;
-        add_route(
-            &mut routes,
-            env,
-            primary_route,
-            "ANTHROPIC_MODEL",
-            supports_1m_default,
-        );
-    }
-
-    (!routes.is_empty()).then_some(routes)
 }
 
 #[allow(non_snake_case)]
@@ -738,8 +553,8 @@ pub fn get_opencode_live_provider_ids() -> Result<Vec<String>, String> {
 
 #[cfg(test)]
 mod import_claude_desktop_tests {
-    use super::suggested_claude_desktop_routes;
     use crate::provider::{Provider, ProviderMeta};
+    use crate::services::ProviderService;
     use serde_json::json;
 
     fn make_provider(env: serde_json::Value, provider_type: Option<&str>) -> Provider {
@@ -766,7 +581,7 @@ mod import_claude_desktop_tests {
             }),
             None,
         );
-        let routes = suggested_claude_desktop_routes(&p).expect("routes built");
+        let routes = ProviderService::suggested_claude_desktop_routes(&p).expect("routes built");
         let r = routes
             .get("claude-sonnet-4-6")
             .expect("sonnet route present");
@@ -787,7 +602,7 @@ mod import_claude_desktop_tests {
             }),
             None,
         );
-        let routes = suggested_claude_desktop_routes(&p).expect("routes built");
+        let routes = ProviderService::suggested_claude_desktop_routes(&p).expect("routes built");
         let r = routes
             .get("claude-sonnet-4-6")
             .expect("sonnet route present");
@@ -806,7 +621,7 @@ mod import_claude_desktop_tests {
             }),
             None,
         );
-        let routes = suggested_claude_desktop_routes(&p).expect("routes built");
+        let routes = ProviderService::suggested_claude_desktop_routes(&p).expect("routes built");
         let r = routes
             .get("claude-sonnet-4-6")
             .expect("sonnet route present");
@@ -823,7 +638,7 @@ mod import_claude_desktop_tests {
             }),
             Some("github_copilot"),
         );
-        let routes = suggested_claude_desktop_routes(&p).expect("routes built");
+        let routes = ProviderService::suggested_claude_desktop_routes(&p).expect("routes built");
         let r = routes
             .get("claude-sonnet-4-6")
             .expect("sonnet route present");
@@ -840,7 +655,7 @@ mod import_claude_desktop_tests {
             }),
             Some("github_copilot"),
         );
-        let routes = suggested_claude_desktop_routes(&p).expect("routes built");
+        let routes = ProviderService::suggested_claude_desktop_routes(&p).expect("routes built");
         let r = routes
             .get("claude-sonnet-4-6")
             .expect("sonnet route present");
@@ -859,7 +674,7 @@ mod import_claude_desktop_tests {
             }),
             None,
         );
-        let routes = suggested_claude_desktop_routes(&p).expect("routes built");
+        let routes = ProviderService::suggested_claude_desktop_routes(&p).expect("routes built");
         assert_eq!(routes.len(), 1, "three aliases → one merged route");
         let r = routes
             .get("claude-sonnet-4-6")
@@ -879,7 +694,7 @@ mod import_claude_desktop_tests {
             }),
             None,
         );
-        let routes = suggested_claude_desktop_routes(&p).expect("routes built");
+        let routes = ProviderService::suggested_claude_desktop_routes(&p).expect("routes built");
         assert_eq!(routes.len(), 1);
         let r = routes
             .get("claude-sonnet-4-6")
@@ -897,7 +712,7 @@ mod import_claude_desktop_tests {
             }),
             None,
         );
-        let routes = suggested_claude_desktop_routes(&p).expect("routes built");
+        let routes = ProviderService::suggested_claude_desktop_routes(&p).expect("routes built");
         assert_eq!(routes.len(), 3);
         assert_eq!(routes.get("claude-sonnet-4-6").unwrap().model, "GLM-4.6");
         assert_eq!(routes.get("claude-opus-4-8").unwrap().model, "GLM-4-Air");
@@ -921,7 +736,7 @@ mod import_claude_desktop_tests {
             }),
             None,
         );
-        let routes = suggested_claude_desktop_routes(&p).expect("routes built");
+        let routes = ProviderService::suggested_claude_desktop_routes(&p).expect("routes built");
         assert_eq!(routes.len(), 1);
         let r = routes
             .get("claude-sonnet-4-6")
@@ -938,7 +753,7 @@ mod import_claude_desktop_tests {
             }),
             None,
         );
-        let routes = suggested_claude_desktop_routes(&p).expect("routes built");
+        let routes = ProviderService::suggested_claude_desktop_routes(&p).expect("routes built");
         assert!(routes.contains_key("claude-sonnet-4-6"));
         assert!(!routes.contains_key("claude-claude-sonnet-4-5-20250929"));
         assert_eq!(

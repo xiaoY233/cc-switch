@@ -32,20 +32,7 @@ fn status_returns_stable_json_envelope() {
     assert_eq!(response["data"]["platform"], std::env::consts::OS);
     assert_eq!(
         response["data"]["capabilities"],
-        serde_json::json!([
-            "providers",
-            "openclaw",
-            "mcp",
-            "prompts",
-            "skills",
-            "sessions",
-            "hermes-memory",
-            "import-export",
-            "tools",
-            "settings",
-            "plugin",
-            "session"
-        ])
+        serde_json::json!(cc_switch_lib::remote_capabilities::REMOTE_HELPER_CAPABILITIES)
     );
     assert!(response["error"].is_null());
 }

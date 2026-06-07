@@ -434,4 +434,22 @@ impl McpService {
 
         Ok(new_count)
     }
+
+    /// 从所有支持的应用导入 MCP。这里是本地 UI 和远程 helper 的唯一聚合入口，
+    /// 避免两边各自维护 import_from_* 顺序和错误吞吐语义。
+    pub fn import_from_supported_apps(state: &AppState) -> Result<usize, AppError> {
+        let importers: [fn(&AppState) -> Result<usize, AppError>; 5] = [
+            Self::import_from_claude,
+            Self::import_from_codex,
+            Self::import_from_gemini,
+            Self::import_from_opencode,
+            Self::import_from_hermes,
+        ];
+
+        let mut total = 0;
+        for import in importers {
+            total += import(state).unwrap_or(0);
+        }
+        Ok(total)
+    }
 }

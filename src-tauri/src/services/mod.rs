@@ -9,6 +9,7 @@ pub mod model_fetch;
 pub mod omo;
 pub mod prompt;
 pub mod provider;
+pub mod provider_secrets;
 #[cfg(feature = "desktop")]
 pub mod proxy;
 #[cfg(not(feature = "desktop"))]
