@@ -121,11 +121,28 @@ pub use store::AppState;
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     #[cfg(feature = "desktop")]
-    let response = cc_switch_lib::cli::run(&args);
+    let response = cc_switch_lib::cli::run_entry(&args);
     #[cfg(not(feature = "desktop"))]
-    let response = cli::run(&args);
-    println!(
-        "{}",
-        serde_json::to_string(&response).expect("serialize CLI response")
-    );
+    let response = cli::run_entry(&args);
+
+    match response {
+        #[cfg(feature = "desktop")]
+        cc_switch_lib::cli::CliRunResult::Json(value) => {
+            println!(
+                "{}",
+                serde_json::to_string(&value).expect("serialize CLI response")
+            );
+        }
+        #[cfg(feature = "desktop")]
+        cc_switch_lib::cli::CliRunResult::Served => {}
+        #[cfg(not(feature = "desktop"))]
+        cli::CliRunResult::Json(value) => {
+            println!(
+                "{}",
+                serde_json::to_string(&value).expect("serialize CLI response")
+            );
+        }
+        #[cfg(not(feature = "desktop"))]
+        cli::CliRunResult::Served => {}
+    }
 }

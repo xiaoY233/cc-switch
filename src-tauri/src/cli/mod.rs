@@ -1,11 +1,33 @@
 pub mod commands;
+pub mod serve;
 pub mod types;
 
 use serde_json::Value;
 
+pub enum CliRunResult {
+    Json(Value),
+    Served,
+}
+
 pub fn run(args: &[String]) -> Value {
+    match run_entry(args) {
+        CliRunResult::Json(value) => value,
+        CliRunResult::Served => serde_json::to_value(types::ok(())).expect("serialize serve end"),
+    }
+}
+
+pub fn run_entry(args: &[String]) -> CliRunResult {
     let args = normalize_args(args);
-    run_normalized(&args)
+    if args == ["serve"] {
+        return match serve::run_stdio() {
+            Ok(()) => CliRunResult::Served,
+            Err(error) => CliRunResult::Json(
+                serde_json::to_value(types::err::<()>("serve_failed", error.to_string()))
+                    .expect("serialize serve error"),
+            ),
+        };
+    }
+    CliRunResult::Json(run_command(&args))
 }
 
 fn normalize_args(args: &[String]) -> Vec<String> {
@@ -15,7 +37,7 @@ fn normalize_args(args: &[String]) -> Vec<String> {
         .collect()
 }
 
-fn run_normalized(args: &[String]) -> Value {
+pub(crate) fn run_command(args: &[String]) -> Value {
     match args {
         [cmd] if cmd == "status" => serde_json::to_value(types::ok(commands::status_payload()))
             .expect("serialize status response"),
