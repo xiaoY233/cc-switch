@@ -32,10 +32,9 @@ jobs:
           node-version: "20"
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 10.12.3
-          run_install: false
+        run: |
+          npm install -g pnpm@10.12.3 --no-audit --no-fund
+          pnpm --version
 
       - name: Get pnpm store directory
         id: pnpm-store

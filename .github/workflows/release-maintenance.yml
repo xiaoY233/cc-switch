@@ -64,14 +64,13 @@ jobs:
         if: github.event.inputs.operation == 'sign-windows-msi-and-refresh-latest'
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Setup pnpm
         if: github.event.inputs.operation == 'sign-windows-msi-and-refresh-latest'
-        uses: pnpm/action-setup@v6
-        with:
-          version: 10.12.3
-          run_install: false
+        run: |
+          npm install -g pnpm@10.12.3 --no-audit --no-fund
+          pnpm --version
 
       - name: Install frontend deps
         if: github.event.inputs.operation == 'sign-windows-msi-and-refresh-latest'

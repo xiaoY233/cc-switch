@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       platform:
@@ -53,7 +53,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -96,10 +96,9 @@ jobs:
             || sudo apt-get install -y --no-install-recommends libsoup2.4-dev
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 10.12.3
-          run_install: false
+        run: |
+          npm install -g pnpm@10.12.3 --no-audit --no-fund
+          pnpm --version
 
       - name: Get pnpm store directory
         id: pnpm-store
@@ -148,7 +147,7 @@ jobs:
             echo "请检查 GitHub 仓库 Settings > Secrets and variables > Actions" >&2
             exit 1
           fi
-          
+
           RAW="$TAURI_SIGNING_PRIVATE_KEY_RAW"
           RAW_COMPACT=$(TAURI_SIGNING_PRIVATE_KEY_RAW="$RAW" node -e "process.stdout.write(process.env.TAURI_SIGNING_PRIVATE_KEY_RAW.replace(/\\s+/g, ''))")
           RAW_FIRST_LINE="${RAW%%$'\n'*}"
