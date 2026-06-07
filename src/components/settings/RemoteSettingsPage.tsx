@@ -179,7 +179,7 @@ export function RemoteSettingsPage({
   }, [t, target.profile, target.secret]);
 
   const loadRemoteGeneralSettings = useCallback(
-    async (canLoadSkills = skillsCapability) => {
+    async (canLoadSkills: boolean) => {
       setIsLoadingRemoteSettings(true);
       setActiveRemoteTask(
         t("remote.settings.tasks.loadSettings", {
@@ -211,7 +211,7 @@ export function RemoteSettingsPage({
         setActiveRemoteTask(null);
       }
     },
-    [skillsCapability, t, target.profile, target.secret],
+    [t, target.profile, target.secret],
   );
 
   const refreshRemoteState = useCallback(async () => {
@@ -231,8 +231,12 @@ export function RemoteSettingsPage({
   useEffect(() => {
     if (!open) return;
     setActiveTab(coerceRemoteTab(defaultTab));
+  }, [defaultTab, open]);
+
+  useEffect(() => {
+    if (!open) return;
     void refreshRemoteState();
-  }, [defaultTab, open, refreshRemoteState]);
+  }, [open, refreshRemoteState]);
 
   const syncRemoteClaudePluginIfChanged = async (
     nextSettings: Settings,
@@ -518,7 +522,7 @@ export function RemoteSettingsPage({
                 isLoading={isLoadingRemoteSettings}
                 isSaving={isSavingRemoteSettings}
                 onRefresh={() => {
-                  void loadRemoteGeneralSettings();
+                  void loadRemoteGeneralSettings(skillsCapability);
                 }}
                 onSave={(updates) => {
                   void saveRemoteSettings(updates);

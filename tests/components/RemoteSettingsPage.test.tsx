@@ -11,6 +11,16 @@ const saveSettingsMock = vi.fn();
 const getInstalledSkillsMock = vi.fn();
 const migrateSkillStorageMock = vi.fn();
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<any>("@/lib/api");
   return {
@@ -20,7 +30,8 @@ vi.mock("@/lib/api", async () => {
       checkHealth: (...args: unknown[]) => checkHealthMock(...args),
       getSettings: (...args: unknown[]) => getSettingsMock(...args),
       saveSettings: (...args: unknown[]) => saveSettingsMock(...args),
-      getInstalledSkills: (...args: unknown[]) => getInstalledSkillsMock(...args),
+      getInstalledSkills: (...args: unknown[]) =>
+        getInstalledSkillsMock(...args),
       migrateSkillStorage: (...args: unknown[]) =>
         migrateSkillStorageMock(...args),
     },
@@ -109,5 +120,48 @@ describe("RemoteSettingsPage", () => {
         { password: "secret" },
       );
     });
+  });
+
+  it("keeps the selected remote settings tab after async health refresh", async () => {
+    const user = userEvent.setup();
+    const health =
+      createDeferred<Awaited<ReturnType<typeof checkHealthMock>>>();
+    checkHealthMock.mockReturnValueOnce(health.promise);
+
+    render(
+      <RemoteSettingsPage
+        open
+        onOpenChange={vi.fn()}
+        defaultTab="general"
+        target={{ type: "remote", profile, secret: { password: "secret" } }}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "远程环境" }));
+    expect(screen.getByRole("tab", { name: "远程环境" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    health.resolve({
+      reachable: true,
+      helperInstalled: true,
+      helperVersion: "3.16.2",
+      platform: "linux",
+      capabilities: ["settings", "plugin", "skills", "tools"],
+    });
+
+    await waitFor(() => {
+      expect(getSettingsMock).toHaveBeenCalled();
+    });
+
+    expect(screen.getByRole("tab", { name: "远程环境" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tab", { name: "通用" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
   });
 });
