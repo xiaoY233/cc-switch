@@ -335,7 +335,10 @@ fn remote_health_from_status_with_latest_result(
     let update_error = latest.as_ref().err().cloned();
     let latest = latest.ok().flatten();
     let mut health = remote_health_from_status_with_latest(status, latest);
-    health.helper_update_error = update_error;
+    let session_missing = !health.capabilities.contains(&RemoteCapability::Session);
+    health.helper_update_error = update_error.or_else(|| {
+        session_missing.then(|| "远程 Helper 版本过旧，不支持持久会话；请更新 Helper。".to_string())
+    });
     health
 }
 
@@ -582,6 +585,7 @@ fn parse_remote_capability(value: &str) -> Option<RemoteCapability> {
         "tools" => Some(RemoteCapability::Tools),
         "settings" => Some(RemoteCapability::Settings),
         "plugin" => Some(RemoteCapability::Plugin),
+        "session" => Some(RemoteCapability::Session),
         _ => None,
     }
 }
@@ -1576,6 +1580,8 @@ mod tests {
         assert!(command.contains("Downloaded remote helper is not compatible with this server"));
         assert!(command.contains("No compatible cc-switch-remote helper release asset found"));
         assert!(command.contains("\"$helper_path\" --json status"));
+        assert!(command.contains("'\"session\"'"));
+        assert!(command.contains("session"));
         assert!(!command.contains("rustup.rs"));
         assert!(!command.contains("cargo install --git"));
     }
@@ -1652,6 +1658,25 @@ mod tests {
             Some("cc-switch-remote-helper-abcdef12-Linux-x86_64")
         );
         assert!(health.helper_update_available);
+    }
+
+    #[test]
+    fn detects_missing_session_capability() {
+        let status = json!({
+            "version": "3.16.3",
+            "build": "abc123",
+            "platform": "linux",
+            "arch": "x86_64",
+            "capabilities": ["providers", "settings"]
+        });
+
+        let health = remote_health_from_status_with_latest_result(status, Ok(None));
+
+        assert!(!health.capabilities.contains(&RemoteCapability::Session));
+        assert_eq!(
+            health.helper_update_error.as_deref(),
+            Some("远程 Helper 版本过旧，不支持持久会话；请更新 Helper。")
+        );
     }
 
     #[test]
