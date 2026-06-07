@@ -306,14 +306,35 @@ fn env_string(key: &str) -> Option<String> {
 }
 
 #[cfg(unix)]
-fn configure_password_auth(
-    profile: &RemoteHostProfile,
-    secret: Option<&RemoteConnectionSecret>,
-    command: &mut Command,
-) -> Result<Option<tempfile::TempPath>, AppError> {
+fn create_askpass_script() -> Result<tempfile::TempPath, AppError> {
     use std::io::Write;
     use std::os::unix::fs::PermissionsExt;
 
+    let mut askpass = tempfile::Builder::new()
+        .prefix("cc-switch-ssh-askpass-")
+        .tempfile()
+        .map_err(|e| AppError::Message(format!("Failed to create ssh askpass helper: {e}")))?;
+    askpass
+        .write_all(b"#!/bin/sh\nprintf '%s' \"$CC_SWITCH_REMOTE_SSH_PASSWORD\"\n")
+        .map_err(|e| AppError::Message(format!("Failed to write ssh askpass helper: {e}")))?;
+    let mut perms = askpass
+        .as_file()
+        .metadata()
+        .map_err(|e| AppError::Message(format!("Failed to inspect ssh askpass helper: {e}")))?
+        .permissions();
+    perms.set_mode(0o700);
+    askpass
+        .as_file()
+        .set_permissions(perms)
+        .map_err(|e| AppError::Message(format!("Failed to secure ssh askpass helper: {e}")))?;
+    Ok(askpass.into_temp_path())
+}
+
+#[cfg(unix)]
+fn password_for_profile(
+    profile: &RemoteHostProfile,
+    secret: Option<&RemoteConnectionSecret>,
+) -> Result<Option<String>, AppError> {
     if !matches!(profile.auth_method, RemoteAuthMethod::Password) {
         return Ok(None);
     }
@@ -337,25 +358,36 @@ fn configure_password_auth(
         .filter(|password| !password.is_empty())
         .ok_or_else(|| AppError::Message("Remote SSH password is required".to_string()))?;
 
-    let mut askpass = tempfile::Builder::new()
-        .prefix("cc-switch-ssh-askpass-")
-        .tempfile()
-        .map_err(|e| AppError::Message(format!("Failed to create ssh askpass helper: {e}")))?;
-    askpass
-        .write_all(b"#!/bin/sh\nprintf '%s' \"$CC_SWITCH_REMOTE_SSH_PASSWORD\"\n")
-        .map_err(|e| AppError::Message(format!("Failed to write ssh askpass helper: {e}")))?;
-    let mut perms = askpass
-        .as_file()
-        .metadata()
-        .map_err(|e| AppError::Message(format!("Failed to inspect ssh askpass helper: {e}")))?
-        .permissions();
-    perms.set_mode(0o700);
-    askpass
-        .as_file()
-        .set_permissions(perms)
-        .map_err(|e| AppError::Message(format!("Failed to secure ssh askpass helper: {e}")))?;
+    Ok(Some(password.to_string()))
+}
 
-    let askpass_path = askpass.into_temp_path();
+#[cfg(unix)]
+fn configure_password_auth(
+    profile: &RemoteHostProfile,
+    secret: Option<&RemoteConnectionSecret>,
+    command: &mut Command,
+) -> Result<Option<tempfile::TempPath>, AppError> {
+    let Some(password) = password_for_profile(profile, secret)? else {
+        return Ok(None);
+    };
+    let askpass_path = create_askpass_script()?;
+    command.env("SSH_ASKPASS", &askpass_path);
+    command.env("SSH_ASKPASS_REQUIRE", "force");
+    command.env("DISPLAY", "cc-switch");
+    command.env("CC_SWITCH_REMOTE_SSH_PASSWORD", password);
+    Ok(Some(askpass_path))
+}
+
+#[cfg(unix)]
+pub fn configure_password_auth_for_tokio(
+    profile: &RemoteHostProfile,
+    secret: Option<&RemoteConnectionSecret>,
+    command: &mut tokio::process::Command,
+) -> Result<Option<tempfile::TempPath>, AppError> {
+    let Some(password) = password_for_profile(profile, secret)? else {
+        return Ok(None);
+    };
+    let askpass_path = create_askpass_script()?;
     command.env("SSH_ASKPASS", &askpass_path);
     command.env("SSH_ASKPASS_REQUIRE", "force");
     command.env("DISPLAY", "cc-switch");
@@ -368,6 +400,20 @@ fn configure_password_auth(
     profile: &RemoteHostProfile,
     _secret: Option<&RemoteConnectionSecret>,
     _command: &mut Command,
+) -> Result<Option<()>, AppError> {
+    if matches!(profile.auth_method, RemoteAuthMethod::Password) {
+        return Err(AppError::Message(
+            "Remote SSH password auth is only supported on Unix desktops".to_string(),
+        ));
+    }
+    Ok(None)
+}
+
+#[cfg(not(unix))]
+pub fn configure_password_auth_for_tokio(
+    profile: &RemoteHostProfile,
+    _secret: Option<&RemoteConnectionSecret>,
+    _command: &mut tokio::process::Command,
 ) -> Result<Option<()>, AppError> {
     if matches!(profile.auth_method, RemoteAuthMethod::Password) {
         return Err(AppError::Message(

@@ -107,6 +107,23 @@ fn ssh_password_auth_uses_interactive_options_without_exposing_password() {
 
 #[test]
 #[cfg(unix)]
+fn tokio_password_auth_setup_uses_askpass_env() {
+    use cc_switch_lib::remote::configure_password_auth_for_tokio;
+
+    let mut profile = profile();
+    profile.auth_method = RemoteAuthMethod::Password;
+    let secret = RemoteConnectionSecret {
+        password: Some("secret".to_string()),
+    };
+    let mut command = tokio::process::Command::new("ssh");
+
+    let guard = configure_password_auth_for_tokio(&profile, Some(&secret), &mut command)
+        .expect("askpass guard");
+    assert!(guard.is_some());
+}
+
+#[test]
+#[cfg(unix)]
 #[serial]
 fn password_auth_runs_ssh_with_askpass_secret_without_command_line_secret() {
     let dir = tempfile::tempdir().expect("temp dir");
