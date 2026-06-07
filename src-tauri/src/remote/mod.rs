@@ -4,8 +4,8 @@ pub mod store;
 pub mod types;
 
 pub use session::{
-    parse_session_response_line, RemoteSessionError, RemoteSessionManager,
-    RemoteSessionResponseLine,
+    build_session_request_line, parse_session_response_line, RemoteSessionError,
+    RemoteSessionManager, RemoteSessionResponseLine,
 };
 pub use ssh::{
     build_helper_install_args, build_helper_install_args_with_source, build_ssh_args,

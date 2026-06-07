@@ -1,8 +1,16 @@
 use cc_switch_lib::remote::{
-    parse_session_response_line, RemoteCommandError, RemoteSessionError, RemoteSessionManager,
-    RemoteSessionState,
+    build_session_request_line, parse_session_response_line, RemoteCommandError,
+    RemoteSessionError, RemoteSessionManager, RemoteSessionState,
 };
 use serde_json::json;
+
+#[test]
+fn session_request_line_serializes_command_vector() {
+    let line = build_session_request_line("req-1", &["settings".to_string(), "get".to_string()])
+        .expect("request line");
+
+    assert_eq!(line, r#"{"id":"req-1","command":["settings","get"]}"#);
+}
 
 #[test]
 fn parses_session_success_response() {
