@@ -71,6 +71,11 @@ const EXPECTED_REMOTE_CAPABILITIES = [
     labelKey: "remote.capabilities.plugin",
     defaultLabel: "Claude 插件",
   },
+  {
+    id: "session",
+    labelKey: "remote.capabilities.session",
+    defaultLabel: "持久连接",
+  },
 ] as const;
 
 export function RemoteHealthPanel({
@@ -97,6 +102,9 @@ export function RemoteHealthPanel({
   const helperInstallLabel = health?.helperUpdateAvailable
     ? t("remote.health.updateHelper", { defaultValue: "更新 Helper" })
     : t("remote.health.install", { defaultValue: "安装 Helper" });
+  const helperUpdateErrorText = health?.helperUpdateError
+    ? formatHelperUpdateError(health.helperUpdateError, t)
+    : null;
 
   const handleCheck = async () => {
     if (!profile) return;
@@ -238,12 +246,9 @@ export function RemoteHealthPanel({
           </div>
         </div>
       )}
-      {health?.helperUpdateError && (
+      {helperUpdateErrorText && (
         <div className="border-t border-border-default px-4 py-3 text-xs text-muted-foreground">
-          {t("remote.health.helperUpdateCheckFailed", {
-            defaultValue: "Helper 更新检测失败: {{error}}",
-            error: health.helperUpdateError,
-          })}
+          {helperUpdateErrorText}
         </div>
       )}
       {health?.lastError && (
@@ -312,6 +317,19 @@ function formatHelperVersion(health: RemoteHealth | null) {
 
 function formatHelperLatest(health: RemoteHealth | null) {
   return health?.helperLatestVersion ?? "-";
+}
+
+function formatHelperUpdateError(
+  error: string,
+  t: ReturnType<typeof useTranslation>["t"],
+) {
+  if (error.includes("不支持持久会话")) {
+    return error;
+  }
+  return t("remote.health.helperUpdateCheckFailed", {
+    defaultValue: "Helper 更新检测失败: {{error}}",
+    error,
+  });
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

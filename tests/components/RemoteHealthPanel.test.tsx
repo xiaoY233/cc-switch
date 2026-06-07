@@ -82,6 +82,7 @@ describe("RemoteHealthPanel", () => {
         "import-export",
         "settings",
         "plugin",
+        "session",
       ],
     });
 
@@ -122,6 +123,33 @@ describe("RemoteHealthPanel", () => {
     expect(
       screen.queryByText(/cc-switch-remote-helper-abcdef12-Linux-x86_64/),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows helper upgrade requirement when session capability is missing", async () => {
+    checkHealthMock.mockResolvedValueOnce({
+      reachable: true,
+      helperInstalled: true,
+      helperVersion: "3.16.3",
+      helperBuild: "abc123",
+      helperArch: "x86_64",
+      helperUpdateAvailable: false,
+      helperUpdateError:
+        "远程 Helper 版本过旧，不支持持久会话；请更新 Helper。",
+      platform: "linux",
+      capabilities: ["providers", "settings"],
+    });
+
+    render(<RemoteHealthPanel profile={profile} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "检查" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "远程 Helper 版本过旧，不支持持久会话；请更新 Helper。",
+        ),
+      ).toBeInTheDocument();
+    });
   });
 
   it("keeps the configured helper path visible after a health check", async () => {
