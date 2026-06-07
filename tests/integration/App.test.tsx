@@ -14,6 +14,7 @@ import {
   setRemoteHermesMemoryFixtures,
   setRemoteProviderStateError,
   setRemoteProfiles,
+  setRemoteSettings,
   setRemoteSessionFixtures,
   setSettings,
 } from "../msw/state";
@@ -132,9 +133,12 @@ vi.mock("@/components/ConfirmDialog", () => ({
 }));
 
 vi.mock("@/components/AppSwitcher", () => ({
-  AppSwitcher: ({ activeApp, onSwitch }: any) => (
+  AppSwitcher: ({ activeApp, onSwitch, visibleApps }: any) => (
     <div data-testid="app-switcher">
       <span>{activeApp}</span>
+      <span data-testid="app-switcher-visible-apps">
+        {JSON.stringify(visibleApps)}
+      </span>
       <button onClick={() => onSwitch("claude")}>switch-claude</button>
       <button onClick={() => onSwitch("codex")}>switch-codex</button>
       <button onClick={() => onSwitch("openclaw")}>switch-openclaw</button>
@@ -188,12 +192,35 @@ vi.mock("@/components/settings/SettingsPage", () => ({
 }));
 
 vi.mock("@/components/settings/RemoteSettingsPage", () => ({
-  RemoteSettingsPage: ({ onImportSuccess, target }: any) => (
+  RemoteSettingsPage: ({
+    onImportSuccess,
+    onOpenChange,
+    onSettingsSaved,
+    target,
+  }: any) => (
     <div data-testid="settings-page">
       <span data-testid="settings-target">{target?.type ?? "local"}</span>
+      <button
+        onClick={() =>
+          onSettingsSaved?.({
+            visibleApps: {
+              claude: false,
+              "claude-desktop": false,
+              codex: false,
+              gemini: true,
+              opencode: false,
+              openclaw: false,
+              hermes: false,
+            },
+          })
+        }
+      >
+        simulate-remote-settings-saved
+      </button>
       <button onClick={() => onImportSuccess?.()}>
         simulate-import-success
       </button>
+      <button onClick={() => onOpenChange?.(false)}>close-settings</button>
     </div>
   ),
 }));
@@ -625,6 +652,127 @@ describe("App integration with MSW", () => {
     );
     expect(updateTrayMenuSpy).not.toHaveBeenCalled();
     updateTrayMenuSpy.mockRestore();
+  });
+
+  it("uses per-host remote app visibility while managing a remote target", async () => {
+    localStorage.setItem("cc-switch-last-app", "claude");
+    localStorage.setItem("cc-switch-last-view", "providers");
+    setSettings({
+      firstRunNoticeConfirmed: true,
+      visibleApps: {
+        claude: true,
+        "claude-desktop": false,
+        codex: false,
+        gemini: false,
+        opencode: false,
+        openclaw: false,
+        hermes: false,
+      },
+    });
+    setRemoteSettings({
+      visibleApps: {
+        claude: false,
+        "claude-desktop": false,
+        codex: true,
+        gemini: false,
+        opencode: false,
+        openclaw: false,
+        hermes: false,
+      },
+    });
+    setRemoteProfiles([
+      {
+        id: "remote-1",
+        name: "Remote 1",
+        host: "192.168.1.20",
+        port: 22,
+        username: "root",
+        authMethod: { type: "sshAgent" },
+        helperPath: "~/.local/bin/cc-switch-remote-helper",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+
+    const { default: App } = await import("@/App");
+    renderApp(App);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("app-switcher-visible-apps")).toHaveTextContent(
+        '"claude":true',
+      ),
+    );
+
+    fireEvent.click(await screen.findByText("Remote 1"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("app-switcher-visible-apps")).toHaveTextContent(
+        '"codex":true',
+      ),
+    );
+    expect(screen.getByTestId("app-switcher-visible-apps")).toHaveTextContent(
+      '"claude":false',
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("app-switcher")).toHaveTextContent("codex"),
+    );
+  });
+
+  it("updates remote app visibility immediately after remote settings save", async () => {
+    localStorage.setItem("cc-switch-last-app", "codex");
+    localStorage.setItem("cc-switch-last-view", "providers");
+    setSettings({ firstRunNoticeConfirmed: true });
+    setRemoteSettings({
+      visibleApps: {
+        claude: false,
+        "claude-desktop": false,
+        codex: true,
+        gemini: false,
+        opencode: false,
+        openclaw: false,
+        hermes: false,
+      },
+    });
+    setRemoteProfiles([
+      {
+        id: "remote-1",
+        name: "Remote 1",
+        host: "192.168.1.20",
+        port: 22,
+        username: "root",
+        authMethod: { type: "sshAgent" },
+        helperPath: "~/.local/bin/cc-switch-remote-helper",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+
+    const { default: App } = await import("@/App");
+    renderApp(App);
+
+    fireEvent.click(await screen.findByText("Remote 1"));
+    await waitFor(() =>
+      expect(screen.getByTestId("app-switcher-visible-apps")).toHaveTextContent(
+        '"codex":true',
+      ),
+    );
+
+    fireEvent.click(screen.getByTitle("common.settings"));
+    await screen.findByTestId("settings-page");
+    fireEvent.click(screen.getByText("simulate-remote-settings-saved"));
+    fireEvent.click(screen.getByText("close-settings"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("app-switcher-visible-apps")).toHaveTextContent(
+        '"gemini":true',
+      ),
+    );
+    expect(screen.getByTestId("app-switcher-visible-apps")).toHaveTextContent(
+      '"codex":false',
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("app-switcher")).toHaveTextContent("gemini"),
+    );
   });
 
   it("hides local runtime controls while managing a remote target", async () => {

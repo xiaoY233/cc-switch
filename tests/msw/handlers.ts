@@ -19,6 +19,7 @@ import {
   getRemoteHermesMemoryLimits,
   getRemoteProviderStateError,
   getRemoteProfiles,
+  getRemoteSettings,
   getRemoteSessionMessages,
   getSessionMessages,
   getProviders,
@@ -31,6 +32,7 @@ import {
   updateSortOrder,
   getSettings,
   setSettings,
+  setRemoteSettings,
   setRemoteProfiles,
   setLastRemoteSaveSecret,
   getAppConfigDirOverride,
@@ -147,6 +149,16 @@ export const handlers = [
       return success(getCurrentProviderId(app));
     },
   ),
+
+  http.post(`${TAURI_ENDPOINT}/remote_get_settings`, () =>
+    success(getRemoteSettings()),
+  ),
+
+  http.post(`${TAURI_ENDPOINT}/remote_save_settings`, async ({ request }) => {
+    const { settings } = await withJson<{ settings: Settings }>(request);
+    setRemoteSettings(settings);
+    return success(true);
+  }),
 
   http.post(`${TAURI_ENDPOINT}/remote_get_openclaw_default_model`, () =>
     success(getRemoteOpenClawDefaultModel()),

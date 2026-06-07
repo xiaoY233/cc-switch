@@ -29,7 +29,7 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { Provider, VisibleApps } from "@/types";
+import type { Provider, Settings as AppSettings, VisibleApps } from "@/types";
 import type { EnvConflict } from "@/types/env";
 import { useProvidersQuery, useSettingsQuery } from "@/lib/query";
 import {
@@ -181,6 +181,16 @@ const VALID_VIEWS: View[] = [
   "remoteServers",
 ];
 
+const DEFAULT_VISIBLE_APPS: VisibleApps = {
+  claude: true,
+  "claude-desktop": true,
+  codex: true,
+  gemini: true,
+  opencode: true,
+  openclaw: true,
+  hermes: true,
+};
+
 const getInitialView = (): View => {
   const saved = localStorage.getItem(VIEW_STORAGE_KEY) as View | null;
   if (saved && VALID_VIEWS.includes(saved)) {
@@ -198,6 +208,8 @@ function App() {
   const [remoteSecrets, setRemoteSecrets] = useState<
     Record<string, RemoteConnectionSecret>
   >({});
+  const [activeRemoteSettings, setActiveRemoteSettings] =
+    useState<AppSettings | null>(null);
   const [activeTargetKey, setActiveTargetKey] = useState("local");
   const [passwordPromptProfile, setPasswordPromptProfile] =
     useState<RemoteHostProfile | null>(null);
@@ -217,26 +229,6 @@ function App() {
     isLinux() && (settingsData?.useAppWindowControls ?? false);
   const dragBarHeight = useAppWindowControls ? 32 : DEFAULT_DRAG_BAR_HEIGHT;
   const contentTopOffset = dragBarHeight + HEADER_HEIGHT;
-  const visibleApps: VisibleApps = settingsData?.visibleApps ?? {
-    claude: true,
-    "claude-desktop": true,
-    codex: true,
-    gemini: true,
-    opencode: true,
-    openclaw: true,
-    hermes: true,
-  };
-
-  const getFirstVisibleApp = (): AppId => {
-    if (visibleApps.claude) return "claude";
-    if (visibleApps["claude-desktop"]) return "claude-desktop";
-    if (visibleApps.codex) return "codex";
-    if (visibleApps.gemini) return "gemini";
-    if (visibleApps.opencode) return "opencode";
-    if (visibleApps.openclaw) return "openclaw";
-    if (visibleApps.hermes) return "hermes";
-    return "claude"; // fallback
-  };
 
   useEffect(() => {
     let active = true;
@@ -264,6 +256,21 @@ function App() {
     [activeTargetKey, remoteProfiles],
   );
 
+  const visibleApps: VisibleApps = activeRemoteProfile
+    ? (activeRemoteSettings?.visibleApps ?? DEFAULT_VISIBLE_APPS)
+    : (settingsData?.visibleApps ?? DEFAULT_VISIBLE_APPS);
+
+  const getFirstVisibleApp = (): AppId => {
+    if (visibleApps.claude) return "claude";
+    if (visibleApps["claude-desktop"]) return "claude-desktop";
+    if (visibleApps.codex) return "codex";
+    if (visibleApps.gemini) return "gemini";
+    if (visibleApps.opencode) return "opencode";
+    if (visibleApps.openclaw) return "openclaw";
+    if (visibleApps.hermes) return "hermes";
+    return "claude"; // fallback
+  };
+
   useEffect(() => {
     if (activeTargetKey === "local") return;
     if (!activeRemoteProfile) {
@@ -282,6 +289,36 @@ function App() {
     return { type: "local" };
   }, [activeRemoteProfile, remoteSecrets]);
   const isRemoteTarget = managementTarget.type === "remote";
+
+  useEffect(() => {
+    if (managementTarget.type !== "remote") {
+      setActiveRemoteSettings(null);
+      return;
+    }
+
+    let active = true;
+    setActiveRemoteSettings(null);
+    void remoteApi
+      .getSettings(managementTarget.profile, managementTarget.secret)
+      .then((settings) => {
+        if (active) {
+          setActiveRemoteSettings(settings);
+        }
+      })
+      .catch((error) => {
+        console.warn("[App] Failed to load remote settings", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [managementTarget]);
+
+  const handleRemoteSettingsSaved = (settings: AppSettings) => {
+    if (managementTarget.type === "remote") {
+      setActiveRemoteSettings(settings);
+    }
+  };
 
   const handleManagementTargetChange = (targetKey: string) => {
     if (targetKey === "local") {
@@ -1041,6 +1078,7 @@ function App() {
                 open={true}
                 onOpenChange={() => setCurrentView("providers")}
                 onImportSuccess={handleImportSuccess}
+                onSettingsSaved={handleRemoteSettingsSaved}
                 defaultTab={settingsDefaultTab}
                 target={managementTarget}
               />

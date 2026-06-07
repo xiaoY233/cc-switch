@@ -480,7 +480,7 @@ fn is_helper_update_available(
     };
 
     if let (Some(current_build), Some(latest_build)) = (current_build, latest.build.as_deref()) {
-        return current_build != latest_build;
+        return !helper_builds_match(current_build, latest_build);
     }
 
     if current_build.is_none() && latest.build.is_some() {
@@ -490,6 +490,20 @@ fn is_helper_update_available(
     current_version
         .map(|version| version != latest.version)
         .unwrap_or(false)
+}
+
+fn helper_builds_match(current_build: &str, latest_build: &str) -> bool {
+    let current = current_build.trim();
+    let latest = latest_build.trim();
+    if current.is_empty() || latest.is_empty() {
+        return false;
+    }
+    if current == latest {
+        return true;
+    }
+
+    let shortest = current.len().min(latest.len());
+    shortest >= 7 && (current.starts_with(latest) || latest.starts_with(current))
 }
 
 fn normalize_remote_tool_versions(mut value: Value) -> Value {
@@ -1616,6 +1630,50 @@ mod tests {
             health.helper_latest_asset.as_deref(),
             Some("cc-switch-remote-helper-abcdef12-Linux-x86_64")
         );
+        assert!(health.helper_update_available);
+    }
+
+    #[test]
+    fn treats_full_and_short_helper_build_hashes_as_same_build() {
+        let status = json!({
+            "version": "3.16.2",
+            "build": "27e7b3176306fd83479e9ea143c0d418df626a80",
+            "platform": "linux",
+            "arch": "x86_64",
+            "capabilities": ["providers", "tools"]
+        });
+
+        let health = remote_health_from_status_with_latest(
+            status,
+            Some(RemoteHelperLatest {
+                version: "3.16.2".to_string(),
+                build: Some("27e7b317".to_string()),
+                asset_name: Some("cc-switch-remote-helper-27e7b317-Linux-x86_64".to_string()),
+            }),
+        );
+
+        assert!(!health.helper_update_available);
+    }
+
+    #[test]
+    fn marks_helper_update_available_when_build_hash_prefix_differs() {
+        let status = json!({
+            "version": "3.16.2",
+            "build": "27e7b3176306fd83479e9ea143c0d418df626a80",
+            "platform": "linux",
+            "arch": "x86_64",
+            "capabilities": ["providers", "tools"]
+        });
+
+        let health = remote_health_from_status_with_latest(
+            status,
+            Some(RemoteHelperLatest {
+                version: "3.16.2".to_string(),
+                build: Some("abcdef12".to_string()),
+                asset_name: Some("cc-switch-remote-helper-abcdef12-Linux-x86_64".to_string()),
+            }),
+        );
+
         assert!(health.helper_update_available);
     }
 

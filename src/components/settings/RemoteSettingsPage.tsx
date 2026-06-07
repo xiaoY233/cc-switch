@@ -47,6 +47,7 @@ interface RemoteSettingsPageProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImportSuccess?: () => void | Promise<void>;
+  onSettingsSaved?: (settings: Settings) => void;
   defaultTab?: string;
   target: Extract<ManagementTarget, { type: "remote" }>;
 }
@@ -62,6 +63,7 @@ function coerceRemoteTab(tab: string | undefined): string {
 export function RemoteSettingsPage({
   open,
   onImportSuccess,
+  onSettingsSaved,
   defaultTab = "environment",
   target,
 }: RemoteSettingsPageProps) {
@@ -295,6 +297,7 @@ export function RemoteSettingsPage({
       await syncRemoteClaudePluginIfChanged(nextSettings, remoteSettings);
       await syncRemoteClaudeOnboardingIfChanged(nextSettings, remoteSettings);
       setRemoteSettings(nextSettings);
+      onSettingsSaved?.(nextSettings);
     } catch (error) {
       console.error("[RemoteSettingsPage] Failed to save settings", error);
       toast.error(
@@ -853,9 +856,6 @@ function RemoteHealthSection({
                     defaultValue:
                       "远程 Helper 有新版可安装。建议更新后再使用远程管理功能。",
                   })}
-                  {health.helperLatestAsset
-                    ? ` ${health.helperLatestAsset}`
-                    : ""}
                 </div>
               </div>
             </div>
@@ -881,17 +881,11 @@ function RemoteHealthSection({
 
 function formatHelperVersion(health: RemoteHealth | null) {
   if (!health?.helperVersion) return "-";
-  return health.helperBuild
-    ? `${health.helperVersion} (${health.helperBuild})`
-    : health.helperVersion;
+  return health.helperVersion;
 }
 
 function formatHelperLatest(health: RemoteHealth | null) {
-  if (!health?.helperLatestVersion && !health?.helperLatestBuild) return "-";
-  if (health.helperLatestVersion && health.helperLatestBuild) {
-    return `${health.helperLatestVersion} (${health.helperLatestBuild})`;
-  }
-  return health.helperLatestVersion ?? health.helperLatestBuild ?? "-";
+  return health?.helperLatestVersion ?? "-";
 }
 
 function formatRemotePlatform(health: RemoteHealth | null) {

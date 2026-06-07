@@ -233,7 +233,6 @@ export function RemoteHealthPanel({
                   defaultValue:
                     "远程 Helper 有新版可安装。建议更新后再使用远程管理功能。",
                 })}
-                {health.helperLatestAsset ? ` ${health.helperLatestAsset}` : ""}
               </div>
             </div>
           </div>
@@ -308,17 +307,11 @@ export function RemoteHealthPanel({
 
 function formatHelperVersion(health: RemoteHealth | null) {
   if (!health?.helperVersion) return "-";
-  return health.helperBuild
-    ? `${health.helperVersion} (${health.helperBuild})`
-    : health.helperVersion;
+  return health.helperVersion;
 }
 
 function formatHelperLatest(health: RemoteHealth | null) {
-  if (!health?.helperLatestVersion && !health?.helperLatestBuild) return "-";
-  if (health?.helperLatestVersion && health.helperLatestBuild) {
-    return `${health.helperLatestVersion} (${health.helperLatestBuild})`;
-  }
-  return health?.helperLatestVersion ?? health?.helperLatestBuild ?? "-";
+  return health?.helperLatestVersion ?? "-";
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

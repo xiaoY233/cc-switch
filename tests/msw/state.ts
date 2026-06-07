@@ -95,14 +95,17 @@ let liveProviderIds: LiveProviderIdsByApp = {
   openclaw: [],
   hermes: [],
 };
-let settingsState: Settings = {
+const createDefaultSettings = (): Settings => ({
   showInTray: true,
   minimizeToTrayOnClose: true,
   enableClaudePluginIntegration: false,
   claudeConfigDir: "/default/claude",
   codexConfigDir: "/default/codex",
   language: "zh",
-};
+});
+
+let settingsState: Settings = createDefaultSettings();
+let remoteSettingsState: Settings = createDefaultSettings();
 let appConfigDirOverride: string | null = null;
 let remoteProfilesState: RemoteHostProfile[] = [];
 let lastRemoteSaveSecretState: { password?: string } | null = null;
@@ -241,14 +244,8 @@ export const resetProviderState = () => {
     memoryEnabled: true,
     userEnabled: true,
   };
-  settingsState = {
-    showInTray: true,
-    minimizeToTrayOnClose: true,
-    enableClaudePluginIntegration: false,
-    claudeConfigDir: "/default/claude",
-    codexConfigDir: "/default/codex",
-    language: "zh",
-  };
+  settingsState = createDefaultSettings();
+  remoteSettingsState = createDefaultSettings();
   appConfigDirOverride = null;
   remoteProfilesState = [];
   lastRemoteSaveSecretState = null;
@@ -414,6 +411,13 @@ export const getSettings = () => deepClone(settingsState) as Settings;
 
 export const setSettings = (data: Partial<Settings>) => {
   settingsState = { ...settingsState, ...data };
+};
+
+export const getRemoteSettings = () =>
+  deepClone(remoteSettingsState) as Settings;
+
+export const setRemoteSettings = (data: Partial<Settings>) => {
+  remoteSettingsState = { ...remoteSettingsState, ...data };
 };
 
 export const getAppConfigDirOverride = () => appConfigDirOverride;

@@ -118,7 +118,10 @@ describe("RemoteHealthPanel", () => {
     expect(
       screen.getByRole("button", { name: "更新 Helper" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/abcdef12/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/abcdef12/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/cc-switch-remote-helper-abcdef12-Linux-x86_64/),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the configured helper path visible after a health check", async () => {
