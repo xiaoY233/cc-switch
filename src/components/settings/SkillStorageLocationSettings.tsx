@@ -46,9 +46,9 @@ export function SkillStorageLocationSettings({
     setIsMigrating(true);
     setPendingTarget(null);
     try {
-      const result: MigrationResult = await (onMigrate ?? skillsApi.migrateStorage)(
-        target,
-      );
+      const result: MigrationResult = await (
+        onMigrate ?? skillsApi.migrateStorage
+      )(target);
       if (result.errors.length > 0) {
         toast.warning(
           t("settings.skillStorage.migrationPartial", {

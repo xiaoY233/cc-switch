@@ -90,8 +90,7 @@ export function RemoteSettingsPage({
   const importExport = useImportExport({ onImportSuccess, target });
 
   const toolsCapability = health?.capabilities.includes("tools") ?? false;
-  const settingsCapability =
-    health?.capabilities.includes("settings") ?? false;
+  const settingsCapability = health?.capabilities.includes("settings") ?? false;
   const pluginCapability = health?.capabilities.includes("plugin") ?? false;
   const skillsCapability = health?.capabilities.includes("skills") ?? false;
   const helperReady = Boolean(health?.reachable && health.helperInstalled);
@@ -179,38 +178,41 @@ export function RemoteSettingsPage({
     }
   }, [t, target.profile, target.secret]);
 
-  const loadRemoteGeneralSettings = useCallback(async (canLoadSkills = skillsCapability) => {
-    setIsLoadingRemoteSettings(true);
-    setActiveRemoteTask(
-      t("remote.settings.tasks.loadSettings", {
-        defaultValue: "正在读取远程通用设置...",
-      }),
-    );
-    try {
-      const [settings, installedSkills] = await Promise.all([
-        remoteApi.getSettings(target.profile, target.secret),
-        canLoadSkills
-          ? remoteApi.getInstalledSkills(target.profile, target.secret)
-          : Promise.resolve([]),
-      ]);
-      setRemoteSettings(settings);
-      setRemoteInstalledSkillCount(installedSkills.length);
-      return settings;
-    } catch (error) {
-      console.error("[RemoteSettingsPage] Failed to load settings", error);
-      setRemoteSettings(null);
-      toast.error(
-        t("remote.settings.general.loadFailed", {
-          defaultValue: "远程通用设置加载失败",
+  const loadRemoteGeneralSettings = useCallback(
+    async (canLoadSkills = skillsCapability) => {
+      setIsLoadingRemoteSettings(true);
+      setActiveRemoteTask(
+        t("remote.settings.tasks.loadSettings", {
+          defaultValue: "正在读取远程通用设置...",
         }),
-        { description: extractErrorMessage(error) },
       );
-      return null;
-    } finally {
-      setIsLoadingRemoteSettings(false);
-      setActiveRemoteTask(null);
-    }
-  }, [skillsCapability, t, target.profile, target.secret]);
+      try {
+        const [settings, installedSkills] = await Promise.all([
+          remoteApi.getSettings(target.profile, target.secret),
+          canLoadSkills
+            ? remoteApi.getInstalledSkills(target.profile, target.secret)
+            : Promise.resolve([]),
+        ]);
+        setRemoteSettings(settings);
+        setRemoteInstalledSkillCount(installedSkills.length);
+        return settings;
+      } catch (error) {
+        console.error("[RemoteSettingsPage] Failed to load settings", error);
+        setRemoteSettings(null);
+        toast.error(
+          t("remote.settings.general.loadFailed", {
+            defaultValue: "远程通用设置加载失败",
+          }),
+          { description: extractErrorMessage(error) },
+        );
+        return null;
+      } finally {
+        setIsLoadingRemoteSettings(false);
+        setActiveRemoteTask(null);
+      }
+    },
+    [skillsCapability, t, target.profile, target.secret],
+  );
 
   const refreshRemoteState = useCallback(async () => {
     const result = await loadHealth();
@@ -289,11 +291,7 @@ export function RemoteSettingsPage({
       }),
     );
     try {
-      await remoteApi.saveSettings(
-        target.profile,
-        nextSettings,
-        target.secret,
-      );
+      await remoteApi.saveSettings(target.profile, nextSettings, target.secret);
       await syncRemoteClaudePluginIfChanged(nextSettings, remoteSettings);
       await syncRemoteClaudeOnboardingIfChanged(nextSettings, remoteSettings);
       setRemoteSettings(nextSettings);
@@ -312,7 +310,9 @@ export function RemoteSettingsPage({
     }
   };
 
-  const migrateRemoteSkillStorage = async (targetLocation: SkillStorageLocation) => {
+  const migrateRemoteSkillStorage = async (
+    targetLocation: SkillStorageLocation,
+  ) => {
     const result = await remoteApi.migrateSkillStorage(
       target.profile,
       targetLocation,
@@ -890,7 +890,9 @@ function formatHelperLatest(health: RemoteHealth | null) {
 
 function formatRemotePlatform(health: RemoteHealth | null) {
   if (!health?.platform) return "-";
-  return health.helperArch ? `${health.platform} / ${health.helperArch}` : health.platform;
+  return health.helperArch
+    ? `${health.platform} / ${health.helperArch}`
+    : health.platform;
 }
 
 function formatRemoteCapabilitySummary(
