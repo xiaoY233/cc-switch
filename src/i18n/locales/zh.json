@@ -2708,6 +2708,15 @@
       "title": "输入远程密码",
       "description": "{{name}} 使用密码登录。密码会保存到本机数据库，用于后续连接。"
     },
+    "sessionStatus": {
+      "idle": "未连接",
+      "connecting": "连接中",
+      "ready": "已连接",
+      "busy": "执行中",
+      "reconnecting": "重连中",
+      "failed": "连接失败",
+      "closed": "已断开"
+    },
     "fields": {
       "name": "名称",
       "host": "主机",

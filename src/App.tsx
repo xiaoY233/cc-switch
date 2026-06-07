@@ -31,7 +31,11 @@ import {
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Provider, Settings as AppSettings, VisibleApps } from "@/types";
 import type { EnvConflict } from "@/types/env";
-import { useProvidersQuery, useSettingsQuery } from "@/lib/query";
+import {
+  useProvidersQuery,
+  useRemoteSessionStatus,
+  useSettingsQuery,
+} from "@/lib/query";
 import {
   providersApi,
   remoteApi,
@@ -255,6 +259,8 @@ function App() {
         : undefined,
     [activeTargetKey, remoteProfiles],
   );
+  const { data: activeRemoteSessionStatus } =
+    useRemoteSessionStatus(activeRemoteProfile);
 
   const visibleApps: VisibleApps = activeRemoteProfile
     ? (activeRemoteSettings?.visibleApps ?? DEFAULT_VISIBLE_APPS)
@@ -1110,6 +1116,7 @@ function App() {
             <RemoteServersPage
               profiles={remoteProfiles}
               activeProfileId={activeRemoteProfile?.id}
+              activeSessionStatus={activeRemoteSessionStatus}
               activeSecret={
                 activeRemoteProfile
                   ? remoteSecrets[activeRemoteProfile.id]
@@ -1413,6 +1420,7 @@ function App() {
                   <ManagementTargetSwitcher
                     profiles={remoteProfiles}
                     activeTargetKey={activeTargetKey}
+                    activeSessionStatus={activeRemoteSessionStatus}
                     onTargetChange={handleManagementTargetChange}
                     onManageServers={() => setCurrentView("remoteServers")}
                     className="ml-2"
@@ -1463,6 +1471,7 @@ function App() {
                 <ManagementTargetSwitcher
                   profiles={remoteProfiles}
                   activeTargetKey={activeTargetKey}
+                  activeSessionStatus={activeRemoteSessionStatus}
                   onTargetChange={handleManagementTargetChange}
                   onManageServers={() => setCurrentView("remoteServers")}
                   style={{ WebkitAppRegion: "no-drag" } as any}

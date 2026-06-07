@@ -12,11 +12,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { RemoteHostProfile } from "@/lib/api";
+import type { RemoteHostProfile, RemoteSessionStatus } from "@/lib/api";
+import { RemoteSessionStatusBadge } from "./RemoteSessionStatusBadge";
 
 interface ManagementTargetSwitcherProps {
   profiles: RemoteHostProfile[];
   activeTargetKey: string;
+  activeSessionStatus?: RemoteSessionStatus | null;
   onTargetChange: (targetKey: string) => void;
   onManageServers?: () => void;
   className?: string;
@@ -26,6 +28,7 @@ interface ManagementTargetSwitcherProps {
 export function ManagementTargetSwitcher({
   profiles,
   activeTargetKey,
+  activeSessionStatus,
   onTargetChange,
   onManageServers,
   className,
@@ -57,6 +60,13 @@ export function ManagementTargetSwitcher({
         >
           <TriggerIcon className="h-4 w-4 shrink-0" />
           <span className="min-w-0 truncate">{triggerLabel}</span>
+          {!isLocal && (
+            <RemoteSessionStatusBadge
+              status={activeSessionStatus}
+              compact
+              className="ml-0.5"
+            />
+          )}
           <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
         </Button>
       </DropdownMenuTrigger>
@@ -91,6 +101,12 @@ export function ManagementTargetSwitcher({
               >
                 <Server className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate">{profile.name}</span>
+                {selected && (
+                  <RemoteSessionStatusBadge
+                    status={activeSessionStatus}
+                    compact
+                  />
+                )}
                 {selected && <Check className="h-4 w-4 text-primary" />}
               </DropdownMenuItem>
             );

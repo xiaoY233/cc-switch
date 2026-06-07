@@ -2708,6 +2708,15 @@
       "title": "Enter Remote Password",
       "description": "{{name}} uses password authentication. The password will be stored in the local database for future connections."
     },
+    "sessionStatus": {
+      "idle": "Not connected",
+      "connecting": "Connecting",
+      "ready": "Connected",
+      "busy": "Running",
+      "reconnecting": "Reconnecting",
+      "failed": "Failed",
+      "closed": "Disconnected"
+    },
     "fields": {
       "name": "Name",
       "host": "Host",

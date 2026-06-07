@@ -2654,6 +2654,15 @@
       "title": "輸入遠端密碼",
       "description": "{{name}} 使用密碼登入。密碼會儲存在本機資料庫，用於後續連線。"
     },
+    "sessionStatus": {
+      "idle": "未連線",
+      "connecting": "連線中",
+      "ready": "已連線",
+      "busy": "執行中",
+      "reconnecting": "重新連線中",
+      "failed": "連線失敗",
+      "closed": "已中斷"
+    },
     "fields": {
       "name": "名稱",
       "host": "主機",

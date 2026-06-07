@@ -190,4 +190,36 @@ describe("RemoteServersPage", () => {
       "shadow-sm",
     );
   });
+
+  it("shows active remote session status without blocking the server page", () => {
+    const profile: RemoteHostProfile = {
+      id: "remote-1",
+      name: "测试服务器",
+      host: "192.168.123.203",
+      port: 22,
+      username: "root",
+      authMethod: { type: "password" },
+      helperPath: "~/.local/bin/cc-switch-remote-helper",
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    render(
+      <RemoteServersPage
+        profiles={[profile]}
+        activeProfileId="remote-1"
+        activeSessionStatus={{
+          profileId: "remote-1",
+          state: "connecting",
+        }}
+        onProfileSaved={vi.fn()}
+        onProfileActivated={vi.fn()}
+        onProfilesChanged={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getAllByTestId("remote-session-status").length,
+    ).toBeGreaterThan(0);
+  });
 });

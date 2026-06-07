@@ -19,14 +19,17 @@ import {
   type RemoteAuthMethod,
   type RemoteConnectionSecret,
   type RemoteHostProfile,
+  type RemoteSessionStatus,
 } from "@/lib/api";
 import { RemoteHealthPanel } from "./RemoteHealthPanel";
 import { RemoteHostDialog } from "./RemoteHostDialog";
+import { RemoteSessionStatusBadge } from "./RemoteSessionStatusBadge";
 
 export function RemoteServersPage({
   profiles,
   activeProfileId,
   activeSecret,
+  activeSessionStatus,
   secrets,
   onProfileSaved,
   onProfileActivated,
@@ -35,6 +38,7 @@ export function RemoteServersPage({
   profiles: RemoteHostProfile[];
   activeProfileId?: string;
   activeSecret?: RemoteConnectionSecret;
+  activeSessionStatus?: RemoteSessionStatus | null;
   secrets?: Record<string, RemoteConnectionSecret>;
   onProfileSaved: (
     profile: RemoteHostProfile,
@@ -64,6 +68,10 @@ export function RemoteServersPage({
       : selectedProfile?.id === activeProfileId
         ? activeSecret
         : undefined;
+  const selectedSessionStatus =
+    selectedProfile?.id === activeSessionStatus?.profileId
+      ? activeSessionStatus
+      : null;
 
   const openCreateDialog = () => {
     setEditingProfile(null);
@@ -187,6 +195,12 @@ export function RemoteServersPage({
                           {profile.username}@{profile.host}:{profile.port}
                         </p>
                       </div>
+                      {profile.id === activeSessionStatus?.profileId && (
+                        <RemoteSessionStatusBadge
+                          status={activeSessionStatus}
+                          compact
+                        />
+                      )}
                       <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
                         {authLabel(profile.authMethod, t)}
                       </span>
@@ -228,10 +242,13 @@ export function RemoteServersPage({
             data-testid="remote-server-details-panel"
             className="min-w-0 overflow-hidden border-border-default"
           >
-            <div className="flex h-11 items-center border-b border-border-default px-4">
+            <div className="flex h-11 items-center justify-between gap-3 border-b border-border-default px-4">
               <h2 className="text-sm font-semibold">
                 {t("remote.details", { defaultValue: "连接详情" })}
               </h2>
+              {selectedSessionStatus && (
+                <RemoteSessionStatusBadge status={selectedSessionStatus} />
+              )}
             </div>
             <div className="grid min-w-0 gap-0 sm:grid-cols-2">
               <Detail

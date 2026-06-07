@@ -64,4 +64,20 @@ describe("ManagementTargetSwitcher", () => {
     expect(switcher).toHaveTextContent("生产服务器");
     expect(switcher).toHaveClass("inline-flex", "h-8", "rounded-md");
   });
+
+  it("shows active remote session progress inside the target switcher", () => {
+    render(
+      <ManagementTargetSwitcher
+        profiles={profiles}
+        activeTargetKey="remote:remote-1"
+        activeSessionStatus={{
+          profileId: "remote-1",
+          state: "busy",
+        }}
+        onTargetChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("remote-session-status")).toBeInTheDocument();
+  });
 });
