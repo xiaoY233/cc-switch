@@ -218,8 +218,6 @@ describe("RemoteServersPage", () => {
       />,
     );
 
-    expect(
-      screen.getAllByTestId("remote-session-status").length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("remote-session-status")).toHaveLength(1);
   });
 });

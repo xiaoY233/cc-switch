@@ -195,12 +195,6 @@ export function RemoteServersPage({
                           {profile.username}@{profile.host}:{profile.port}
                         </p>
                       </div>
-                      {profile.id === activeSessionStatus?.profileId && (
-                        <RemoteSessionStatusBadge
-                          status={activeSessionStatus}
-                          compact
-                        />
-                      )}
                       <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
                         {authLabel(profile.authMethod, t)}
                       </span>

@@ -1420,7 +1420,6 @@ function App() {
                   <ManagementTargetSwitcher
                     profiles={remoteProfiles}
                     activeTargetKey={activeTargetKey}
-                    activeSessionStatus={activeRemoteSessionStatus}
                     onTargetChange={handleManagementTargetChange}
                     onManageServers={() => setCurrentView("remoteServers")}
                     className="ml-2"
@@ -1471,7 +1470,6 @@ function App() {
                 <ManagementTargetSwitcher
                   profiles={remoteProfiles}
                   activeTargetKey={activeTargetKey}
-                  activeSessionStatus={activeRemoteSessionStatus}
                   onTargetChange={handleManagementTargetChange}
                   onManageServers={() => setCurrentView("remoteServers")}
                   style={{ WebkitAppRegion: "no-drag" } as any}

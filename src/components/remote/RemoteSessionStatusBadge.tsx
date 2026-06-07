@@ -26,11 +26,15 @@ export function RemoteSessionStatusBadge({
 
   return (
     <Badge
-      variant={failed ? "destructive" : ready || busy ? "secondary" : "outline"}
+      variant="outline"
       className={cn(
-        "h-6 max-w-full gap-1.5 whitespace-nowrap px-2 text-[11px] font-medium",
-        busy && "bg-primary/10 text-primary",
-        ready && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+        "h-6 max-w-full gap-1.5 whitespace-nowrap border-border-default bg-background/70 px-2 text-[11px] font-medium text-muted-foreground shadow-none",
+        busy &&
+          "border-blue-500/25 bg-blue-500/[0.06] text-blue-600 dark:text-blue-400",
+        ready &&
+          "border-emerald-500/25 bg-emerald-500/[0.06] text-emerald-600 dark:text-emerald-400",
+        failed &&
+          "border-red-500/30 bg-background text-red-500 dark:text-red-400",
         className,
       )}
       title={status?.lastError || label}
