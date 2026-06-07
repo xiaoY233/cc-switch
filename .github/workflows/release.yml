@@ -535,7 +535,20 @@ jobs:
                 throw 'TAURI_PRIVATE_KEY_PATH is missing; cannot sign Windows MSI for updater metadata'
               }
               Write-Warning "Signature not found for $($msi.Name); signing copied MSI for Windows updater metadata"
-              pnpm tauri signer sign -f $env:TAURI_PRIVATE_KEY_PATH $assetPath
+              $savedTauriPrivateKey = $env:TAURI_PRIVATE_KEY
+              $savedTauriSigningPrivateKey = $env:TAURI_SIGNING_PRIVATE_KEY
+              try {
+                Remove-Item Env:TAURI_PRIVATE_KEY -ErrorAction SilentlyContinue
+                Remove-Item Env:TAURI_SIGNING_PRIVATE_KEY -ErrorAction SilentlyContinue
+                pnpm tauri signer sign -f $env:TAURI_PRIVATE_KEY_PATH $assetPath
+              } finally {
+                if ($null -ne $savedTauriPrivateKey) {
+                  $env:TAURI_PRIVATE_KEY = $savedTauriPrivateKey
+                }
+                if ($null -ne $savedTauriSigningPrivateKey) {
+                  $env:TAURI_SIGNING_PRIVATE_KEY = $savedTauriSigningPrivateKey
+                }
+              }
               if ($LASTEXITCODE -ne 0) {
                 throw "Failed to sign Windows MSI for updater metadata, exit code $LASTEXITCODE"
               }

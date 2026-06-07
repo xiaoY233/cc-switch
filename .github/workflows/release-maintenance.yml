@@ -145,7 +145,7 @@ jobs:
           if [ -f "$sig" ]; then
             echo "Windows MSI signature already exists: $sig"
           else
-            pnpm tauri signer sign -f "$TAURI_PRIVATE_KEY_PATH" "$msi"
+            env -u TAURI_PRIVATE_KEY -u TAURI_SIGNING_PRIVATE_KEY pnpm tauri signer sign -f "$TAURI_PRIVATE_KEY_PATH" "$msi"
           fi
           test -f "$sig"
           gh release upload "$TAG" "$sig" --clobber --repo "$GITHUB_REPOSITORY"
