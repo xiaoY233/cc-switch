@@ -60,6 +60,9 @@ jobs:
       - name: Unit tests
         run: pnpm test:unit
 
+      - name: Script tests
+        run: pnpm test:scripts
+
   backend:
     name: Backend Checks
     runs-on: ubuntu-22.04

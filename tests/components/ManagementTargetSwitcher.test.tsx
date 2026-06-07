@@ -19,7 +19,7 @@ const profiles: RemoteHostProfile[] = [
 ];
 
 describe("ManagementTargetSwitcher", () => {
-  it("uses the project segmented-switcher style for local and remote targets", () => {
+  it("uses the project button menu style for local and remote targets", () => {
     render(
       <ManagementTargetSwitcher
         profiles={profiles}
@@ -29,17 +29,12 @@ describe("ManagementTargetSwitcher", () => {
     );
 
     const switcher = screen.getByLabelText("管理目标");
-    expect(switcher).toHaveClass("inline-flex", "rounded-xl", "bg-muted");
-    expect(screen.getByRole("button", { name: "本地" })).toHaveClass(
-      "bg-background",
-      "shadow-sm",
-    );
-    expect(screen.getByRole("button", { name: /远程/ })).not.toHaveClass(
-      "bg-background",
-    );
+    expect(switcher).toHaveClass("inline-flex", "h-8", "rounded-md");
+    expect(switcher).toHaveTextContent("本地");
+    expect(switcher).not.toHaveTextContent("生产服务器");
   });
 
-  it("selects a remote profile from the styled target menu", async () => {
+  it("selects a remote profile from the target menu", async () => {
     const onTargetChange = vi.fn();
     const user = userEvent.setup();
     render(
@@ -50,7 +45,7 @@ describe("ManagementTargetSwitcher", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /远程/ }));
+    await user.click(screen.getByRole("button", { name: "管理目标" }));
     await user.click(await screen.findByText("生产服务器"));
 
     expect(onTargetChange).toHaveBeenCalledWith("remote:remote-1");
@@ -65,9 +60,8 @@ describe("ManagementTargetSwitcher", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /生产服务器/ })).toHaveClass(
-      "bg-background",
-      "shadow-sm",
-    );
+    const switcher = screen.getByRole("button", { name: "管理目标" });
+    expect(switcher).toHaveTextContent("生产服务器");
+    expect(switcher).toHaveClass("inline-flex", "h-8", "rounded-md");
   });
 });
