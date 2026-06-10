@@ -3,6 +3,7 @@
 use crate::app_config::AppType;
 use crate::init_status::{InitErrorPayload, SkillsMigrationPayload};
 use crate::services::ProviderService;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use crate::tool_environment::decode_command_output;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;

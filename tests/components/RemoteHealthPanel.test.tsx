@@ -2,9 +2,13 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { RemoteHealthPanel } from "@/components/remote/RemoteHealthPanel";
 import type { RemoteHostProfile } from "@/lib/api";
+import { EXPECTED_REMOTE_CAPABILITIES } from "@/lib/remoteHealth";
 
 const checkHealthMock = vi.fn();
 const installHelperMock = vi.fn();
+const allExpectedCapabilities = EXPECTED_REMOTE_CAPABILITIES.map(
+  (capability) => capability.id,
+);
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<any>("@/lib/api");
@@ -70,20 +74,7 @@ describe("RemoteHealthPanel", () => {
       helperInstalled: true,
       helperVersion: "3.16.0",
       platform: "linux",
-      capabilities: [
-        "providers",
-        "openclaw",
-        "mcp",
-        "prompts",
-        "skills",
-        "sessions",
-        "hermes-memory",
-        "tools",
-        "import-export",
-        "settings",
-        "plugin",
-        "session",
-      ],
+      capabilities: allExpectedCapabilities,
     });
 
     render(<RemoteHealthPanel profile={profile} />);
