@@ -350,6 +350,6 @@ fn unsupported_command_returns_stable_error_envelope() {
     assert_eq!(response["error"]["code"], "unsupported_command");
     assert_eq!(
         response["error"]["message"],
-        "Supported commands: status, providers, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools, settings, plugin"
+        "Supported commands: status, providers, universal-providers, routing-config, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools, settings, plugin"
     );
 }
