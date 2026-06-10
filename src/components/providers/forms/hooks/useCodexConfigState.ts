@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import {
   extractCodexBaseUrl,
   extractCodexExperimentalBearerToken,
+  getDisplaySecretValue,
   setCodexBaseUrl as setCodexBaseUrlInConfig,
   updateCodexExperimentalBearerToken,
 } from "@/utils/providerConfigUtils";
@@ -21,10 +22,10 @@ function pickCodexApiKey(
   configText: string,
 ): string {
   if (authObj && typeof authObj.OPENAI_API_KEY === "string") {
-    const key = authObj.OPENAI_API_KEY;
+    const key = getDisplaySecretValue(authObj.OPENAI_API_KEY);
     if (key) return key;
   }
-  return extractCodexExperimentalBearerToken(configText) || "";
+  return getDisplaySecretValue(extractCodexExperimentalBearerToken(configText));
 }
 
 /**
@@ -109,7 +110,7 @@ export function useCodexConfigState({ initialData }: UseCodexConfigStateProps) {
   const getCodexAuthApiKey = useCallback((authString: string): string => {
     try {
       const auth = JSON.parse(authString || "{}");
-      return typeof auth.OPENAI_API_KEY === "string" ? auth.OPENAI_API_KEY : "";
+      return getDisplaySecretValue(auth.OPENAI_API_KEY);
     } catch {
       return "";
     }

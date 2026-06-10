@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { getDisplaySecretValue } from "@/utils/providerConfigUtils";
 
 interface UseGeminiConfigStateProps {
   initialData?: {
@@ -89,7 +90,7 @@ export function useGeminiConfigState({
 
       // 提取 API Key、Base URL 和 Model
       if (typeof env.GEMINI_API_KEY === "string") {
-        setGeminiApiKey(env.GEMINI_API_KEY);
+        setGeminiApiKey(getDisplaySecretValue(env.GEMINI_API_KEY));
       }
       if (typeof env.GOOGLE_GEMINI_BASE_URL === "string") {
         setGeminiBaseUrl(env.GOOGLE_GEMINI_BASE_URL);
@@ -103,7 +104,7 @@ export function useGeminiConfigState({
   // 从 geminiEnv 中提取并同步 API Key、Base URL 和 Model
   useEffect(() => {
     const envObj = envStringToObj(geminiEnv);
-    const extractedKey = envObj.GEMINI_API_KEY || "";
+    const extractedKey = getDisplaySecretValue(envObj.GEMINI_API_KEY);
     const extractedBaseUrl = envObj.GOOGLE_GEMINI_BASE_URL || "";
     const extractedModel = envObj.GEMINI_MODEL || "";
 
@@ -219,7 +220,7 @@ export function useGeminiConfigState({
 
       // 提取 API Key、Base URL 和 Model
       if (typeof env.GEMINI_API_KEY === "string") {
-        setGeminiApiKey(env.GEMINI_API_KEY);
+        setGeminiApiKey(getDisplaySecretValue(env.GEMINI_API_KEY));
       } else {
         setGeminiApiKey("");
       }

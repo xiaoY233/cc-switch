@@ -51,6 +51,7 @@ interface OpenClawFormFieldsProps {
   // API Key
   apiKey: string;
   onApiKeyChange: (value: string) => void;
+  apiKeyPlaceholder?: string;
   category?: ProviderCategory;
   shouldShowApiKeyLink: boolean;
   websiteUrl: string;
@@ -75,6 +76,7 @@ export function OpenClawFormFields({
   onBaseUrlChange,
   apiKey,
   onApiKeyChange,
+  apiKeyPlaceholder,
   category,
   shouldShowApiKeyLink,
   websiteUrl,
@@ -258,6 +260,16 @@ export function OpenClawFormFields({
         value={apiKey}
         onChange={onApiKeyChange}
         category={category}
+        placeholder={
+          apiKeyPlaceholder
+            ? {
+                official: t("providerForm.officialNoApiKey", {
+                  defaultValue: "官方供应商无需 API Key",
+                }),
+                thirdParty: apiKeyPlaceholder,
+              }
+            : undefined
+        }
         shouldShowLink={shouldShowApiKeyLink}
         websiteUrl={websiteUrl}
         isPartner={isPartner}

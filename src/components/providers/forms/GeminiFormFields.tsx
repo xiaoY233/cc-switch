@@ -23,6 +23,7 @@ interface GeminiFormFieldsProps {
   shouldShowApiKey: boolean;
   apiKey: string;
   onApiKeyChange: (key: string) => void;
+  apiKeyPlaceholder?: string;
   category?: ProviderCategory;
   shouldShowApiKeyLink: boolean;
   websiteUrl: string;
@@ -53,6 +54,7 @@ export function GeminiFormFields({
   shouldShowApiKey,
   apiKey,
   onApiKeyChange,
+  apiKeyPlaceholder,
   category,
   shouldShowApiKeyLink,
   websiteUrl,
@@ -137,6 +139,16 @@ export function GeminiFormFields({
           value={apiKey}
           onChange={onApiKeyChange}
           category={category}
+          placeholder={
+            apiKeyPlaceholder
+              ? {
+                  official: t("providerForm.officialNoApiKey", {
+                    defaultValue: "官方供应商无需 API Key",
+                  }),
+                  thirdParty: apiKeyPlaceholder,
+                }
+              : undefined
+          }
           shouldShowLink={shouldShowApiKeyLink}
           websiteUrl={websiteUrl}
           isPartner={isPartner}

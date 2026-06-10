@@ -14,6 +14,8 @@ interface CodexConfigEditorProps {
 
   isProxyTakeover?: boolean;
 
+  commonConfigEnabled?: boolean;
+
   onAuthChange: (value: string) => void;
 
   onConfigChange: (value: string) => void;
@@ -47,6 +49,7 @@ const CodexConfigEditor: React.FC<CodexConfigEditorProps> = ({
   providerName,
   showRemoteCompaction,
   isProxyTakeover = false,
+  commonConfigEnabled = true,
   onAuthChange,
   onConfigChange,
   onAuthBlur,
@@ -94,6 +97,7 @@ const CodexConfigEditor: React.FC<CodexConfigEditorProps> = ({
         onChange={onConfigChange}
         providerName={providerName}
         showRemoteCompaction={showRemoteCompaction}
+        commonConfigEnabled={commonConfigEnabled}
         useCommonConfig={useCommonConfig}
         onCommonConfigToggle={onCommonConfigToggle}
         onEditCommonConfig={() => setIsCommonConfigModalOpen(true)}
@@ -103,15 +107,17 @@ const CodexConfigEditor: React.FC<CodexConfigEditorProps> = ({
       />
 
       {/* Common Config Modal */}
-      <CodexCommonConfigModal
-        isOpen={isCommonConfigModalOpen}
-        onClose={handleCloseCommonConfigModal}
-        value={commonConfigSnippet}
-        onSave={onCommonConfigSnippetChange}
-        error={commonConfigError}
-        onExtract={onExtract}
-        isExtracting={isExtracting}
-      />
+      {commonConfigEnabled && (
+        <CodexCommonConfigModal
+          isOpen={isCommonConfigModalOpen}
+          onClose={handleCloseCommonConfigModal}
+          value={commonConfigSnippet}
+          onSave={onCommonConfigSnippetChange}
+          error={commonConfigError}
+          onExtract={onExtract}
+          isExtracting={isExtracting}
+        />
+      )}
     </div>
   );
 };

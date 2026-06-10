@@ -57,6 +57,7 @@ interface HermesFormFieldsProps {
   onBaseUrlChange: (value: string) => void;
   apiKey: string;
   onApiKeyChange: (value: string) => void;
+  apiKeyPlaceholder?: string;
   category?: ProviderCategory;
   shouldShowApiKeyLink: boolean;
   websiteUrl: string;
@@ -144,6 +145,7 @@ export function HermesFormFields({
   onBaseUrlChange,
   apiKey,
   onApiKeyChange,
+  apiKeyPlaceholder,
   category,
   shouldShowApiKeyLink,
   websiteUrl,
@@ -331,6 +333,16 @@ export function HermesFormFields({
         value={apiKey}
         onChange={onApiKeyChange}
         category={category}
+        placeholder={
+          apiKeyPlaceholder
+            ? {
+                official: t("providerForm.officialNoApiKey", {
+                  defaultValue: "官方供应商无需 API Key",
+                }),
+                thirdParty: apiKeyPlaceholder,
+              }
+            : undefined
+        }
         shouldShowLink={shouldShowApiKeyLink}
         websiteUrl={websiteUrl}
         isPartner={isPartner}

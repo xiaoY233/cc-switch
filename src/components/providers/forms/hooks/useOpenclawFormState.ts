@@ -4,6 +4,7 @@ import type { AppId, ManagementTarget } from "@/lib/api";
 import { useProvidersQuery } from "@/lib/query/queries";
 import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 import { OPENCLAW_DEFAULT_CONFIG } from "../helpers/opencodeFormUtils";
+import { getDisplaySecretValue } from "@/utils/providerConfigUtils";
 
 interface UseOpenclawFormStateParams {
   initialData?: {
@@ -84,7 +85,7 @@ export function useOpenclawFormState({
 
   const [openclawApiKey, setOpenclawApiKey] = useState<string>(() => {
     if (appId !== "openclaw") return "";
-    return parseOpenclawField(initialData, "apiKey", "");
+    return getDisplaySecretValue(parseOpenclawField(initialData, "apiKey", ""));
   });
 
   const [openclawApi, setOpenclawApi] = useState<string>(() => {
@@ -179,7 +180,7 @@ export function useOpenclawFormState({
   const resetOpenclawState = useCallback((config?: OpenClawProviderConfig) => {
     setOpenclawProviderKey("");
     setOpenclawBaseUrl(config?.baseUrl || "");
-    setOpenclawApiKey(config?.apiKey || "");
+    setOpenclawApiKey(getDisplaySecretValue(config?.apiKey));
     setOpenclawApi(config?.api || "openai-completions");
     setOpenclawModels(config?.models || []);
     const ua = config?.headers ? "User-Agent" in config.headers : false;

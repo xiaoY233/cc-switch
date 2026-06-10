@@ -50,6 +50,7 @@
   },
   "apiKeyInput": {
     "placeholder": "API Key を入力",
+    "keepCurrentPlaceholder": "空欄のままにすると現在の API Key を保持します。",
     "show": "API Key を表示",
     "hide": "API Key を隠す"
   },

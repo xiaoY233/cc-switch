@@ -7,6 +7,7 @@ import {
   parseOpencodeConfig,
   toOpencodeExtraOptions,
 } from "../helpers/opencodeFormUtils";
+import { getDisplaySecretValue } from "@/utils/providerConfigUtils";
 
 interface UseOpencodeFormStateParams {
   initialData?: {
@@ -60,7 +61,7 @@ export function useOpencodeFormState({
   const [opencodeApiKey, setOpencodeApiKey] = useState<string>(() => {
     if (appId !== "opencode") return "";
     const value = initialOpencodeOptions.apiKey;
-    return typeof value === "string" ? value : "";
+    return getDisplaySecretValue(value);
   });
 
   const [opencodeBaseUrl, setOpencodeBaseUrl] = useState<string>(() => {
@@ -169,7 +170,7 @@ export function useOpencodeFormState({
     setOpencodeProviderKey("");
     setOpencodeNpm(config?.npm || OPENCODE_DEFAULT_NPM);
     setOpencodeBaseUrl(config?.options?.baseURL || "");
-    setOpencodeApiKey(config?.options?.apiKey || "");
+    setOpencodeApiKey(getDisplaySecretValue(config?.options?.apiKey));
     setOpencodeModels(config?.models || {});
     setOpencodeExtraOptions(toOpencodeExtraOptions(config?.options || {}));
   }, []);

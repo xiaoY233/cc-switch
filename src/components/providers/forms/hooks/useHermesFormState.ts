@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import type { AppId, ManagementTarget } from "@/lib/api";
 import { useProvidersQuery } from "@/lib/query/queries";
 import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
+import { getDisplaySecretValue } from "@/utils/providerConfigUtils";
 import {
   HERMES_DEFAULT_API_MODE,
   type HermesApiMode,
@@ -103,7 +104,7 @@ export function useHermesFormState({
 
   const [hermesApiKey, setHermesApiKey] = useState<string>(() => {
     if (appId !== "hermes") return "";
-    return parseHermesField(initialData, "api_key", "");
+    return getDisplaySecretValue(parseHermesField(initialData, "api_key", ""));
   });
 
   const [hermesApiMode, setHermesApiMode] = useState<HermesApiMode>(() => {
@@ -203,7 +204,7 @@ export function useHermesFormState({
     (config?: Partial<HermesProviderSettingsConfig>) => {
       setHermesProviderKey("");
       setHermesBaseUrl(config?.base_url || "");
-      setHermesApiKey(config?.api_key || "");
+      setHermesApiKey(getDisplaySecretValue(config?.api_key));
       setHermesApiMode(config?.api_mode ?? HERMES_DEFAULT_API_MODE);
       setHermesModels(config?.models ?? []);
       setHermesRateLimitDelay(parseRateLimitDelay(config?.rate_limit_delay));

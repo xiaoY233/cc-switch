@@ -58,10 +58,14 @@ import type { UniversalProviderPreset } from "@/config/universalProviderPresets"
 import {
   applyTemplateValues,
   hasApiKeyField,
+  hasRedactedApiKeyValue,
+  hasRedactedSecretForDisplay,
 } from "@/utils/providerConfigUtils";
 import { mergeProviderMeta } from "@/utils/providerMetaUtils";
 import {
+  extractCodexExperimentalBearerToken,
   extractCodexWireApi,
+  isRedactedSecretValue,
   setCodexWireApi,
   setCodexModelName as setCodexModelNameInConfig,
 } from "@/utils/providerConfigUtils";
@@ -231,6 +235,7 @@ export interface ProviderFormProps {
     websiteUrl?: string;
     notes?: string;
     settingsConfig?: Record<string, unknown>;
+    secretReferenceConfig?: Record<string, unknown>;
     category?: ProviderCategory;
     meta?: ProviderMeta;
     icon?: string;
@@ -272,7 +277,24 @@ function ProviderFormFull({
   const queryClient = useQueryClient();
   const { data: settingsData } = useSettingsQuery();
   const showCommonConfigNotice =
-    settingsData != null && settingsData.commonConfigConfirmed !== true;
+    isLocalTarget &&
+    settingsData != null &&
+    settingsData.commonConfigConfirmed !== true;
+  const remoteKeepApiKeyPlaceholder =
+    target.type === "remote" &&
+    isEditMode &&
+    initialData?.secretReferenceConfig &&
+    (hasRedactedSecretForDisplay(initialData.secretReferenceConfig) ||
+      (typeof initialData.secretReferenceConfig.config === "string" &&
+        isRedactedSecretValue(
+          extractCodexExperimentalBearerToken(
+            initialData.secretReferenceConfig.config,
+          ),
+        )))
+      ? t("apiKeyInput.keepCurrentPlaceholder", {
+          defaultValue: "Leave blank to keep the current API key.",
+        })
+      : undefined;
 
   const handleCommonConfigConfirm = async () => {
     try {
@@ -672,7 +694,7 @@ function ProviderFormFull({
     initialEnabled:
       appId === "claude" ? initialData?.meta?.commonConfigEnabled : undefined,
     selectedPresetId: selectedPresetId ?? undefined,
-    enabled: appId === "claude",
+    enabled: appId === "claude" && isLocalTarget,
   });
 
   const {
@@ -691,6 +713,7 @@ function ProviderFormFull({
     initialEnabled:
       appId === "codex" ? initialData?.meta?.commonConfigEnabled : undefined,
     selectedPresetId: selectedPresetId ?? undefined,
+    enabled: appId === "codex" && isLocalTarget,
   });
 
   const {
@@ -777,6 +800,7 @@ function ProviderFormFull({
     initialEnabled:
       appId === "gemini" ? initialData?.meta?.commonConfigEnabled : undefined,
     selectedPresetId: selectedPresetId ?? undefined,
+    enabled: appId === "gemini" && isLocalTarget,
   });
 
   // ── Extracted hooks: OpenCode / OMO / OpenClaw ─────────────────────
@@ -1125,6 +1149,12 @@ function ProviderFormFull({
     // cloud_provider（如 Bedrock）通过模板变量处理认证，跳过通用校验
     if (category !== "official" && category !== "cloud_provider") {
       if (appId === "claude") {
+        const hasPreservedRedactedApiKey = hasRedactedApiKeyValue(
+          initialData?.secretReferenceConfig
+            ? JSON.stringify(initialData.secretReferenceConfig)
+            : values.settingsConfig,
+          "claude",
+        );
         if (!isCodexOauthProvider && !baseUrl.trim()) {
           issues.push(
             t("providerForm.endpointRequired", {
@@ -1132,7 +1162,12 @@ function ProviderFormFull({
             }),
           );
         }
-        if (!isCopilotProvider && !isCodexOauthProvider && !apiKey.trim()) {
+        if (
+          !isCopilotProvider &&
+          !isCodexOauthProvider &&
+          !apiKey.trim() &&
+          !hasPreservedRedactedApiKey
+        ) {
           issues.push(
             t("providerForm.apiKeyRequired", {
               defaultValue: "非官方供应商请填写 API Key",
@@ -1140,6 +1175,34 @@ function ProviderFormFull({
           );
         }
       } else if (appId === "codex") {
+        const secretReference =
+          initialData?.secretReferenceConfig &&
+          typeof initialData.secretReferenceConfig === "object"
+            ? initialData.secretReferenceConfig
+            : undefined;
+        let codexAuthHasRedactedApiKey = false;
+        try {
+          const auth =
+            secretReference && typeof secretReference.auth === "object"
+              ? (secretReference.auth as { OPENAI_API_KEY?: unknown })
+              : (JSON.parse(codexAuth || "{}") as {
+                  OPENAI_API_KEY?: unknown;
+                });
+          codexAuthHasRedactedApiKey = isRedactedSecretValue(
+            auth.OPENAI_API_KEY,
+          );
+        } catch {
+          codexAuthHasRedactedApiKey = false;
+        }
+        const codexConfigHasRedactedApiKey = isRedactedSecretValue(
+          extractCodexExperimentalBearerToken(
+            typeof secretReference?.config === "string"
+              ? secretReference.config
+              : codexConfig,
+          ),
+        );
+        const hasPreservedRedactedApiKey =
+          codexAuthHasRedactedApiKey || codexConfigHasRedactedApiKey;
         if (!codexBaseUrl.trim()) {
           issues.push(
             t("providerForm.endpointRequired", {
@@ -1147,7 +1210,7 @@ function ProviderFormFull({
             }),
           );
         }
-        if (!codexApiKey.trim()) {
+        if (!codexApiKey.trim() && !hasPreservedRedactedApiKey) {
           issues.push(
             t("providerForm.apiKeyRequired", {
               defaultValue: "非官方供应商请填写 API Key",
@@ -1155,6 +1218,14 @@ function ProviderFormFull({
           );
         }
       } else if (appId === "gemini") {
+        const referenceEnv =
+          initialData?.secretReferenceConfig &&
+          typeof initialData.secretReferenceConfig.env === "object"
+            ? (initialData.secretReferenceConfig.env as Record<string, unknown>)
+            : envStringToObj(geminiEnv);
+        const hasPreservedRedactedApiKey = isRedactedSecretValue(
+          referenceEnv.GEMINI_API_KEY,
+        );
         if (!geminiBaseUrl.trim()) {
           issues.push(
             t("providerForm.endpointRequired", {
@@ -1162,7 +1233,7 @@ function ProviderFormFull({
             }),
           );
         }
-        if (!geminiApiKey.trim()) {
+        if (!geminiApiKey.trim() && !hasPreservedRedactedApiKey) {
           issues.push(
             t("providerForm.apiKeyRequired", {
               defaultValue: "非官方供应商请填写 API Key",
@@ -1365,13 +1436,13 @@ function ProviderFormFull({
     const nextMeta: ProviderMeta = {
       ...(baseMeta ?? {}),
       commonConfigEnabled:
-        appId === "claude"
+        isLocalTarget && appId === "claude"
           ? useCommonConfig
-          : appId === "codex"
+          : isLocalTarget && appId === "codex"
             ? useCodexCommonConfigFlag
-            : appId === "gemini"
+            : isLocalTarget && appId === "gemini"
               ? useGeminiCommonConfigFlag
-              : undefined,
+              : baseMeta?.commonConfigEnabled,
       endpointAutoSelect,
       claudeDesktopMode: undefined,
       // 保存 providerType（用于识别 Copilot / Codex OAuth 等特殊供应商）
@@ -1963,6 +2034,7 @@ function ProviderFormFull({
               }
               apiKey={apiKey}
               onApiKeyChange={handleApiKeyChange}
+              apiKeyPlaceholder={remoteKeepApiKeyPlaceholder}
               category={category}
               shouldShowApiKeyLink={shouldShowClaudeApiKeyLink}
               websiteUrl={claudeWebsiteUrl}
@@ -2032,6 +2104,7 @@ function ProviderFormFull({
               providerId={providerId}
               codexApiKey={codexApiKey}
               onApiKeyChange={handleCodexApiKeyChange}
+              apiKeyPlaceholder={remoteKeepApiKeyPlaceholder}
               category={category}
               shouldShowApiKeyLink={shouldShowCodexApiKeyLink}
               websiteUrl={codexWebsiteUrl}
@@ -2068,6 +2141,7 @@ function ProviderFormFull({
               )}
               apiKey={geminiApiKey}
               onApiKeyChange={handleGeminiApiKeyChange}
+              apiKeyPlaceholder={remoteKeepApiKeyPlaceholder}
               category={category}
               shouldShowApiKeyLink={shouldShowGeminiApiKeyLink}
               websiteUrl={geminiWebsiteUrl}
@@ -2094,6 +2168,7 @@ function ProviderFormFull({
               onNpmChange={opencodeForm.handleOpencodeNpmChange}
               apiKey={opencodeForm.opencodeApiKey}
               onApiKeyChange={opencodeForm.handleOpencodeApiKeyChange}
+              apiKeyPlaceholder={remoteKeepApiKeyPlaceholder}
               category={category}
               shouldShowApiKeyLink={shouldShowOpencodeApiKeyLink}
               websiteUrl={opencodeWebsiteUrl}
@@ -2137,6 +2212,7 @@ function ProviderFormFull({
               onBaseUrlChange={openclawForm.handleOpenclawBaseUrlChange}
               apiKey={openclawForm.openclawApiKey}
               onApiKeyChange={openclawForm.handleOpenclawApiKeyChange}
+              apiKeyPlaceholder={remoteKeepApiKeyPlaceholder}
               category={category}
               shouldShowApiKeyLink={shouldShowOpenclawApiKeyLink}
               websiteUrl={openclawWebsiteUrl}
@@ -2158,6 +2234,7 @@ function ProviderFormFull({
               onBaseUrlChange={hermesForm.handleHermesBaseUrlChange}
               apiKey={hermesForm.hermesApiKey}
               onApiKeyChange={hermesForm.handleHermesApiKeyChange}
+              apiKeyPlaceholder={remoteKeepApiKeyPlaceholder}
               category={category}
               shouldShowApiKeyLink={shouldShowHermesApiKeyLink}
               websiteUrl={hermesWebsiteUrl}
@@ -2183,6 +2260,7 @@ function ProviderFormFull({
                 providerName={form.watch("name")}
                 showRemoteCompaction={category !== "official"}
                 isProxyTakeover={isProxyTakeover}
+                commonConfigEnabled={isLocalTarget}
                 onAuthChange={setCodexAuth}
                 onConfigChange={handleCodexConfigChange}
                 useCommonConfig={useCodexCommonConfigFlag}
@@ -2205,6 +2283,7 @@ function ProviderFormFull({
               <GeminiConfigEditor
                 envValue={geminiEnv}
                 configValue={geminiConfig}
+                commonConfigEnabled={isLocalTarget}
                 onEnvChange={handleGeminiEnvChange}
                 onConfigChange={handleGeminiConfigChange}
                 useCommonConfig={useGeminiCommonConfigFlag}
@@ -2303,6 +2382,7 @@ function ProviderFormFull({
               <CommonConfigEditor
                 value={form.getValues("settingsConfig")}
                 onChange={(value) => form.setValue("settingsConfig", value)}
+                commonConfigEnabled={isLocalTarget}
                 useCommonConfig={useCommonConfig}
                 onCommonConfigToggle={handleCommonConfigToggle}
                 commonConfigSnippet={commonConfigSnippet}

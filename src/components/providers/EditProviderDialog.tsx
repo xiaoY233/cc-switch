@@ -19,6 +19,10 @@ import {
   LOCAL_MANAGEMENT_TARGET,
   shouldReadLocalLiveConfig,
 } from "@/lib/managementTarget";
+import {
+  hideRemoteProviderConfigSecretsForDisplay,
+  restoreRemoteProviderConfigSecretsForSubmit,
+} from "@/utils/providerConfigUtils";
 
 interface EditProviderDialogProps {
   open: boolean;
@@ -173,11 +177,20 @@ export function EditProviderDialog({
   // 固定 initialData，防止 provider 对象更新时重置表单
   const initialData = useMemo(() => {
     if (!provider) return null;
+    const settingsConfig =
+      target.type === "remote"
+        ? hideRemoteProviderConfigSecretsForDisplay(
+            appId,
+            initialSettingsConfig,
+          )
+        : initialSettingsConfig;
     return {
       name: provider.name,
       notes: provider.notes,
       websiteUrl: provider.websiteUrl,
-      settingsConfig: initialSettingsConfig,
+      settingsConfig,
+      secretReferenceConfig:
+        target.type === "remote" ? initialSettingsConfig : undefined,
       category: provider.category,
       meta: provider.meta,
       icon: provider.icon,
@@ -188,6 +201,8 @@ export function EditProviderDialog({
     provider?.id, // 只依赖 ID，provider 对象更新不会触发重新计算
     provider?.meta, // 需要依赖 meta 以便正确初始化 testConfig
     initialSettingsConfig,
+    target.type,
+    appId,
   ]);
 
   const handleSubmit = useCallback(
@@ -200,6 +215,14 @@ export function EditProviderDialog({
         string,
         unknown
       >;
+      const settingsConfig =
+        target.type === "remote"
+          ? restoreRemoteProviderConfigSecretsForSubmit(
+              appId,
+              initialSettingsConfig,
+              parsedConfig,
+            )
+          : parsedConfig;
       const nextProviderId =
         (appId === "opencode" || appId === "openclaw") &&
         values.providerKey?.trim()
@@ -212,7 +235,7 @@ export function EditProviderDialog({
         name: values.name.trim(),
         notes: values.notes?.trim() || undefined,
         websiteUrl: values.websiteUrl?.trim() || undefined,
-        settingsConfig: parsedConfig,
+        settingsConfig,
         icon: values.icon?.trim() || undefined,
         iconColor: values.iconColor?.trim() || undefined,
         ...(values.presetCategory ? { category: values.presetCategory } : {}),
@@ -226,7 +249,14 @@ export function EditProviderDialog({
       });
       onOpenChange(false);
     },
-    [appId, onSubmit, onOpenChange, provider],
+    [
+      appId,
+      initialSettingsConfig,
+      onSubmit,
+      onOpenChange,
+      provider,
+      target.type,
+    ],
   );
 
   if (!provider || !initialData) {

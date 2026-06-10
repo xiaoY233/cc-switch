@@ -21,6 +21,8 @@ interface UseGeminiCommonConfigProps {
   };
   initialEnabled?: boolean;
   selectedPresetId?: string;
+  /** When false, skip local common config loading and injection. Default: true */
+  enabled?: boolean;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -46,6 +48,7 @@ export function useGeminiCommonConfig({
   initialData,
   initialEnabled,
   selectedPresetId,
+  enabled = true,
 }: UseGeminiCommonConfigProps) {
   const { t } = useTranslation();
   const [useCommonConfig, setUseCommonConfig] = useState(false);
@@ -65,9 +68,10 @@ export function useGeminiCommonConfig({
 
   // 当预设变化时，重置初始化标记，使新预设能够重新触发初始化逻辑
   useEffect(() => {
+    if (!enabled) return;
     hasInitializedNewMode.current = false;
     hasInitializedEditMode.current = false;
-  }, [selectedPresetId, initialEnabled]);
+  }, [selectedPresetId, initialEnabled, enabled]);
 
   const parseSnippetEnv = useCallback(
     (
@@ -157,6 +161,11 @@ export function useGeminiCommonConfig({
 
   // 初始化：从 config.json 加载，支持从 localStorage 迁移
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
+
     let mounted = true;
 
     const loadSnippet = async () => {
@@ -212,10 +221,11 @@ export function useGeminiCommonConfig({
     return () => {
       mounted = false;
     };
-  }, [parseSnippetEnv]);
+  }, [parseSnippetEnv, enabled]);
 
   // 初始化时检查通用配置片段（编辑模式）
   useEffect(() => {
+    if (!enabled) return;
     if (
       !initialData?.settingsConfig ||
       isLoading ||
@@ -287,10 +297,12 @@ export function useGeminiCommonConfig({
     isLoading,
     onEnvChange,
     parseSnippetEnv,
+    enabled,
   ]);
 
   // 新建模式：如果通用配置片段存在且有效，默认启用
   useEffect(() => {
+    if (!enabled) return;
     if (initialData || isLoading || hasInitializedNewMode.current) {
       return;
     }
@@ -329,6 +341,7 @@ export function useGeminiCommonConfig({
     applySnippetToEnv,
     onEnvChange,
     parseSnippetEnv,
+    enabled,
   ]);
 
   // 处理通用配置开关
@@ -468,6 +481,7 @@ export function useGeminiCommonConfig({
 
   // 当 env 变化时检查是否包含通用配置（但避免在通过通用配置更新时检查）
   useEffect(() => {
+    if (!enabled) return;
     if (isUpdatingFromCommonConfig.current || isLoading) {
       return;
     }
@@ -484,6 +498,7 @@ export function useGeminiCommonConfig({
     hasEnvCommonConfigSnippet,
     isLoading,
     parseSnippetEnv,
+    enabled,
   ]);
 
   // 从编辑器当前内容提取通用配置片段

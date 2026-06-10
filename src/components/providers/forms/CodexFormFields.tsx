@@ -41,6 +41,7 @@ interface CodexFormFieldsProps {
   // API Key
   codexApiKey: string;
   onApiKeyChange: (key: string) => void;
+  apiKeyPlaceholder?: string;
   category?: ProviderCategory;
   shouldShowApiKeyLink: boolean;
   websiteUrl: string;
@@ -106,6 +107,7 @@ export function CodexFormFields({
   providerId,
   codexApiKey,
   onApiKeyChange,
+  apiKeyPlaceholder,
   category,
   shouldShowApiKeyLink,
   websiteUrl,
@@ -302,6 +304,7 @@ export function CodexFormFields({
           thirdParty: t("providerForm.codexApiKeyAutoFill", {
             defaultValue: "输入 API Key，将自动填充到配置",
           }),
+          ...(apiKeyPlaceholder ? { thirdParty: apiKeyPlaceholder } : {}),
         }}
       />
 

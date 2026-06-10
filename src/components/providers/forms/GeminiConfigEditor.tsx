@@ -8,6 +8,7 @@ interface GeminiConfigEditorProps {
   onEnvChange: (value: string) => void;
   onConfigChange: (value: string) => void;
   onEnvBlur?: () => void;
+  commonConfigEnabled?: boolean;
   useCommonConfig: boolean;
   onCommonConfigToggle: (checked: boolean) => void;
   commonConfigSnippet: string;
@@ -26,6 +27,7 @@ const GeminiConfigEditor: React.FC<GeminiConfigEditorProps> = ({
   onEnvChange,
   onConfigChange,
   onEnvBlur,
+  commonConfigEnabled = true,
   useCommonConfig,
   onCommonConfigToggle,
   commonConfigSnippet,
@@ -52,6 +54,7 @@ const GeminiConfigEditor: React.FC<GeminiConfigEditorProps> = ({
         onChange={onEnvChange}
         onBlur={onEnvBlur}
         error={envError}
+        commonConfigEnabled={commonConfigEnabled}
         useCommonConfig={useCommonConfig}
         onCommonConfigToggle={onCommonConfigToggle}
         onEditCommonConfig={() => setIsCommonConfigModalOpen(true)}
@@ -66,15 +69,17 @@ const GeminiConfigEditor: React.FC<GeminiConfigEditorProps> = ({
       />
 
       {/* Common Config Modal */}
-      <GeminiCommonConfigModal
-        isOpen={isCommonConfigModalOpen}
-        onClose={handleCloseCommonConfigModal}
-        value={commonConfigSnippet}
-        onSave={onCommonConfigSnippetChange}
-        error={commonConfigError}
-        onExtract={onExtract}
-        isExtracting={isExtracting}
-      />
+      {commonConfigEnabled && (
+        <GeminiCommonConfigModal
+          isOpen={isCommonConfigModalOpen}
+          onClose={handleCloseCommonConfigModal}
+          value={commonConfigSnippet}
+          onSave={onCommonConfigSnippetChange}
+          error={commonConfigError}
+          onExtract={onExtract}
+          isExtracting={isExtracting}
+        />
+      )}
     </div>
   );
 };

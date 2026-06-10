@@ -63,6 +63,174 @@ const isSubset = (target: any, source: any): boolean => {
   return target === source;
 };
 
+export const REDACTED_SECRET_SENTINEL = "[redacted]";
+
+export const isRedactedSecretValue = (value: unknown): boolean =>
+  typeof value === "string" && value.trim() === REDACTED_SECRET_SENTINEL;
+
+export const getDisplaySecretValue = (value: unknown): string =>
+  typeof value === "string" && !isRedactedSecretValue(value) ? value : "";
+
+const isSecretConfigKey = (key: string): boolean => {
+  const normalized = key.toLowerCase();
+  return (
+    normalized === "key" ||
+    normalized.includes("api_key") ||
+    normalized.includes("apikey") ||
+    normalized.includes("token") ||
+    normalized.includes("secret") ||
+    normalized.includes("password") ||
+    normalized.includes("credential")
+  );
+};
+
+export const hideRedactedSecretsForDisplay = <T>(value: T): T => {
+  if (Array.isArray(value)) {
+    return value.map((item) => hideRedactedSecretsForDisplay(item)) as T;
+  }
+
+  if (!isPlainObject(value)) {
+    return value;
+  }
+
+  const result: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (isSecretConfigKey(key) && isRedactedSecretValue(child)) {
+      result[key] = "";
+    } else {
+      result[key] = hideRedactedSecretsForDisplay(child);
+    }
+  }
+  return result as T;
+};
+
+export const hasRedactedSecretForDisplay = (value: unknown): boolean => {
+  if (Array.isArray(value)) {
+    return value.some((item) => hasRedactedSecretForDisplay(item));
+  }
+
+  if (!isPlainObject(value)) {
+    return false;
+  }
+
+  return Object.entries(value).some(([key, child]) => {
+    if (isSecretConfigKey(key) && isRedactedSecretValue(child)) {
+      return true;
+    }
+    return hasRedactedSecretForDisplay(child);
+  });
+};
+
+const restoreRedactedSecrets = (
+  existing: unknown,
+  incoming: unknown,
+): unknown => {
+  if (Array.isArray(existing) && Array.isArray(incoming)) {
+    return incoming.map((item, index) =>
+      restoreRedactedSecrets(existing[index], item),
+    );
+  }
+
+  if (!isPlainObject(existing) || !isPlainObject(incoming)) {
+    return incoming;
+  }
+
+  const result: Record<string, unknown> = { ...incoming };
+  for (const [key, existingChild] of Object.entries(existing)) {
+    const incomingHasKey = Object.prototype.hasOwnProperty.call(result, key);
+    const incomingChild = result[key];
+
+    if (isSecretConfigKey(key) && isRedactedSecretValue(existingChild)) {
+      if (
+        !incomingHasKey ||
+        incomingChild === "" ||
+        incomingChild === undefined ||
+        incomingChild === null
+      ) {
+        result[key] = REDACTED_SECRET_SENTINEL;
+      }
+      continue;
+    }
+
+    if (incomingHasKey) {
+      result[key] = restoreRedactedSecrets(existingChild, incomingChild);
+    }
+  }
+
+  return result;
+};
+
+const hideCodexRedactedExperimentalBearerToken = (
+  configText: string,
+): string => {
+  const text = normalizeTomlText(configText);
+  if (!text || !text.includes(REDACTED_SECRET_SENTINEL)) {
+    return configText;
+  }
+
+  const lines = text.split("\n").map((line) => {
+    const match = line.match(TOML_EXPERIMENTAL_BEARER_TOKEN_PATTERN);
+    if (!match || !isRedactedSecretValue(match[2])) {
+      return line;
+    }
+
+    return TOML_EXPERIMENTAL_BEARER_TOKEN_REPLACE_PATTERN.test(line)
+      ? line.replace(TOML_EXPERIMENTAL_BEARER_TOKEN_REPLACE_PATTERN, '$1""$2')
+      : `experimental_bearer_token = ""`;
+  });
+
+  return finalizeTomlText(lines);
+};
+
+export const hideRemoteProviderConfigSecretsForDisplay = (
+  appType: string,
+  config: Record<string, unknown>,
+): Record<string, unknown> => {
+  const displayConfig = hideRedactedSecretsForDisplay(
+    deepClone(config),
+  ) as Record<string, unknown>;
+
+  if (appType === "codex" && typeof displayConfig.config === "string") {
+    displayConfig.config = isRedactedSecretValue(
+      extractCodexExperimentalBearerToken(displayConfig.config),
+    )
+      ? hideCodexRedactedExperimentalBearerToken(displayConfig.config)
+      : displayConfig.config;
+  }
+
+  return displayConfig;
+};
+
+export const restoreRemoteProviderConfigSecretsForSubmit = (
+  appType: string,
+  originalConfig: Record<string, unknown>,
+  incomingConfig: Record<string, unknown>,
+): Record<string, unknown> => {
+  const restored = restoreRedactedSecrets(
+    originalConfig,
+    deepClone(incomingConfig),
+  ) as Record<string, unknown>;
+
+  if (
+    appType === "codex" &&
+    typeof originalConfig.config === "string" &&
+    typeof restored.config === "string" &&
+    isRedactedSecretValue(
+      extractCodexExperimentalBearerToken(originalConfig.config),
+    )
+  ) {
+    const incomingToken = extractCodexExperimentalBearerToken(restored.config);
+    if (!incomingToken) {
+      restored.config = updateCodexExperimentalBearerToken(
+        restored.config,
+        REDACTED_SECRET_SENTINEL,
+      );
+    }
+  }
+
+  return restored;
+};
+
 export interface UpdateCommonConfigResult {
   updatedConfig: string;
   error?: string;
@@ -162,6 +330,7 @@ export const getApiKeyFromConfig = (
     if (
       typeof config?.apiKey === "string" &&
       config.apiKey &&
+      !isRedactedSecretValue(config.apiKey) &&
       !config.apiKey.includes("${")
     ) {
       return config.apiKey;
@@ -174,13 +343,13 @@ export const getApiKeyFromConfig = (
     // Gemini API Key
     if (appType === "gemini") {
       const geminiKey = env.GEMINI_API_KEY;
-      return typeof geminiKey === "string" ? geminiKey : "";
+      return getDisplaySecretValue(geminiKey);
     }
 
     // Codex API Key
     if (appType === "codex") {
       const codexKey = env.CODEX_API_KEY;
-      return typeof codexKey === "string" ? codexKey : "";
+      return getDisplaySecretValue(codexKey);
     }
 
     // Claude API Key (优先 ANTHROPIC_AUTH_TOKEN，其次 ANTHROPIC_API_KEY)
@@ -192,7 +361,7 @@ export const getApiKeyFromConfig = (
         : typeof apiKey === "string"
           ? apiKey
           : "";
-    return value;
+    return getDisplaySecretValue(value);
   } catch (err) {
     return "";
   }
@@ -269,6 +438,39 @@ export const hasApiKeyField = (
     return (
       Object.prototype.hasOwnProperty.call(env, "ANTHROPIC_AUTH_TOKEN") ||
       Object.prototype.hasOwnProperty.call(env, "ANTHROPIC_API_KEY")
+    );
+  } catch (err) {
+    return false;
+  }
+};
+
+export const hasRedactedApiKeyValue = (
+  jsonString: string,
+  appType?: string,
+): boolean => {
+  try {
+    const config = JSON.parse(jsonString);
+
+    if (
+      Object.prototype.hasOwnProperty.call(config, "apiKey") &&
+      isRedactedSecretValue(config.apiKey)
+    ) {
+      return true;
+    }
+
+    const env = config?.env ?? {};
+
+    if (appType === "gemini") {
+      return isRedactedSecretValue(env.GEMINI_API_KEY);
+    }
+
+    if (appType === "codex") {
+      return isRedactedSecretValue(env.CODEX_API_KEY);
+    }
+
+    return (
+      isRedactedSecretValue(env.ANTHROPIC_AUTH_TOKEN) ||
+      isRedactedSecretValue(env.ANTHROPIC_API_KEY)
     );
   } catch (err) {
     return false;

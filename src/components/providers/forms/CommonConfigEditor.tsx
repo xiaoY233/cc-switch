@@ -9,6 +9,7 @@ import JsonEditor from "@/components/JsonEditor";
 interface CommonConfigEditorProps {
   value: string;
   onChange: (value: string) => void;
+  commonConfigEnabled?: boolean;
   useCommonConfig: boolean;
   onCommonConfigToggle: (checked: boolean) => void;
   commonConfigSnippet: string;
@@ -24,6 +25,7 @@ interface CommonConfigEditorProps {
 export function CommonConfigEditor({
   value,
   onChange,
+  commonConfigEnabled = true,
   useCommonConfig,
   onCommonConfigToggle,
   commonConfigSnippet,
@@ -161,35 +163,39 @@ export function CommonConfigEditor({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="settingsConfig">{t("provider.configJson")}</Label>
-          <div className="flex items-center gap-2">
-            <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-              <input
-                type="checkbox"
-                id="useCommonConfig"
-                checked={useCommonConfig}
-                onChange={(e) => onCommonConfigToggle(e.target.checked)}
-                className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
-              />
-              <span>
-                {t("claudeConfig.writeCommonConfig", {
-                  defaultValue: "写入通用配置",
-                })}
-              </span>
-            </label>
+          {commonConfigEnabled && (
+            <div className="flex items-center gap-2">
+              <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="useCommonConfig"
+                  checked={useCommonConfig}
+                  onChange={(e) => onCommonConfigToggle(e.target.checked)}
+                  className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
+                />
+                <span>
+                  {t("claudeConfig.writeCommonConfig", {
+                    defaultValue: "写入通用配置",
+                  })}
+                </span>
+              </label>
+            </div>
+          )}
+        </div>
+        {commonConfigEnabled && (
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={onEditClick}
+              className="text-xs text-blue-400 dark:text-blue-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+            >
+              {t("claudeConfig.editCommonConfig", {
+                defaultValue: "编辑通用配置",
+              })}
+            </button>
           </div>
-        </div>
-        <div className="flex items-center justify-end">
-          <button
-            type="button"
-            onClick={onEditClick}
-            className="text-xs text-blue-400 dark:text-blue-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
-          >
-            {t("claudeConfig.editCommonConfig", {
-              defaultValue: "编辑通用配置",
-            })}
-          </button>
-        </div>
-        {commonConfigError && !isModalOpen && (
+        )}
+        {commonConfigEnabled && commonConfigError && !isModalOpen && (
           <p className="text-xs text-red-500 dark:text-red-400 text-right">
             {commonConfigError}
           </p>
@@ -264,7 +270,7 @@ export function CommonConfigEditor({
       </div>
 
       <FullScreenPanel
-        isOpen={isModalOpen}
+        isOpen={commonConfigEnabled && isModalOpen}
         title={t("claudeConfig.editCommonConfigTitle", {
           defaultValue: "编辑通用配置片段",
         })}

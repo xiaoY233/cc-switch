@@ -50,6 +50,7 @@
   },
   "apiKeyInput": {
     "placeholder": "請輸入 API Key",
+    "keepCurrentPlaceholder": "留空則保留目前 API Key",
     "show": "顯示 API Key",
     "hide": "隱藏 API Key"
   },

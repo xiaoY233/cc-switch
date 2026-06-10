@@ -50,6 +50,7 @@
   },
   "apiKeyInput": {
     "placeholder": "Enter API Key",
+    "keepCurrentPlaceholder": "Leave blank to keep the current API key.",
     "show": "Show API Key",
     "hide": "Hide API Key"
   },
