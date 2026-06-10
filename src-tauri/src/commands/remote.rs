@@ -1796,6 +1796,7 @@ pub async fn remote_remove_skill_repo(
 mod tests {
     use super::*;
     use crate::remote::{RemoteAuthMethod, RemoteHostProfile};
+    use crate::remote_capabilities::REMOTE_HELPER_REQUIRED_CAPABILITIES;
 
     fn valid_profile() -> RemoteHostProfile {
         RemoteHostProfile {
@@ -1864,9 +1865,7 @@ mod tests {
         assert!(command.contains("'\"settings\"'"));
         assert!(command.contains("'\"plugin\"'"));
         assert!(command.contains("'\"session\"'"));
-        assert!(command.contains(
-            "providers, openclaw, mcp, prompts, skills, sessions, hermes-memory, import-export, tools, settings, plugin, session"
-        ));
+        assert!(command.contains(&REMOTE_HELPER_REQUIRED_CAPABILITIES.join(", ")));
         assert!(!command.contains("rustup.rs"));
         assert!(!command.contains("cargo install --git"));
     }
