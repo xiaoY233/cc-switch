@@ -83,6 +83,8 @@ fn register_db_change_hook(conn: &Connection) {
             Action::SQLITE_INSERT | Action::SQLITE_UPDATE | Action::SQLITE_DELETE => {
                 #[cfg(feature = "desktop")]
                 crate::services::webdav_auto_sync::notify_db_changed(table);
+                #[cfg(feature = "desktop")]
+                crate::services::s3_auto_sync::notify_db_changed(table);
             }
             _ => {}
         },
