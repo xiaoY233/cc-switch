@@ -3,6 +3,7 @@ use cc_switch_lib::remote::{
     run_helper_json, RemoteAuthMethod, RemoteConnectionSecret, RemoteHelperInstallSource,
     RemoteHostProfile,
 };
+use cc_switch_lib::remote_capabilities::REMOTE_HELPER_REQUIRED_CAPABILITIES;
 #[cfg(unix)]
 use serial_test::serial;
 #[cfg(unix)]
@@ -279,9 +280,7 @@ fn helper_install_args_install_cli_and_link_configured_helper_path() {
     assert!(remote_command.contains("grep -q '\"settings\"'"));
     assert!(remote_command.contains("grep -q '\"plugin\"'"));
     assert!(remote_command.contains("cc-switch-remote helper is missing required capabilities"));
-    assert!(remote_command.contains(
-        "providers, openclaw, mcp, prompts, skills, sessions, hermes-memory, import-export, tools, settings, plugin, session"
-    ));
+    assert!(remote_command.contains(&REMOTE_HELPER_REQUIRED_CAPABILITIES.join(", ")));
     assert!(remote_command.contains("cc-switch-remote-helper"));
     assert!(remote_command.contains("cc-switch-cli"));
     assert!(!remote_command.contains("asset_arch=universal"));
