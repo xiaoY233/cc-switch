@@ -1,6 +1,7 @@
 use crate::app_config::{InstalledSkill, McpServer, UnmanagedSkill};
 use crate::prompt::Prompt;
-use crate::provider::Provider;
+use crate::provider::{Provider, UniversalProvider};
+use crate::proxy::types::{AppProxyConfig, GlobalProxyConfig, OptimizerConfig, RectifierConfig};
 use crate::remote::{
     build_helper_install_args, build_ssh_args, delete_profile, delete_profile_secret,
     install_helper_json, load_profiles, remote_session_manager, run_helper_json,
@@ -328,6 +329,31 @@ pub async fn remote_run_tool_lifecycle_action(
     .map_err(|e| format!("Remote tool action task failed: {e}"))?
 }
 
+#[tauri::command]
+pub async fn remote_probe_tool_installations(
+    profile: RemoteHostProfile,
+    tools: Option<Vec<String>>,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Vec<crate::tool_environment::ToolInstallationReport>, String> {
+    validate_profile(&profile).map_err(|e| e.to_string())?;
+    let tools_json =
+        serde_json::to_string(&tools.unwrap_or_default()).map_err(|e| e.to_string())?;
+    tokio::task::spawn_blocking(move || {
+        run_helper_json(
+            &profile,
+            &[
+                "tools".to_string(),
+                "probe-installations".to_string(),
+                tools_json,
+            ],
+            secret.as_ref(),
+        )
+        .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| format!("Remote tool probe task failed: {e}"))?
+}
+
 fn remote_health_from_status_with_latest_result(
     status: serde_json::Value,
     latest: Result<Option<RemoteHelperLatest>, String>,
@@ -575,6 +601,8 @@ fn parse_remote_platform(value: &str) -> RemotePlatform {
 fn parse_remote_capability(value: &str) -> Option<RemoteCapability> {
     match value {
         "providers" => Some(RemoteCapability::Providers),
+        "universal-providers" => Some(RemoteCapability::UniversalProviders),
+        "routing-config" => Some(RemoteCapability::RoutingConfig),
         "openclaw" => Some(RemoteCapability::Openclaw),
         "mcp" => Some(RemoteCapability::Mcp),
         "prompts" => Some(RemoteCapability::Prompts),
@@ -793,6 +821,259 @@ pub async fn remote_update_providers_sort_order(
         ],
         secret,
         "Remote provider sort",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_universal_providers(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<IndexMap<String, UniversalProvider>, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["universal-providers".to_string(), "list".to_string()],
+        secret,
+        "Remote universal provider list",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_universal_provider(
+    profile: RemoteHostProfile,
+    id: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Option<UniversalProvider>, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["universal-providers".to_string(), "get".to_string(), id],
+        secret,
+        "Remote universal provider get",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_upsert_universal_provider(
+    profile: RemoteHostProfile,
+    provider: UniversalProvider,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    let provider_json = serde_json::to_string(&provider).map_err(|e| e.to_string())?;
+    run_remote_helper_json(
+        profile,
+        vec![
+            "universal-providers".to_string(),
+            "upsert".to_string(),
+            provider_json,
+        ],
+        secret,
+        "Remote universal provider upsert",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_delete_universal_provider(
+    profile: RemoteHostProfile,
+    id: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["universal-providers".to_string(), "delete".to_string(), id],
+        secret,
+        "Remote universal provider delete",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_sync_universal_provider(
+    profile: RemoteHostProfile,
+    id: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["universal-providers".to_string(), "sync".to_string(), id],
+        secret,
+        "Remote universal provider sync",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_routing_global_config(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<GlobalProxyConfig, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["routing-config".to_string(), "global".to_string()],
+        secret,
+        "Remote routing global config get",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_update_routing_global_config(
+    profile: RemoteHostProfile,
+    config: GlobalProxyConfig,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<(), String> {
+    let config_json = serde_json::to_string(&config).map_err(|e| e.to_string())?;
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "set-global".to_string(),
+            config_json,
+        ],
+        secret,
+        "Remote routing global config update",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_routing_app_config(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] appType: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<AppProxyConfig, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["routing-config".to_string(), "app".to_string(), appType],
+        secret,
+        "Remote routing app config get",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_update_routing_app_config(
+    profile: RemoteHostProfile,
+    config: AppProxyConfig,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<(), String> {
+    let config_json = serde_json::to_string(&config).map_err(|e| e.to_string())?;
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "set-app".to_string(),
+            config_json,
+        ],
+        secret,
+        "Remote routing app config update",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_routing_rectifier_config(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<RectifierConfig, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["routing-config".to_string(), "rectifier".to_string()],
+        secret,
+        "Remote routing rectifier config get",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_set_routing_rectifier_config(
+    profile: RemoteHostProfile,
+    config: RectifierConfig,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    let config_json = serde_json::to_string(&config).map_err(|e| e.to_string())?;
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "set-rectifier".to_string(),
+            config_json,
+        ],
+        secret,
+        "Remote routing rectifier config set",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_routing_optimizer_config(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<OptimizerConfig, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["routing-config".to_string(), "optimizer".to_string()],
+        secret,
+        "Remote routing optimizer config get",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_set_routing_optimizer_config(
+    profile: RemoteHostProfile,
+    config: OptimizerConfig,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    let config_json = serde_json::to_string(&config).map_err(|e| e.to_string())?;
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "set-optimizer".to_string(),
+            config_json,
+        ],
+        secret,
+        "Remote routing optimizer config set",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_routing_global_outbound_proxy(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Option<String>, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["routing-config".to_string(), "global-outbound".to_string()],
+        secret,
+        "Remote routing global outbound proxy get",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_set_routing_global_outbound_proxy(
+    profile: RemoteHostProfile,
+    url: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<(), String> {
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "set-global-outbound".to_string(),
+            if url.trim().is_empty() {
+                "-".to_string()
+            } else {
+                url
+            },
+        ],
+        secret,
+        "Remote routing global outbound proxy set",
     )
     .await
 }
@@ -1680,6 +1961,18 @@ mod tests {
         assert_eq!(
             health.helper_update_error.as_deref(),
             Some("远程 Helper 版本过旧，不支持持久会话；请更新 Helper。")
+        );
+    }
+
+    #[test]
+    fn parses_new_remote_management_capabilities() {
+        assert_eq!(
+            parse_remote_capability("universal-providers"),
+            Some(RemoteCapability::UniversalProviders)
+        );
+        assert_eq!(
+            parse_remote_capability("routing-config"),
+            Some(RemoteCapability::RoutingConfig)
         );
     }
 

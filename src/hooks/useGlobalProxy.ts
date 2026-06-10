@@ -17,14 +17,25 @@ import {
   type UpstreamProxyStatus,
   type DetectedProxy,
 } from "@/lib/api/globalProxy";
+import { remoteApi, type ManagementTarget } from "@/lib/api/remote";
+import {
+  getManagementTargetKey,
+  LOCAL_MANAGEMENT_TARGET,
+} from "@/lib/managementTarget";
 
 /**
  * 获取全局代理 URL
  */
-export function useGlobalProxyUrl() {
+export function useGlobalProxyUrl(
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
+  const targetKey = getManagementTargetKey(target);
   return useQuery({
-    queryKey: ["globalProxyUrl"],
-    queryFn: getGlobalProxyUrl,
+    queryKey: ["globalProxyUrl", targetKey],
+    queryFn: () =>
+      target.type === "remote"
+        ? remoteApi.getRoutingGlobalOutboundProxy(target.profile, target.secret)
+        : getGlobalProxyUrl(),
     staleTime: 30 * 1000, // 30秒内不重新获取，避免展开时闪烁
   });
 }
@@ -32,16 +43,30 @@ export function useGlobalProxyUrl() {
 /**
  * 设置全局代理 URL
  */
-export function useSetGlobalProxyUrl() {
+export function useSetGlobalProxyUrl(
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const targetKey = getManagementTargetKey(target);
 
   return useMutation({
-    mutationFn: setGlobalProxyUrl,
+    mutationFn: (url: string) =>
+      target.type === "remote"
+        ? remoteApi.setRoutingGlobalOutboundProxy(
+            target.profile,
+            url,
+            target.secret,
+          )
+        : setGlobalProxyUrl(url),
     onSuccess: () => {
       toast.success(t("settings.globalProxy.saved"));
-      queryClient.invalidateQueries({ queryKey: ["globalProxyUrl"] });
-      queryClient.invalidateQueries({ queryKey: ["upstreamProxyStatus"] });
+      queryClient.invalidateQueries({
+        queryKey: ["globalProxyUrl", targetKey],
+      });
+      if (target.type === "local") {
+        queryClient.invalidateQueries({ queryKey: ["upstreamProxyStatus"] });
+      }
     },
     onError: (error: unknown) => {
       const message =

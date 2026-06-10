@@ -1,5 +1,6 @@
 use crate::app_config::{InstalledSkill, UnmanagedSkill};
 use crate::prompt::Prompt;
+use crate::provider::UniversalProvider;
 use crate::services::provider_secrets::{
     redact_provider_map_secret_values, restore_redacted_secret_values,
 };
@@ -122,6 +123,18 @@ pub fn run_tool_lifecycle_action(tools_json: &str, action: &str) -> Result<(), S
         action.to_string(),
         None,
     ))
+}
+
+pub fn probe_tool_installations(
+    tools_json: &str,
+) -> Result<Vec<crate::tool_environment::ToolInstallationReport>, String> {
+    let tools: Vec<String> = if tools_json.trim().is_empty() || tools_json == "-" {
+        Vec::new()
+    } else {
+        serde_json::from_str(tools_json).map_err(|e| e.to_string())?
+    };
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+    runtime.block_on(crate::tool_environment::probe_tool_installations(tools))
 }
 
 pub fn list_sessions() -> Result<Vec<crate::session_manager::SessionMeta>, String> {
@@ -268,6 +281,120 @@ pub fn import_providers(app: AppType) -> Result<bool, String> {
         }
         _ => import_default_config_internal(&state, app).or_else(live_config_missing_as_false),
     }
+}
+
+pub fn list_universal_providers() -> Result<IndexMap<String, UniversalProvider>, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    let providers = ProviderService::list_universal(&state).map_err(|e| e.to_string())?;
+    Ok(providers.into_iter().collect())
+}
+
+pub fn get_universal_provider(id: &str) -> Result<Option<UniversalProvider>, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    ProviderService::get_universal(&state, id).map_err(|e| e.to_string())
+}
+
+pub fn upsert_universal_provider(provider_json: &str) -> Result<bool, String> {
+    let provider: UniversalProvider =
+        serde_json::from_str(provider_json).map_err(|e| e.to_string())?;
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    ProviderService::upsert_universal(&state, provider).map_err(|e| e.to_string())
+}
+
+pub fn delete_universal_provider(id: &str) -> Result<bool, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    ProviderService::delete_universal(&state, id).map_err(|e| e.to_string())
+}
+
+pub fn sync_universal_provider(id: &str) -> Result<bool, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    ProviderService::sync_universal_to_apps(&state, id).map_err(|e| e.to_string())
+}
+
+pub fn get_routing_global_config() -> Result<crate::proxy::types::GlobalProxyConfig, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+    runtime
+        .block_on(db.get_global_proxy_config())
+        .map_err(|e| e.to_string())
+}
+
+pub fn update_routing_global_config(config_json: &str) -> Result<(), String> {
+    let config: crate::proxy::types::GlobalProxyConfig =
+        serde_json::from_str(config_json).map_err(|e| e.to_string())?;
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+    runtime
+        .block_on(db.update_global_proxy_config(config))
+        .map_err(|e| e.to_string())
+}
+
+pub fn get_routing_app_config(
+    app_type: &str,
+) -> Result<crate::proxy::types::AppProxyConfig, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+    runtime
+        .block_on(db.get_proxy_config_for_app(app_type))
+        .map_err(|e| e.to_string())
+}
+
+pub fn update_routing_app_config(config_json: &str) -> Result<(), String> {
+    let config: crate::proxy::types::AppProxyConfig =
+        serde_json::from_str(config_json).map_err(|e| e.to_string())?;
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+    runtime
+        .block_on(db.update_proxy_config_for_app(config))
+        .map_err(|e| e.to_string())
+}
+
+pub fn get_routing_rectifier_config() -> Result<crate::proxy::types::RectifierConfig, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    db.get_rectifier_config().map_err(|e| e.to_string())
+}
+
+pub fn set_routing_rectifier_config(config_json: &str) -> Result<bool, String> {
+    let config: crate::proxy::types::RectifierConfig =
+        serde_json::from_str(config_json).map_err(|e| e.to_string())?;
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    db.set_rectifier_config(&config)
+        .map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+pub fn get_routing_optimizer_config() -> Result<crate::proxy::types::OptimizerConfig, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    db.get_optimizer_config().map_err(|e| e.to_string())
+}
+
+pub fn set_routing_optimizer_config(config_json: &str) -> Result<bool, String> {
+    let config: crate::proxy::types::OptimizerConfig =
+        serde_json::from_str(config_json).map_err(|e| e.to_string())?;
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    db.set_optimizer_config(&config)
+        .map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+pub fn get_routing_global_outbound_proxy() -> Result<Option<String>, String> {
+    let db = Database::init().map_err(|e| e.to_string())?;
+    db.get_global_proxy_url().map_err(|e| e.to_string())
+}
+
+pub fn set_routing_global_outbound_proxy(url: &str) -> Result<(), String> {
+    let db = Database::init().map_err(|e| e.to_string())?;
+    let url = if url.trim().is_empty() || url == "-" {
+        None
+    } else {
+        Some(url.trim())
+    };
+    db.set_global_proxy_url(url).map_err(|e| e.to_string())
 }
 
 pub fn export_database_sql() -> Result<String, String> {

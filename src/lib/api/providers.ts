@@ -327,35 +327,83 @@ export const universalProvidersApi = {
   /**
    * 获取所有统一供应商
    */
-  async getAll(): Promise<UniversalProvidersMap> {
+  async getAll(
+    target: ManagementTarget = { type: "local" },
+  ): Promise<UniversalProvidersMap> {
+    if (target.type === "remote") {
+      return await remoteApi.getUniversalProviders(
+        target.profile,
+        target.secret,
+      );
+    }
     return await invoke("get_universal_providers");
   },
 
   /**
    * 获取单个统一供应商
    */
-  async get(id: string): Promise<UniversalProvider | null> {
+  async get(
+    id: string,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<UniversalProvider | null> {
+    if (target.type === "remote") {
+      return await remoteApi.getUniversalProvider(
+        target.profile,
+        id,
+        target.secret,
+      );
+    }
     return await invoke("get_universal_provider", { id });
   },
 
   /**
    * 添加或更新统一供应商
    */
-  async upsert(provider: UniversalProvider): Promise<boolean> {
+  async upsert(
+    provider: UniversalProvider,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.upsertUniversalProvider(
+        target.profile,
+        provider,
+        target.secret,
+      );
+    }
     return await invoke("upsert_universal_provider", { provider });
   },
 
   /**
    * 删除统一供应商
    */
-  async delete(id: string): Promise<boolean> {
+  async delete(
+    id: string,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.deleteUniversalProvider(
+        target.profile,
+        id,
+        target.secret,
+      );
+    }
     return await invoke("delete_universal_provider", { id });
   },
 
   /**
    * 手动同步统一供应商到各应用
    */
-  async sync(id: string): Promise<boolean> {
+  async sync(
+    id: string,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.syncUniversalProvider(
+        target.profile,
+        id,
+        target.secret,
+      );
+    }
     return await invoke("sync_universal_provider", { id });
   },
 };

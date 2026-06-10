@@ -1,5 +1,7 @@
 pub const REMOTE_HELPER_CAPABILITIES: &[&str] = &[
     "providers",
+    "universal-providers",
+    "routing-config",
     "openclaw",
     "mcp",
     "prompts",

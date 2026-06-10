@@ -8,6 +8,16 @@ export const EXPECTED_REMOTE_CAPABILITIES = [
     defaultLabel: "供应商",
   },
   {
+    id: "universal-providers",
+    labelKey: "remote.capabilities.universalProviders",
+    defaultLabel: "统一供应商",
+  },
+  {
+    id: "routing-config",
+    labelKey: "remote.capabilities.routingConfig",
+    defaultLabel: "路由配置",
+  },
+  {
     id: "openclaw",
     labelKey: "remote.capabilities.openclaw",
     defaultLabel: "OpenClaw",

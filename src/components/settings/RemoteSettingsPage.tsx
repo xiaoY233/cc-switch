@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
+  Activity,
   AlertTriangle,
+  ChevronDown,
+  Copy,
   Database,
   Download,
+  Globe,
   Loader2,
   MonitorUp,
   RefreshCw,
   Server,
+  ShieldAlert,
+  Zap,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -24,13 +30,18 @@ import { ToggleRow } from "@/components/ui/toggle-row";
 import { AppVisibilitySettings } from "@/components/settings/AppVisibilitySettings";
 import { ImportExportSection } from "@/components/settings/ImportExportSection";
 import { SkillStorageLocationSettings } from "@/components/settings/SkillStorageLocationSettings";
+import { AutoFailoverConfigPanel } from "@/components/proxy/AutoFailoverConfigPanel";
+import { GlobalProxySettings } from "@/components/settings/GlobalProxySettings";
+import { RectifierConfigPanel } from "@/components/settings/RectifierConfigPanel";
 import {
   TOOL_DISPLAY_NAMES,
   TOOL_NAMES,
   ToolEnvironmentSection,
+  ToolDiagnoseButton,
   type ToolLifecycleAction,
   type ToolName,
 } from "@/components/settings/ToolEnvironmentSection";
+import { ToolInstallRow } from "@/components/settings/ToolInstallRow";
 import { useImportExport } from "@/hooks/useImportExport";
 import { useRemoteSettings } from "@/hooks/useRemoteSettings";
 import { remoteApi } from "@/lib/api";
@@ -50,6 +61,8 @@ import {
 import { extractErrorMessage } from "@/utils/errorUtils";
 import type { Settings, SkillStorageLocation } from "@/types";
 import type { MigrationResult } from "@/lib/api/skills";
+import type { ToolInstallation } from "@/lib/api/settings";
+import { POSIX_ONE_CLICK_INSTALL_COMMANDS } from "@/lib/toolInstallCommands";
 
 interface RemoteSettingsPageProps {
   open: boolean;
@@ -61,9 +74,12 @@ interface RemoteSettingsPageProps {
 }
 
 function coerceRemoteTab(tab: string | undefined): string {
-  if (tab === "advanced") return "data";
+  if (tab === "advanced") return "routing";
   if (tab === "about") return "environment";
-  return tab === "general" || tab === "data" || tab === "environment"
+  return tab === "general" ||
+    tab === "data" ||
+    tab === "environment" ||
+    tab === "routing"
     ? tab
     : "environment";
 }
@@ -90,6 +106,11 @@ export function RemoteSettingsPage({
     null,
   );
   const [activeRemoteTask, setActiveRemoteTask] = useState<string | null>(null);
+  const [toolDiagnostics, setToolDiagnostics] = useState<
+    Partial<Record<ToolName, ToolInstallation[]>>
+  >({});
+  const [isDiagnosingTools, setIsDiagnosingTools] = useState(false);
+  const [showInstallCommands, setShowInstallCommands] = useState(false);
 
   const importExport = useImportExport({ onImportSuccess, target });
   const {
@@ -108,6 +129,8 @@ export function RemoteSettingsPage({
   const settingsCapability = health?.capabilities.includes("settings") ?? false;
   const pluginCapability = health?.capabilities.includes("plugin") ?? false;
   const skillsCapability = health?.capabilities.includes("skills") ?? false;
+  const routingCapability =
+    health?.capabilities.includes("routing-config") ?? false;
   const helperReady = Boolean(health?.reachable && health.helperInstalled);
   const toolsDisabled = !helperReady || !toolsCapability;
   const toolsDisabledMessage = !helperReady
@@ -324,6 +347,65 @@ export function RemoteSettingsPage({
     }
   };
 
+  const diagnoseToolInstallations = async () => {
+    if (toolsDisabled || isDiagnosingTools) return;
+    setIsDiagnosingTools(true);
+    setActiveRemoteTask(
+      t("remote.settings.tasks.diagnoseTools", {
+        defaultValue: "正在诊断远程工具安装冲突...",
+      }),
+    );
+    try {
+      const reports = await remoteApi.probeToolInstallations(
+        target.profile,
+        [...TOOL_NAMES],
+        target.secret,
+      );
+      const next: Partial<Record<ToolName, ToolInstallation[]>> = {};
+      let conflicts = 0;
+      for (const report of reports) {
+        if (report.is_conflict) {
+          next[report.tool as ToolName] = report.installs;
+          conflicts += 1;
+        }
+      }
+      setToolDiagnostics(next);
+      if (conflicts === 0) {
+        toast.info(
+          t("settings.toolNoConflicts", {
+            defaultValue: "未发现安装冲突",
+          }),
+        );
+      }
+    } catch (error) {
+      console.error("[RemoteSettingsPage] Failed to diagnose tools", error);
+      toast.error(
+        t("settings.toolDiagnoseFailed", {
+          defaultValue: "诊断安装冲突失败",
+        }),
+        { description: extractErrorMessage(error) },
+      );
+    } finally {
+      setIsDiagnosingTools(false);
+      setActiveRemoteTask(null);
+    }
+  };
+
+  const copyRemoteInstallCommands = async () => {
+    try {
+      await navigator.clipboard.writeText(POSIX_ONE_CLICK_INSTALL_COMMANDS);
+      toast.success(t("settings.installCommandsCopied"), {
+        closeButton: true,
+      });
+    } catch (error) {
+      console.error(
+        "[RemoteSettingsPage] Failed to copy install commands",
+        error,
+      );
+      toast.error(t("settings.installCommandsCopyFailed"));
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden px-6">
       <span data-testid="settings-target" className="sr-only">
@@ -334,7 +416,7 @@ export function RemoteSettingsPage({
         onValueChange={setActiveTab}
         className="flex flex-col h-full"
       >
-        <TabsList className="grid w-full grid-cols-3 mb-6 glass rounded-lg">
+        <TabsList className="grid w-full grid-cols-4 mb-6 glass rounded-lg">
           <TabsTrigger value="environment">
             {t("remote.settings.tabs.environment", {
               defaultValue: "远程环境",
@@ -342,6 +424,9 @@ export function RemoteSettingsPage({
           </TabsTrigger>
           <TabsTrigger value="general">
             {t("remote.settings.tabs.general", { defaultValue: "通用" })}
+          </TabsTrigger>
+          <TabsTrigger value="routing">
+            {t("remote.settings.tabs.routing", { defaultValue: "路由配置" })}
           </TabsTrigger>
           <TabsTrigger value="data">
             {t("remote.settings.tabs.data", { defaultValue: "数据" })}
@@ -387,11 +472,75 @@ export function RemoteSettingsPage({
                 isAnyBusy={
                   Boolean(batchAction) || Object.keys(toolActions).length > 0
                 }
+                actionPrefix={
+                  <ToolDiagnoseButton
+                    loading={isDiagnosingTools}
+                    disabled={toolsDisabled || isLoadingTools}
+                    onClick={diagnoseToolInstallations}
+                  />
+                }
                 onRefresh={() => {
                   void loadToolVersions();
                 }}
                 onRunToolAction={runToolAction}
+                renderToolDiagnostics={(toolName) => {
+                  const conflicts = toolDiagnostics[toolName];
+                  if (!conflicts || conflicts.length === 0) return null;
+                  return (
+                    <div className="space-y-1.5 rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-2.5">
+                      <div className="text-[11px] font-medium text-yellow-600 dark:text-yellow-400">
+                        {t("settings.toolConflictTitle")}
+                      </div>
+                      <p className="text-[10px] leading-snug text-muted-foreground">
+                        {t("settings.toolConflictHint")}
+                      </p>
+                      <ul className="space-y-1.5">
+                        {conflicts.map((inst) => (
+                          <li key={inst.path}>
+                            <ToolInstallRow inst={inst} />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                }}
               />
+              <div className="space-y-3 px-1">
+                <button
+                  type="button"
+                  onClick={() => setShowInstallCommands((value) => !value)}
+                  aria-expanded={showInstallCommands}
+                  className="flex w-full items-center gap-1.5 text-sm font-medium text-foreground transition-colors hover:text-primary"
+                >
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform ${
+                      showInstallCommands ? "" : "-rotate-90"
+                    }`}
+                  />
+                  {t("settings.manualInstallCommands")}
+                </button>
+                {showInstallCommands ? (
+                  <div className="rounded-xl border border-border bg-gradient-to-br from-card/80 to-card/40 p-4 space-y-3 shadow-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        {t("settings.oneClickInstallHint")}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={copyRemoteInstallCommands}
+                        className="h-7 gap-1.5 text-xs"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        {t("common.copy")}
+                      </Button>
+                    </div>
+                    <pre className="text-xs font-mono bg-background/80 px-3 py-2.5 rounded-lg border border-border/60 overflow-x-auto">
+                      {POSIX_ONE_CLICK_INSTALL_COMMANDS}
+                    </pre>
+                  </div>
+                ) : null}
+              </div>
             </motion.div>
           </TabsContent>
 
@@ -420,6 +569,14 @@ export function RemoteSettingsPage({
                 onMigrateSkillStorage={migrateRemoteSkillStorage}
               />
             </motion.div>
+          </TabsContent>
+
+          <TabsContent value="routing" className="space-y-4 mt-0 pb-4">
+            <RemoteRoutingSettingsSection
+              helperReady={helperReady}
+              routingCapability={routingCapability}
+              target={target}
+            />
           </TabsContent>
 
           <TabsContent value="data" className="space-y-4 mt-0 pb-4">
@@ -474,6 +631,149 @@ export function RemoteSettingsPage({
         </div>
       </Tabs>
     </div>
+  );
+}
+
+interface RemoteRoutingSettingsSectionProps {
+  helperReady: boolean;
+  routingCapability: boolean;
+  target: Extract<ManagementTarget, { type: "remote" }>;
+}
+
+function RemoteRoutingSettingsSection({
+  helperReady,
+  routingCapability,
+  target,
+}: RemoteRoutingSettingsSectionProps) {
+  const { t } = useTranslation();
+  const disabledMessage = !helperReady
+    ? t("remote.settings.environment.helperRequired", {
+        defaultValue: "请先完成健康检查并安装可用的远程 Helper。",
+      })
+    : t("remote.settings.routing.unsupported", {
+        defaultValue:
+          "当前远程 Helper 不支持路由配置。请安装包含 routing-config capability 的新版 Helper。",
+      });
+
+  if (!helperReady || !routingCapability) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 text-sm text-muted-foreground">
+        {disabledMessage}
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-4"
+    >
+      <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 text-sm text-yellow-700 dark:text-yellow-300">
+        {t("remote.settings.routing.runtimeUnsupported", {
+          defaultValue:
+            "当前版本仅支持远程路由配置读写；首页路由启动、停止、应用接管和运行状态需要持久 Helper 运行态，暂未开放。",
+        })}
+      </div>
+
+      <Accordion
+        type="multiple"
+        defaultValue={["failover", "rectifier", "globalProxy"]}
+        className="w-full space-y-4"
+      >
+        <AccordionItem
+          value="failover"
+          className="rounded-xl glass-card overflow-hidden"
+        >
+          <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 data-[state=open]:bg-muted/50">
+            <div className="flex items-center gap-3">
+              <Activity className="h-5 w-5 text-orange-500" />
+              <div className="text-left">
+                <h3 className="text-base font-semibold">
+                  {t("settings.advanced.failover.title")}
+                </h3>
+                <p className="text-sm text-muted-foreground font-normal">
+                  {t("settings.advanced.failover.description")}
+                </p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-6 pb-6 pt-4 border-t border-border/50">
+            <div className="space-y-5">
+              <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 text-sm text-muted-foreground">
+                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
+                <span>
+                  {t("remote.settings.routing.failoverQueueUnsupported", {
+                    defaultValue:
+                      "远程故障转移队列管理暂未接入；这里先支持每个应用的自动故障转移参数配置。",
+                  })}
+                </span>
+              </div>
+              <Tabs defaultValue="claude" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="claude">Claude</TabsTrigger>
+                  <TabsTrigger value="codex">Codex</TabsTrigger>
+                  <TabsTrigger value="gemini">Gemini</TabsTrigger>
+                </TabsList>
+                {(["claude", "codex", "gemini"] as const).map((appType) => (
+                  <TabsContent key={appType} value={appType} className="mt-4">
+                    <AutoFailoverConfigPanel
+                      appType={appType}
+                      target={target}
+                    />
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem
+          value="rectifier"
+          className="rounded-xl glass-card overflow-hidden"
+        >
+          <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 data-[state=open]:bg-muted/50">
+            <div className="flex items-center gap-3">
+              <Zap className="h-5 w-5 text-purple-500" />
+              <div className="text-left">
+                <h3 className="text-base font-semibold">
+                  {t("settings.advanced.rectifier.title")}
+                </h3>
+                <p className="text-sm text-muted-foreground font-normal">
+                  {t("settings.advanced.rectifier.description")}
+                </p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-6 pb-6 pt-4 border-t border-border/50">
+            <RectifierConfigPanel target={target} />
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem
+          value="globalProxy"
+          className="rounded-xl glass-card overflow-hidden"
+        >
+          <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 data-[state=open]:bg-muted/50">
+            <div className="flex items-center gap-3">
+              <Globe className="h-5 w-5 text-cyan-500" />
+              <div className="text-left">
+                <h3 className="text-base font-semibold">
+                  {t("settings.advanced.globalProxy.title")}
+                </h3>
+                <p className="text-sm text-muted-foreground font-normal">
+                  {t("settings.advanced.globalProxy.description")}
+                </p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-6 pb-6 pt-4 border-t border-border/50">
+            <GlobalProxySettings target={target} />
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    </motion.div>
   );
 }
 

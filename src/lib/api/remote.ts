@@ -12,6 +12,8 @@ import type {
   Provider,
   SessionMessage,
   SessionMeta,
+  UniversalProvider,
+  UniversalProvidersMap,
 } from "@/types";
 import type { AppId } from "./types";
 import type { ProviderSortUpdate, SwitchResult } from "./providers";
@@ -28,6 +30,12 @@ import type {
   MigrationResult,
 } from "./skills";
 import type { Settings, SkillStorageLocation } from "@/types";
+import type { AppProxyConfig, GlobalProxyConfig } from "@/types/proxy";
+import type {
+  OptimizerConfig,
+  RectifierConfig,
+  ToolInstallationReport,
+} from "./settings";
 
 export type RemoteAuthMethod =
   | { type: "sshAgent" }
@@ -402,6 +410,18 @@ export const remoteApi = {
     });
   },
 
+  probeToolInstallations(
+    profile: RemoteHostProfile,
+    tools?: string[],
+    secret?: RemoteConnectionSecret,
+  ): Promise<ToolInstallationReport[]> {
+    return invoke<ToolInstallationReport[]>("remote_probe_tool_installations", {
+      profile,
+      tools,
+      secret,
+    });
+  },
+
   getProviders(
     profile: RemoteHostProfile,
     app: AppId,
@@ -520,6 +540,176 @@ export const remoteApi = {
       profile,
       app,
       updates,
+      secret,
+    });
+  },
+
+  getUniversalProviders(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<UniversalProvidersMap> {
+    return invoke<UniversalProvidersMap>("remote_get_universal_providers", {
+      profile,
+      secret,
+    });
+  },
+
+  getUniversalProvider(
+    profile: RemoteHostProfile,
+    id: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<UniversalProvider | null> {
+    return invoke<UniversalProvider | null>("remote_get_universal_provider", {
+      profile,
+      id,
+      secret,
+    });
+  },
+
+  upsertUniversalProvider(
+    profile: RemoteHostProfile,
+    provider: UniversalProvider,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_upsert_universal_provider", {
+      profile,
+      provider,
+      secret,
+    });
+  },
+
+  deleteUniversalProvider(
+    profile: RemoteHostProfile,
+    id: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_delete_universal_provider", {
+      profile,
+      id,
+      secret,
+    });
+  },
+
+  syncUniversalProvider(
+    profile: RemoteHostProfile,
+    id: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_sync_universal_provider", {
+      profile,
+      id,
+      secret,
+    });
+  },
+
+  getRoutingGlobalConfig(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<GlobalProxyConfig> {
+    return invoke<GlobalProxyConfig>("remote_get_routing_global_config", {
+      profile,
+      secret,
+    });
+  },
+
+  updateRoutingGlobalConfig(
+    profile: RemoteHostProfile,
+    config: GlobalProxyConfig,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_update_routing_global_config", {
+      profile,
+      config,
+      secret,
+    });
+  },
+
+  getRoutingAppConfig(
+    profile: RemoteHostProfile,
+    appType: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<AppProxyConfig> {
+    return invoke<AppProxyConfig>("remote_get_routing_app_config", {
+      profile,
+      appType,
+      secret,
+    });
+  },
+
+  updateRoutingAppConfig(
+    profile: RemoteHostProfile,
+    config: AppProxyConfig,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_update_routing_app_config", {
+      profile,
+      config,
+      secret,
+    });
+  },
+
+  getRoutingRectifierConfig(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<RectifierConfig> {
+    return invoke<RectifierConfig>("remote_get_routing_rectifier_config", {
+      profile,
+      secret,
+    });
+  },
+
+  setRoutingRectifierConfig(
+    profile: RemoteHostProfile,
+    config: RectifierConfig,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_set_routing_rectifier_config", {
+      profile,
+      config,
+      secret,
+    });
+  },
+
+  getRoutingOptimizerConfig(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<OptimizerConfig> {
+    return invoke<OptimizerConfig>("remote_get_routing_optimizer_config", {
+      profile,
+      secret,
+    });
+  },
+
+  setRoutingOptimizerConfig(
+    profile: RemoteHostProfile,
+    config: OptimizerConfig,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_set_routing_optimizer_config", {
+      profile,
+      config,
+      secret,
+    });
+  },
+
+  getRoutingGlobalOutboundProxy(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<string | null> {
+    return invoke<string | null>("remote_get_routing_global_outbound_proxy", {
+      profile,
+      secret,
+    });
+  },
+
+  setRoutingGlobalOutboundProxy(
+    profile: RemoteHostProfile,
+    url: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_set_routing_global_outbound_proxy", {
+      profile,
+      url,
       secret,
     });
   },

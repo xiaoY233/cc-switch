@@ -1518,7 +1518,7 @@ fn scan_cli_version(tool: &str) -> ShellProbe {
 
 /// 单个工具在系统中的一处安装，用于"多处安装互相打架"的冲突诊断。
 /// 字段保持 snake_case（与 `ToolVersion` 一致），前端按同名字段读取。
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct ToolInstallation {
     /// 候选入口路径（用户实际在 PATH 里看到/输入的那个，未解析软链）。
     path: String,
@@ -2208,7 +2208,7 @@ fn is_conflicting(installs: &[ToolInstallation]) -> bool {
 /// 一次"探测工具安装分布"的结果：枚举到的所有安装 + 各项衍生判定。同时服务两条
 /// 路径——诊断展示（`is_conflict`）与升级确认（`needs_confirmation`/`command`/`anchored`）。
 /// 字段保持 snake_case（与 `ToolInstallation` 一致），前端按同名读取。
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct ToolInstallationReport {
     tool: String,
     /// 该工具枚举到的所有安装。

@@ -7,6 +7,8 @@ import type {
   GlobalProxyConfig,
   AppProxyConfig,
 } from "@/types/proxy";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
+import { remoteApi, type ManagementTarget } from "./remote";
 
 export const proxyApi = {
   // ========== 代理服务器控制 API ==========
@@ -74,22 +76,57 @@ export const proxyApi = {
   // ========== v3+ 全局/应用级配置 API ==========
 
   // 获取全局代理配置
-  async getGlobalProxyConfig(): Promise<GlobalProxyConfig> {
+  async getGlobalProxyConfig(
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+  ): Promise<GlobalProxyConfig> {
+    if (target.type === "remote") {
+      return remoteApi.getRoutingGlobalConfig(target.profile, target.secret);
+    }
     return invoke("get_global_proxy_config");
   },
 
   // 更新全局代理配置
-  async updateGlobalProxyConfig(config: GlobalProxyConfig): Promise<void> {
+  async updateGlobalProxyConfig(
+    config: GlobalProxyConfig,
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+  ): Promise<void> {
+    if (target.type === "remote") {
+      return remoteApi.updateRoutingGlobalConfig(
+        target.profile,
+        config,
+        target.secret,
+      );
+    }
     return invoke("update_global_proxy_config", { config });
   },
 
   // 获取指定应用的代理配置
-  async getProxyConfigForApp(appType: string): Promise<AppProxyConfig> {
+  async getProxyConfigForApp(
+    appType: string,
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+  ): Promise<AppProxyConfig> {
+    if (target.type === "remote") {
+      return remoteApi.getRoutingAppConfig(
+        target.profile,
+        appType,
+        target.secret,
+      );
+    }
     return invoke("get_proxy_config_for_app", { appType });
   },
 
   // 更新指定应用的代理配置
-  async updateProxyConfigForApp(config: AppProxyConfig): Promise<void> {
+  async updateProxyConfigForApp(
+    config: AppProxyConfig,
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+  ): Promise<void> {
+    if (target.type === "remote") {
+      return remoteApi.updateRoutingAppConfig(
+        target.profile,
+        config,
+        target.secret,
+      );
+    }
     return invoke("update_proxy_config_for_app", { config });
   },
 

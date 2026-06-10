@@ -7,19 +7,23 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Save, Loader2, Info } from "lucide-react";
 import { toast } from "sonner";
 import { useAppProxyConfig, useUpdateAppProxyConfig } from "@/lib/query/proxy";
+import type { ManagementTarget } from "@/lib/api/remote";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 
 export interface AutoFailoverConfigPanelProps {
   appType: string;
   disabled?: boolean;
+  target?: ManagementTarget;
 }
 
 export function AutoFailoverConfigPanel({
   appType,
   disabled = false,
+  target = LOCAL_MANAGEMENT_TARGET,
 }: AutoFailoverConfigPanelProps) {
   const { t } = useTranslation();
-  const { data: config, isLoading, error } = useAppProxyConfig(appType);
-  const updateConfig = useUpdateAppProxyConfig();
+  const { data: config, isLoading, error } = useAppProxyConfig(appType, target);
+  const updateConfig = useUpdateAppProxyConfig(target);
 
   // 使用字符串状态以支持完全清空数字输入框
   const [formData, setFormData] = useState({

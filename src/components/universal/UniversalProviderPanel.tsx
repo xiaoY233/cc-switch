@@ -6,10 +6,18 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UniversalProviderCard } from "./UniversalProviderCard";
 import { UniversalProviderFormModal } from "./UniversalProviderFormModal";
 import { universalProvidersApi } from "@/lib/api";
+import type { ManagementTarget } from "@/lib/api";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 import type { UniversalProvider, UniversalProvidersMap } from "@/types";
 import { deepClone } from "@/utils/deepClone";
 
-export function UniversalProviderPanel() {
+interface UniversalProviderPanelProps {
+  target?: ManagementTarget;
+}
+
+export function UniversalProviderPanel({
+  target = LOCAL_MANAGEMENT_TARGET,
+}: UniversalProviderPanelProps) {
   const { t } = useTranslation();
 
   // 状态
@@ -33,7 +41,7 @@ export function UniversalProviderPanel() {
   const loadProviders = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await universalProvidersApi.getAll();
+      const data = await universalProvidersApi.getAll(target);
       setProviders(data);
     } catch (error) {
       console.error("Failed to load universal providers:", error);
@@ -45,7 +53,7 @@ export function UniversalProviderPanel() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, target]);
 
   useEffect(() => {
     loadProviders();
@@ -55,11 +63,11 @@ export function UniversalProviderPanel() {
   const handleSave = useCallback(
     async (provider: UniversalProvider) => {
       try {
-        await universalProvidersApi.upsert(provider);
+        await universalProvidersApi.upsert(provider, target);
 
         // 新建模式下自动同步到各应用
         if (!editingProvider) {
-          await universalProvidersApi.sync(provider.id);
+          await universalProvidersApi.sync(provider.id, target);
         }
 
         toast.success(
@@ -82,15 +90,15 @@ export function UniversalProviderPanel() {
         );
       }
     },
-    [editingProvider, loadProviders, t],
+    [editingProvider, loadProviders, t, target],
   );
 
   // 保存并同步供应商
   const handleSaveAndSync = useCallback(
     async (provider: UniversalProvider) => {
       try {
-        await universalProvidersApi.upsert(provider);
-        await universalProvidersApi.sync(provider.id);
+        await universalProvidersApi.upsert(provider, target);
+        await universalProvidersApi.sync(provider.id, target);
         toast.success(
           t("universalProvider.savedAndSynced", {
             defaultValue: "已保存并同步到所有应用",
@@ -107,7 +115,7 @@ export function UniversalProviderPanel() {
         );
       }
     },
-    [loadProviders, t],
+    [loadProviders, t, target],
   );
 
   // 删除供应商
@@ -115,7 +123,7 @@ export function UniversalProviderPanel() {
     if (!deleteConfirm.id) return;
 
     try {
-      await universalProvidersApi.delete(deleteConfirm.id);
+      await universalProvidersApi.delete(deleteConfirm.id, target);
       toast.success(
         t("universalProvider.deleted", { defaultValue: "统一供应商已删除" }),
       );
@@ -130,14 +138,14 @@ export function UniversalProviderPanel() {
     } finally {
       setDeleteConfirm({ open: false, id: "", name: "" });
     }
-  }, [deleteConfirm.id, loadProviders, t]);
+  }, [deleteConfirm.id, loadProviders, t, target]);
 
   // 同步供应商
   const handleSync = useCallback(async () => {
     if (!syncConfirm.id) return;
 
     try {
-      await universalProvidersApi.sync(syncConfirm.id);
+      await universalProvidersApi.sync(syncConfirm.id, target);
       toast.success(
         t("universalProvider.synced", { defaultValue: "已同步到所有应用" }),
       );
@@ -151,7 +159,7 @@ export function UniversalProviderPanel() {
     } finally {
       setSyncConfirm({ open: false, id: "", name: "" });
     }
-  }, [syncConfirm.id, t]);
+  }, [syncConfirm.id, t, target]);
 
   // 打开同步确认
   const handleSyncClick = useCallback(
@@ -176,8 +184,8 @@ export function UniversalProviderPanel() {
         createdAt: Date.now(),
       };
       try {
-        await universalProvidersApi.upsert(duplicated);
-        await universalProvidersApi.sync(duplicated.id);
+        await universalProvidersApi.upsert(duplicated, target);
+        await universalProvidersApi.sync(duplicated.id, target);
         toast.success(
           t("universalProvider.duplicatedAndSynced", {
             defaultValue: "统一供应商已复制并同步",
@@ -193,7 +201,7 @@ export function UniversalProviderPanel() {
         );
       }
     },
-    [loadProviders, t],
+    [loadProviders, t, target],
   );
 
   // 打开编辑

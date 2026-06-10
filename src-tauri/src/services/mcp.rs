@@ -6,6 +6,8 @@ use crate::error::AppError;
 use crate::mcp;
 use crate::store::AppState;
 
+type McpImporter = fn(&AppState) -> Result<usize, AppError>;
+
 /// MCP 相关业务逻辑（v3.7.0 统一结构）
 pub struct McpService;
 
@@ -438,7 +440,7 @@ impl McpService {
     /// 从所有支持的应用导入 MCP。这里是本地 UI 和远程 helper 的唯一聚合入口，
     /// 避免两边各自维护 import_from_* 顺序和错误吞吐语义。
     pub fn import_from_supported_apps(state: &AppState) -> Result<usize, AppError> {
-        let importers: [fn(&AppState) -> Result<usize, AppError>; 5] = [
+        let importers: [McpImporter; 5] = [
             Self::import_from_claude,
             Self::import_from_codex,
             Self::import_from_gemini,

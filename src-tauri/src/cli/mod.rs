@@ -188,6 +188,17 @@ pub(crate) fn run_command(args: &[String]) -> Value {
                 }
             }
         }
+        [group, cmd, tools_json] if group == "tools" && cmd == "probe-installations" => {
+            match commands::probe_tool_installations(tools_json) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize tool probe")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("tools_probe_failed", message))
+                        .expect("serialize tool probe error")
+                }
+            }
+        }
         [group, cmd] if group == "settings" && cmd == "get" => {
             serde_json::to_value(types::ok(commands::get_settings())).expect("serialize settings")
         }
@@ -244,6 +255,172 @@ pub(crate) fn run_command(args: &[String]) -> Value {
                 },
                 Err(err) => serde_json::to_value(types::err::<()>("invalid_app", err.to_string()))
                     .expect("serialize invalid app error"),
+            }
+        }
+        [group, cmd] if group == "universal-providers" && cmd == "list" => {
+            match commands::list_universal_providers() {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize universal providers")
+                }
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "universal_providers_list_failed",
+                    message,
+                ))
+                .expect("serialize universal provider error"),
+            }
+        }
+        [group, cmd, id] if group == "universal-providers" && cmd == "get" => {
+            match commands::get_universal_provider(id) {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize universal provider"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "universal_providers_get_failed",
+                    message,
+                ))
+                .expect("serialize universal provider error"),
+            }
+        }
+        [group, cmd, provider_json] if group == "universal-providers" && cmd == "upsert" => {
+            match commands::upsert_universal_provider(provider_json) {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize universal provider upsert"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "universal_providers_upsert_failed",
+                    message,
+                ))
+                .expect("serialize universal provider upsert error"),
+            }
+        }
+        [group, cmd, id] if group == "universal-providers" && cmd == "delete" => {
+            match commands::delete_universal_provider(id) {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize universal provider delete"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "universal_providers_delete_failed",
+                    message,
+                ))
+                .expect("serialize universal provider delete error"),
+            }
+        }
+        [group, cmd, id] if group == "universal-providers" && cmd == "sync" => {
+            match commands::sync_universal_provider(id) {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize universal provider sync"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "universal_providers_sync_failed",
+                    message,
+                ))
+                .expect("serialize universal provider sync error"),
+            }
+        }
+        [group, cmd] if group == "routing-config" && cmd == "global" => {
+            match commands::get_routing_global_config() {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize routing global config")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("routing_global_get_failed", message))
+                        .expect("serialize routing global config error")
+                }
+            }
+        }
+        [group, cmd, config_json] if group == "routing-config" && cmd == "set-global" => {
+            match commands::update_routing_global_config(config_json) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize routing global update")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("routing_global_set_failed", message))
+                        .expect("serialize routing global update error")
+                }
+            }
+        }
+        [group, cmd, app_type] if group == "routing-config" && cmd == "app" => {
+            match commands::get_routing_app_config(app_type) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize routing app config")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("routing_app_get_failed", message))
+                        .expect("serialize routing app config error")
+                }
+            }
+        }
+        [group, cmd, config_json] if group == "routing-config" && cmd == "set-app" => {
+            match commands::update_routing_app_config(config_json) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize routing app update")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("routing_app_set_failed", message))
+                        .expect("serialize routing app update error")
+                }
+            }
+        }
+        [group, cmd] if group == "routing-config" && cmd == "rectifier" => {
+            match commands::get_routing_rectifier_config() {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize rectifier config")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("routing_rectifier_get_failed", message))
+                        .expect("serialize rectifier config error")
+                }
+            }
+        }
+        [group, cmd, config_json] if group == "routing-config" && cmd == "set-rectifier" => {
+            match commands::set_routing_rectifier_config(config_json) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize rectifier update")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("routing_rectifier_set_failed", message))
+                        .expect("serialize rectifier update error")
+                }
+            }
+        }
+        [group, cmd] if group == "routing-config" && cmd == "optimizer" => {
+            match commands::get_routing_optimizer_config() {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize optimizer config")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("routing_optimizer_get_failed", message))
+                        .expect("serialize optimizer config error")
+                }
+            }
+        }
+        [group, cmd, config_json] if group == "routing-config" && cmd == "set-optimizer" => {
+            match commands::set_routing_optimizer_config(config_json) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize optimizer update")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("routing_optimizer_set_failed", message))
+                        .expect("serialize optimizer update error")
+                }
+            }
+        }
+        [group, cmd] if group == "routing-config" && cmd == "global-outbound" => {
+            match commands::get_routing_global_outbound_proxy() {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize outbound proxy config"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "routing_global_outbound_get_failed",
+                    message,
+                ))
+                .expect("serialize outbound proxy config error"),
+            }
+        }
+        [group, cmd, url] if group == "routing-config" && cmd == "set-global-outbound" => {
+            match commands::set_routing_global_outbound_proxy(url) {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize outbound proxy update"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "routing_global_outbound_set_failed",
+                    message,
+                ))
+                .expect("serialize outbound proxy update error"),
             }
         }
         [group, cmd] if group == "sessions" && cmd == "list" => match commands::list_sessions() {
@@ -723,7 +900,7 @@ pub(crate) fn run_command(args: &[String]) -> Value {
         }
         _ => serde_json::to_value(types::err::<()>(
             "unsupported_command",
-            "Supported commands: status, providers, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools, settings, plugin",
+            "Supported commands: status, providers, universal-providers, routing-config, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools, settings, plugin",
         ))
         .expect("serialize error response"),
     }

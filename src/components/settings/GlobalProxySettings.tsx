@@ -16,6 +16,8 @@ import {
   useScanProxies,
   type DetectedProxy,
 } from "@/hooks/useGlobalProxy";
+import type { ManagementTarget } from "@/lib/api/remote";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 
 /** 从完整 URL 提取认证信息 */
 function extractAuth(url: string): {
@@ -69,12 +71,19 @@ function mergeAuth(
   }
 }
 
-export function GlobalProxySettings() {
+interface GlobalProxySettingsProps {
+  target?: ManagementTarget;
+}
+
+export function GlobalProxySettings({
+  target = LOCAL_MANAGEMENT_TARGET,
+}: GlobalProxySettingsProps) {
   const { t } = useTranslation();
-  const { data: savedUrl, isLoading } = useGlobalProxyUrl();
-  const setMutation = useSetGlobalProxyUrl();
+  const { data: savedUrl, isLoading } = useGlobalProxyUrl(target);
+  const setMutation = useSetGlobalProxyUrl(target);
   const testMutation = useTestProxy();
   const scanMutation = useScanProxies();
+  const isRemoteTarget = target.type === "remote";
 
   const [url, setUrl] = useState("");
   const [username, setUsername] = useState("");
@@ -166,32 +175,36 @@ export function GlobalProxySettings() {
           onKeyDown={handleKeyDown}
           className="font-mono text-sm flex-1"
         />
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={scanMutation.isPending}
-          onClick={handleScan}
-          title={t("settings.globalProxy.scan")}
-        >
-          {scanMutation.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Search className="h-4 w-4" />
-          )}
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={!fullUrl || testMutation.isPending}
-          onClick={handleTest}
-          title={t("settings.globalProxy.test")}
-        >
-          {testMutation.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <TestTube2 className="h-4 w-4" />
-          )}
-        </Button>
+        {!isRemoteTarget && (
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={scanMutation.isPending}
+              onClick={handleScan}
+              title={t("settings.globalProxy.scan")}
+            >
+              {scanMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={!fullUrl || testMutation.isPending}
+              onClick={handleTest}
+              title={t("settings.globalProxy.test")}
+            >
+              {testMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <TestTube2 className="h-4 w-4" />
+              )}
+            </Button>
+          </>
+        )}
         <Button
           variant="outline"
           size="icon"

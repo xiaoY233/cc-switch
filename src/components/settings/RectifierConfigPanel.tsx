@@ -8,8 +8,16 @@ import {
   type RectifierConfig,
   type OptimizerConfig,
 } from "@/lib/api/settings";
+import { remoteApi, type ManagementTarget } from "@/lib/api/remote";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 
-export function RectifierConfigPanel() {
+interface RectifierConfigPanelProps {
+  target?: ManagementTarget;
+}
+
+export function RectifierConfigPanel({
+  target = LOCAL_MANAGEMENT_TARGET,
+}: RectifierConfigPanelProps) {
   const { t } = useTranslation();
   const [config, setConfig] = useState<RectifierConfig>({
     enabled: true,
@@ -27,22 +35,39 @@ export function RectifierConfigPanel() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    settingsApi
-      .getRectifierConfig()
+    const getRectifierConfig =
+      target.type === "remote"
+        ? () =>
+            remoteApi.getRoutingRectifierConfig(target.profile, target.secret)
+        : () => settingsApi.getRectifierConfig();
+    const getOptimizerConfig =
+      target.type === "remote"
+        ? () =>
+            remoteApi.getRoutingOptimizerConfig(target.profile, target.secret)
+        : () => settingsApi.getOptimizerConfig();
+
+    getRectifierConfig()
       .then(setConfig)
       .catch((e) => console.error("Failed to load rectifier config:", e))
       .finally(() => setIsLoading(false));
-    settingsApi
-      .getOptimizerConfig()
+    getOptimizerConfig()
       .then(setOptimizerConfig)
       .catch((e) => console.error("Failed to load optimizer config:", e));
-  }, []);
+  }, [target]);
 
   const handleChange = async (updates: Partial<RectifierConfig>) => {
     const newConfig = { ...config, ...updates };
     setConfig(newConfig);
     try {
-      await settingsApi.setRectifierConfig(newConfig);
+      if (target.type === "remote") {
+        await remoteApi.setRoutingRectifierConfig(
+          target.profile,
+          newConfig,
+          target.secret,
+        );
+      } else {
+        await settingsApi.setRectifierConfig(newConfig);
+      }
     } catch (e) {
       console.error("Failed to save rectifier config:", e);
       toast.error(String(e));
@@ -54,7 +79,15 @@ export function RectifierConfigPanel() {
     const newConfig = { ...optimizerConfig, ...updates };
     setOptimizerConfig(newConfig);
     try {
-      await settingsApi.setOptimizerConfig(newConfig);
+      if (target.type === "remote") {
+        await remoteApi.setRoutingOptimizerConfig(
+          target.profile,
+          newConfig,
+          target.secret,
+        );
+      } else {
+        await settingsApi.setOptimizerConfig(newConfig);
+      }
     } catch (e) {
       console.error("Failed to save optimizer config:", e);
       toast.error(String(e));

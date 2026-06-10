@@ -47,7 +47,6 @@ export function AddProviderDialog({
   const { t } = useTranslation();
   // OpenCode and OpenClaw don't support universal providers
   const showUniversalTab =
-    target.type === "local" &&
     appId !== "opencode" &&
     appId !== "openclaw" &&
     appId !== "hermes" &&
@@ -63,7 +62,7 @@ export function AddProviderDialog({
   const handleUniversalProviderSave = useCallback(
     async (provider: UniversalProvider) => {
       try {
-        await universalProvidersApi.upsert(provider);
+        await universalProvidersApi.upsert(provider, target);
         toast.success(
           t("universalProvider.addSuccess", {
             defaultValue: "统一供应商添加成功",
@@ -84,7 +83,7 @@ export function AddProviderDialog({
         );
       }
     },
-    [t, onOpenChange],
+    [t, onOpenChange, target],
   );
 
   const handleUniversalFormClose = useCallback(() => {
@@ -354,7 +353,7 @@ export function AddProviderDialog({
           </TabsContent>
 
           <TabsContent value="universal" className="mt-0">
-            <UniversalProviderPanel />
+            <UniversalProviderPanel target={target} />
           </TabsContent>
         </Tabs>
       ) : (

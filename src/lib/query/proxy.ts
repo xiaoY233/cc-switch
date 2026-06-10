@@ -3,6 +3,11 @@ import { proxyApi } from "@/lib/api/proxy";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import type { GlobalProxyConfig, AppProxyConfig } from "@/types/proxy";
+import type { ManagementTarget } from "@/lib/api/remote";
+import {
+  getManagementTargetKey,
+  LOCAL_MANAGEMENT_TARGET,
+} from "@/lib/managementTarget";
 
 // ========== 代理服务器状态 Hooks ==========
 
@@ -170,28 +175,38 @@ export function useProxyConfig() {
 /**
  * 获取全局代理配置
  */
-export function useGlobalProxyConfig() {
+export function useGlobalProxyConfig(
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
+  const targetKey = getManagementTargetKey(target);
   return useQuery({
-    queryKey: ["globalProxyConfig"],
-    queryFn: () => proxyApi.getGlobalProxyConfig(),
+    queryKey: ["globalProxyConfig", targetKey],
+    queryFn: () => proxyApi.getGlobalProxyConfig(target),
   });
 }
 
 /**
  * 更新全局代理配置
  */
-export function useUpdateGlobalProxyConfig() {
+export function useUpdateGlobalProxyConfig(
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const targetKey = getManagementTargetKey(target);
 
   return useMutation({
     mutationFn: (config: GlobalProxyConfig) =>
-      proxyApi.updateGlobalProxyConfig(config),
+      proxyApi.updateGlobalProxyConfig(config, target),
     onSuccess: () => {
       toast.success(t("proxy.settings.toast.saved"), { closeButton: true });
-      queryClient.invalidateQueries({ queryKey: ["globalProxyConfig"] });
-      queryClient.invalidateQueries({ queryKey: ["proxyConfig"] });
-      queryClient.invalidateQueries({ queryKey: ["proxyStatus"] });
+      queryClient.invalidateQueries({
+        queryKey: ["globalProxyConfig", targetKey],
+      });
+      if (target.type === "local") {
+        queryClient.invalidateQueries({ queryKey: ["proxyConfig"] });
+        queryClient.invalidateQueries({ queryKey: ["proxyStatus"] });
+      }
     },
     onError: (error: Error) => {
       toast.error(
@@ -204,10 +219,14 @@ export function useUpdateGlobalProxyConfig() {
 /**
  * 获取指定应用的代理配置
  */
-export function useAppProxyConfig(appType: string) {
+export function useAppProxyConfig(
+  appType: string,
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
+  const targetKey = getManagementTargetKey(target);
   return useQuery({
-    queryKey: ["appProxyConfig", appType],
-    queryFn: () => proxyApi.getProxyConfigForApp(appType),
+    queryKey: ["appProxyConfig", targetKey, appType],
+    queryFn: () => proxyApi.getProxyConfigForApp(appType, target),
     enabled: !!appType,
   });
 }
@@ -215,24 +234,29 @@ export function useAppProxyConfig(appType: string) {
 /**
  * 更新指定应用的代理配置
  */
-export function useUpdateAppProxyConfig() {
+export function useUpdateAppProxyConfig(
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const targetKey = getManagementTargetKey(target);
 
   return useMutation({
     mutationFn: (config: AppProxyConfig) =>
-      proxyApi.updateProxyConfigForApp(config),
+      proxyApi.updateProxyConfigForApp(config, target),
     onSuccess: (_, variables) => {
       toast.success(t("proxy.settings.toast.saved"), { closeButton: true });
       queryClient.invalidateQueries({
-        queryKey: ["appProxyConfig", variables.appType],
+        queryKey: ["appProxyConfig", targetKey, variables.appType],
       });
-      queryClient.invalidateQueries({
-        queryKey: ["autoFailoverEnabled", variables.appType],
-      });
-      queryClient.invalidateQueries({ queryKey: ["proxyConfig"] });
-      queryClient.invalidateQueries({ queryKey: ["circuitBreakerConfig"] });
-      queryClient.invalidateQueries({ queryKey: ["proxyStatus"] });
+      if (target.type === "local") {
+        queryClient.invalidateQueries({
+          queryKey: ["autoFailoverEnabled", variables.appType],
+        });
+        queryClient.invalidateQueries({ queryKey: ["proxyConfig"] });
+        queryClient.invalidateQueries({ queryKey: ["circuitBreakerConfig"] });
+        queryClient.invalidateQueries({ queryKey: ["proxyStatus"] });
+      }
     },
     onError: (error: Error) => {
       toast.error(
