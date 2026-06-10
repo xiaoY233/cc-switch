@@ -2,6 +2,8 @@ pub const REMOTE_HELPER_CAPABILITIES: &[&str] = &[
     "providers",
     "universal-providers",
     "routing-config",
+    #[cfg(feature = "proxy-runtime")]
+    "routing-runtime",
     "openclaw",
     "mcp",
     "prompts",

@@ -30,7 +30,12 @@ import type {
   MigrationResult,
 } from "./skills";
 import type { Settings, SkillStorageLocation } from "@/types";
-import type { AppProxyConfig, GlobalProxyConfig } from "@/types/proxy";
+import type {
+  AppProxyConfig,
+  GlobalProxyConfig,
+  ProxyServerInfo,
+  ProxyStatus,
+} from "@/types/proxy";
 import type {
   OptimizerConfig,
   RectifierConfig,
@@ -710,6 +715,36 @@ export const remoteApi = {
     return invoke<void>("remote_set_routing_global_outbound_proxy", {
       profile,
       url,
+      secret,
+    });
+  },
+
+  getRoutingRuntimeStatus(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<ProxyStatus> {
+    return invoke<ProxyStatus>("remote_get_routing_runtime_status", {
+      profile,
+      secret,
+    });
+  },
+
+  startRoutingRuntime(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<ProxyServerInfo> {
+    return invoke<ProxyServerInfo>("remote_start_routing_runtime", {
+      profile,
+      secret,
+    });
+  },
+
+  stopRoutingRuntime(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_stop_routing_runtime", {
+      profile,
       secret,
     });
   },

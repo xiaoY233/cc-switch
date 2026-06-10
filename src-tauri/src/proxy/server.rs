@@ -15,7 +15,7 @@ use super::{
     provider_router::ProviderRouter,
     providers::{codex_chat_history::CodexChatHistoryStore, gemini_shadow::GeminiShadowStore},
     types::*,
-    ProxyError,
+    ProxyAppHandle, ProxyError,
 };
 use crate::database::Database;
 use axum::{
@@ -45,7 +45,7 @@ pub struct ProxyState {
     /// Codex Chat bridge history，用于恢复 previous_response_id 指向的 tool call
     pub codex_chat_history: Arc<CodexChatHistoryStore>,
     /// AppHandle，用于发射事件和更新托盘菜单
-    pub app_handle: Option<tauri::AppHandle>,
+    pub app_handle: Option<ProxyAppHandle>,
     /// 故障转移切换管理器
     pub failover_manager: Arc<FailoverSwitchManager>,
 }
@@ -60,11 +60,7 @@ pub struct ProxyServer {
 }
 
 impl ProxyServer {
-    pub fn new(
-        config: ProxyConfig,
-        db: Arc<Database>,
-        app_handle: Option<tauri::AppHandle>,
-    ) -> Self {
+    pub fn new(config: ProxyConfig, db: Arc<Database>, app_handle: Option<ProxyAppHandle>) -> Self {
         // 创建共享的 ProviderRouter（熔断器状态将跨所有请求保持）
         let provider_router = Arc::new(ProviderRouter::new(db.clone()));
         // 创建故障转移切换管理器

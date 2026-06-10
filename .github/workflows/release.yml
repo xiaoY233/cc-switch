@@ -249,8 +249,8 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --target aarch64-apple-darwin --bin cc-switch-remote-helper
-          cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --target x86_64-apple-darwin --bin cc-switch-remote-helper
+          cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --features proxy-runtime --target aarch64-apple-darwin --bin cc-switch-remote-helper
+          cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --features proxy-runtime --target x86_64-apple-darwin --bin cc-switch-remote-helper
           mkdir -p src-tauri/target/universal-apple-darwin/release
           lipo -create \
             -output src-tauri/target/universal-apple-darwin/release/cc-switch-remote-helper \

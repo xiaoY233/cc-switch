@@ -28,8 +28,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleRow } from "@/components/ui/toggle-row";
 import { AppVisibilitySettings } from "@/components/settings/AppVisibilitySettings";
+import { CodexAuthSettings } from "@/components/settings/CodexAuthSettings";
 import { ImportExportSection } from "@/components/settings/ImportExportSection";
 import { SkillStorageLocationSettings } from "@/components/settings/SkillStorageLocationSettings";
+import { SkillSyncMethodSettings } from "@/components/settings/SkillSyncMethodSettings";
 import { AutoFailoverConfigPanel } from "@/components/proxy/AutoFailoverConfigPanel";
 import { GlobalProxySettings } from "@/components/settings/GlobalProxySettings";
 import { RectifierConfigPanel } from "@/components/settings/RectifierConfigPanel";
@@ -43,6 +45,7 @@ import {
 } from "@/components/settings/ToolEnvironmentSection";
 import { ToolInstallRow } from "@/components/settings/ToolInstallRow";
 import { useImportExport } from "@/hooks/useImportExport";
+import { useProxyStatus } from "@/hooks/useProxyStatus";
 import { useRemoteSettings } from "@/hooks/useRemoteSettings";
 import { remoteApi } from "@/lib/api";
 import type {
@@ -131,6 +134,8 @@ export function RemoteSettingsPage({
   const skillsCapability = health?.capabilities.includes("skills") ?? false;
   const routingCapability =
     health?.capabilities.includes("routing-config") ?? false;
+  const routingRuntimeCapability =
+    health?.capabilities.includes("routing-runtime") ?? false;
   const helperReady = Boolean(health?.reachable && health.helperInstalled);
   const toolsDisabled = !helperReady || !toolsCapability;
   const toolsDisabledMessage = !helperReady
@@ -575,6 +580,7 @@ export function RemoteSettingsPage({
             <RemoteRoutingSettingsSection
               helperReady={helperReady}
               routingCapability={routingCapability}
+              routingRuntimeCapability={routingRuntimeCapability}
               target={target}
             />
           </TabsContent>
@@ -634,15 +640,150 @@ export function RemoteSettingsPage({
   );
 }
 
+interface RemoteRoutingRuntimePanelProps {
+  target: Extract<ManagementTarget, { type: "remote" }>;
+  enabled: boolean;
+}
+
+function RemoteRoutingRuntimePanel({
+  target,
+  enabled,
+}: RemoteRoutingRuntimePanelProps) {
+  const { t } = useTranslation();
+  const {
+    status,
+    isLoading,
+    refetch,
+    startProxyServer,
+    stopWithRestore,
+    isStarting,
+    isStopping,
+  } = useProxyStatus(target);
+
+  const runAction = async (nextAction: "start" | "stop") => {
+    if (!enabled || isStarting || isStopping) return;
+    try {
+      if (nextAction === "start") {
+        await startProxyServer();
+      } else {
+        await stopWithRestore();
+      }
+      await refetch();
+    } catch (error) {
+      console.error(
+        `[RemoteRoutingRuntimePanel] Failed to ${nextAction} runtime`,
+        error,
+      );
+      toast.error(
+        nextAction === "start"
+          ? t("remote.settings.routing.runtimeStartFailed", {
+              defaultValue: "远程路由启动失败",
+            })
+          : t("remote.settings.routing.runtimeStopFailed", {
+              defaultValue: "远程路由停止失败",
+            }),
+        { description: extractErrorMessage(error) },
+      );
+    }
+  };
+
+  if (!enabled) {
+    return (
+      <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 text-sm text-yellow-700 dark:text-yellow-300">
+        {t("remote.settings.routing.runtimeUnsupported", {
+          defaultValue:
+            "当前远程 Helper 仅支持远程路由配置读写；启动、停止和运行状态需要包含 routing-runtime capability 的新版 Helper。",
+        })}
+      </div>
+    );
+  }
+
+  const running = !!status?.running;
+  const isActionPending = isStarting || isStopping;
+  const address =
+    status && status.address && status.port
+      ? `${status.address}:${status.port}`
+      : t("common.unknown", { defaultValue: "未知" });
+
+  return (
+    <div className="rounded-xl border border-border bg-card/50 px-4 py-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-medium">
+              {t("remote.settings.routing.runtimeTitle", {
+                defaultValue: "远程路由运行态",
+              })}
+            </h3>
+            <Badge variant={running ? "default" : "outline"}>
+              {running
+                ? t("settings.advanced.proxy.running")
+                : t("settings.advanced.proxy.stopped")}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {running
+              ? t("remote.settings.routing.runtimeAddress", {
+                  defaultValue: "监听地址：{{address}}",
+                  address,
+                })
+              : t("remote.settings.routing.runtimeDescription", {
+                  defaultValue:
+                    "启动后远程服务器会在当前 Helper 持久会话内运行路由代理。",
+                })}
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isLoading || isActionPending}
+            onClick={() => void refetch()}
+          >
+            {isLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            {t("common.refresh")}
+          </Button>
+          <Button
+            type="button"
+            variant={running ? "outline" : "default"}
+            size="sm"
+            disabled={isLoading || isActionPending}
+            onClick={() => void runAction(running ? "stop" : "start")}
+          >
+            {isActionPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
+            {running
+              ? t("remote.settings.routing.runtimeStop", {
+                  defaultValue: "停止",
+                })
+              : t("remote.settings.routing.runtimeStart", {
+                  defaultValue: "启动",
+                })}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface RemoteRoutingSettingsSectionProps {
   helperReady: boolean;
   routingCapability: boolean;
+  routingRuntimeCapability: boolean;
   target: Extract<ManagementTarget, { type: "remote" }>;
 }
 
 function RemoteRoutingSettingsSection({
   helperReady,
   routingCapability,
+  routingRuntimeCapability,
   target,
 }: RemoteRoutingSettingsSectionProps) {
   const { t } = useTranslation();
@@ -670,12 +811,10 @@ function RemoteRoutingSettingsSection({
       transition={{ duration: 0.3 }}
       className="space-y-4"
     >
-      <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 text-sm text-yellow-700 dark:text-yellow-300">
-        {t("remote.settings.routing.runtimeUnsupported", {
-          defaultValue:
-            "当前版本仅支持远程路由配置读写；首页路由启动、停止、应用接管和运行状态需要持久 Helper 运行态，暂未开放。",
-        })}
-      </div>
+      <RemoteRoutingRuntimePanel
+        target={target}
+        enabled={routingRuntimeCapability}
+      />
 
       <Accordion
         type="multiple"
@@ -898,6 +1037,16 @@ function RemoteGeneralSettingsSection({
                 );
               }
         }
+      />
+
+      <SkillSyncMethodSettings
+        value={settings.skillSyncMethod ?? "auto"}
+        onChange={(method) => void onSave({ skillSyncMethod: method })}
+      />
+
+      <CodexAuthSettings
+        settings={settings}
+        onChange={(updates) => void onSave(updates)}
       />
 
       <section className="space-y-4">

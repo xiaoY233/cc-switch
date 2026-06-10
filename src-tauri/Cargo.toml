@@ -28,7 +28,9 @@ path = "src/bin/cc-switch-cli.rs"
 
 [features]
 default = ["desktop"]
+proxy-runtime = []
 desktop = [
+    "proxy-runtime",
     "dep:auto-launch",
     "dep:tauri",
     "dep:tauri-plugin-deep-link",

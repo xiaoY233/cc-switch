@@ -14,17 +14,33 @@ export const proxyApi = {
   // ========== 代理服务器控制 API ==========
 
   // 启动代理服务器
-  async startProxyServer(): Promise<ProxyServerInfo> {
+  async startProxyServer(
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+  ): Promise<ProxyServerInfo> {
+    if (target.type === "remote") {
+      return remoteApi.startRoutingRuntime(target.profile, target.secret);
+    }
     return invoke("start_proxy_server");
   },
 
   // 停止代理服务器并恢复配置
-  async stopProxyWithRestore(): Promise<void> {
+  async stopProxyWithRestore(
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+  ): Promise<void> {
+    if (target.type === "remote") {
+      await remoteApi.stopRoutingRuntime(target.profile, target.secret);
+      return;
+    }
     return invoke("stop_proxy_with_restore");
   },
 
   // 获取代理服务器状态
-  async getProxyStatus(): Promise<ProxyStatus> {
+  async getProxyStatus(
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+  ): Promise<ProxyStatus> {
+    if (target.type === "remote") {
+      return remoteApi.getRoutingRuntimeStatus(target.profile, target.secret);
+    }
     return invoke("get_proxy_status");
   },
 

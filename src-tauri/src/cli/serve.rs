@@ -72,6 +72,22 @@ mod tests {
     }
 
     #[test]
+    fn handle_line_dispatches_routing_runtime_status() {
+        let response = handle_line(r#"{"id":"proxy","command":["routing-runtime","status"]}"#);
+
+        assert_eq!(response.id, "proxy");
+        assert!(response.ok, "expected ok response: {:?}", response.error);
+        assert_eq!(
+            response
+                .data
+                .expect("data")
+                .get("running")
+                .and_then(Value::as_bool),
+            Some(false)
+        );
+    }
+
+    #[test]
     fn handle_line_rejects_invalid_json() {
         let response = handle_line("{");
 

@@ -6,24 +6,36 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import type {
-  ProxyStatus,
-  ProxyServerInfo,
-  ProxyTakeoverStatus,
-} from "@/types/proxy";
+import type { ProxyTakeoverStatus } from "@/types/proxy";
 import { extractErrorMessage } from "@/utils/errorUtils";
+import { proxyApi } from "@/lib/api";
+import type { ManagementTarget } from "@/lib/api";
+import {
+  getManagementTargetKey,
+  LOCAL_MANAGEMENT_TARGET,
+} from "@/lib/managementTarget";
 
 /**
  * 代理服务状态管理
  */
-export function useProxyStatus() {
+export function useProxyStatus(
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const targetKey = getManagementTargetKey(target);
+  const isLocalTarget = target.type === "local";
+  const proxyStatusKey = ["proxyStatus", targetKey];
+  const proxyTakeoverStatusKey = ["proxyTakeoverStatus", targetKey];
 
   // 查询状态（自动轮询）
-  const { data: status, isLoading } = useQuery({
-    queryKey: ["proxyStatus"],
-    queryFn: () => invoke<ProxyStatus>("get_proxy_status"),
+  const {
+    data: status,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: proxyStatusKey,
+    queryFn: () => proxyApi.getProxyStatus(target),
     // 仅在服务运行时轮询
     refetchInterval: (query) => (query.state.data?.running ? 2000 : false),
     // 保持之前的数据，避免闪烁
@@ -32,14 +44,15 @@ export function useProxyStatus() {
 
   // 查询各应用接管状态
   const { data: takeoverStatus } = useQuery({
-    queryKey: ["proxyTakeoverStatus"],
+    queryKey: proxyTakeoverStatusKey,
     queryFn: () => invoke<ProxyTakeoverStatus>("get_proxy_takeover_status"),
+    enabled: isLocalTarget,
     placeholderData: (previousData) => previousData,
   });
 
   // 启动服务器（总开关：仅启动服务，不接管）
   const startProxyServerMutation = useMutation({
-    mutationFn: () => invoke<ProxyServerInfo>("start_proxy_server"),
+    mutationFn: () => proxyApi.startProxyServer(target),
     onSuccess: (info) => {
       toast.success(
         t("proxy.server.started", {
@@ -49,7 +62,7 @@ export function useProxyStatus() {
         }),
         { closeButton: true },
       );
-      queryClient.invalidateQueries({ queryKey: ["proxyStatus"] });
+      queryClient.invalidateQueries({ queryKey: proxyStatusKey });
     },
     onError: (error: Error) => {
       const detail =
@@ -66,7 +79,10 @@ export function useProxyStatus() {
 
   // 停止服务器（仅停止服务，不改写/恢复其它应用接管状态）
   const stopProxyServerMutation = useMutation({
-    mutationFn: () => invoke("stop_proxy_server"),
+    mutationFn: () =>
+      isLocalTarget
+        ? invoke("stop_proxy_server")
+        : proxyApi.stopProxyWithRestore(target),
     onSuccess: () => {
       toast.success(
         t("proxy.server.stopped", {
@@ -74,7 +90,7 @@ export function useProxyStatus() {
         }),
         { closeButton: true },
       );
-      queryClient.invalidateQueries({ queryKey: ["proxyStatus"] });
+      queryClient.invalidateQueries({ queryKey: proxyStatusKey });
     },
     onError: (error: Error) => {
       const detail =
@@ -91,21 +107,27 @@ export function useProxyStatus() {
 
   // 停止服务器（总开关关闭：强制恢复所有已接管的 Live 配置）
   const stopWithRestoreMutation = useMutation({
-    mutationFn: () => invoke("stop_proxy_with_restore"),
+    mutationFn: () => proxyApi.stopProxyWithRestore(target),
     onSuccess: () => {
       toast.success(
-        t("proxy.stoppedWithRestore", {
-          defaultValue: "代理服务已关闭，已恢复所有接管配置",
-        }),
+        isLocalTarget
+          ? t("proxy.stoppedWithRestore", {
+              defaultValue: "代理服务已关闭，已恢复所有接管配置",
+            })
+          : t("proxy.server.stopped", {
+              defaultValue: "代理服务已停止",
+            }),
         { closeButton: true },
       );
-      queryClient.invalidateQueries({ queryKey: ["proxyStatus"] });
-      queryClient.invalidateQueries({ queryKey: ["proxyTakeoverStatus"] });
-      // 彻底删除所有供应商健康状态缓存（后端已清空数据库记录）
-      queryClient.removeQueries({ queryKey: ["providerHealth"] });
-      // 彻底删除所有熔断器统计缓存（代理停止后熔断器状态已重置）
-      queryClient.removeQueries({ queryKey: ["circuitBreakerStats"] });
-      // 注意：故障转移队列和开关状态会保留，不需要刷新
+      queryClient.invalidateQueries({ queryKey: proxyStatusKey });
+      if (isLocalTarget) {
+        queryClient.invalidateQueries({ queryKey: proxyTakeoverStatusKey });
+        // 彻底删除所有供应商健康状态缓存（后端已清空数据库记录）
+        queryClient.removeQueries({ queryKey: ["providerHealth"] });
+        // 彻底删除所有熔断器统计缓存（代理停止后熔断器状态已重置）
+        queryClient.removeQueries({ queryKey: ["circuitBreakerStats"] });
+        // 注意：故障转移队列和开关状态会保留，不需要刷新
+      }
     },
     onError: (error: Error) => {
       const detail =
@@ -122,8 +144,18 @@ export function useProxyStatus() {
 
   // 按应用开启/关闭接管
   const setTakeoverForAppMutation = useMutation({
-    mutationFn: ({ appType, enabled }: { appType: string; enabled: boolean }) =>
-      invoke("set_proxy_takeover_for_app", { appType, enabled }),
+    mutationFn: ({
+      appType,
+      enabled,
+    }: {
+      appType: string;
+      enabled: boolean;
+    }) => {
+      if (!isLocalTarget) {
+        throw new Error("Remote app takeover is not supported yet");
+      }
+      return invoke("set_proxy_takeover_for_app", { appType, enabled });
+    },
     onSuccess: (_data, variables) => {
       const appLabel =
         variables.appType === "claude"
@@ -147,8 +179,8 @@ export function useProxyStatus() {
         { closeButton: true },
       );
 
-      queryClient.invalidateQueries({ queryKey: ["proxyStatus"] });
-      queryClient.invalidateQueries({ queryKey: ["proxyTakeoverStatus"] });
+      queryClient.invalidateQueries({ queryKey: proxyStatusKey });
+      queryClient.invalidateQueries({ queryKey: proxyTakeoverStatusKey });
     },
     onError: (error: Error) => {
       const detail =
@@ -171,9 +203,14 @@ export function useProxyStatus() {
     }: {
       appType: string;
       providerId: string;
-    }) => invoke("switch_proxy_provider", { appType, providerId }),
+    }) => {
+      if (!isLocalTarget) {
+        throw new Error("Remote proxy hot-switch is not supported yet");
+      }
+      return invoke("switch_proxy_provider", { appType, providerId });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["proxyStatus"] });
+      queryClient.invalidateQueries({ queryKey: proxyStatusKey });
     },
     onError: (error: Error) => {
       const detail =
@@ -191,6 +228,10 @@ export function useProxyStatus() {
   // 检查是否运行中
   const checkRunning = async () => {
     try {
+      if (!isLocalTarget) {
+        const remoteStatus = await proxyApi.getProxyStatus(target);
+        return remoteStatus.running;
+      }
       return await invoke<boolean>("is_proxy_running");
     } catch {
       return false;
@@ -199,6 +240,9 @@ export function useProxyStatus() {
 
   // 检查接管状态
   const checkTakeoverActive = async () => {
+    if (!isLocalTarget) {
+      return false;
+    }
     try {
       return await invoke<boolean>("is_live_takeover_active");
     } catch {
@@ -209,6 +253,7 @@ export function useProxyStatus() {
   return {
     status,
     isLoading,
+    refetch,
     isRunning: status?.running || false,
     takeoverStatus,
     isTakeoverActive:

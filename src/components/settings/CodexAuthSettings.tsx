@@ -1,11 +1,11 @@
 import { useTranslation } from "react-i18next";
 import { KeyRound } from "lucide-react";
-import type { SettingsFormState } from "@/hooks/useSettings";
+import type { Settings } from "@/types";
 import { ToggleRow } from "@/components/ui/toggle-row";
 
 interface CodexAuthSettingsProps {
-  settings: SettingsFormState;
-  onChange: (updates: Partial<SettingsFormState>) => void;
+  settings: Settings;
+  onChange: (updates: Partial<Settings>) => void;
 }
 
 export function CodexAuthSettings({

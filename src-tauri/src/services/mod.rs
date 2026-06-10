@@ -10,9 +10,9 @@ pub mod omo;
 pub mod prompt;
 pub mod provider;
 pub mod provider_secrets;
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "proxy-runtime"))]
 pub mod proxy;
-#[cfg(not(feature = "desktop"))]
+#[cfg(not(any(feature = "desktop", feature = "proxy-runtime")))]
 mod proxy_stub;
 pub mod s3;
 #[cfg(feature = "desktop")]
@@ -40,9 +40,9 @@ pub use mcp::McpService;
 pub use omo::OmoService;
 pub use prompt::PromptService;
 pub use provider::{ProviderService, ProviderSortUpdate, SwitchResult};
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "proxy-runtime"))]
 pub use proxy::ProxyService;
-#[cfg(not(feature = "desktop"))]
+#[cfg(not(any(feature = "desktop", feature = "proxy-runtime")))]
 pub use proxy_stub::ProxyService;
 #[allow(unused_imports)]
 pub use skill::{DiscoverableSkill, Skill, SkillRepo, SkillService};

@@ -74,8 +74,8 @@ jobs:
         run: |
           set -euxo pipefail
           if [ "${{ runner.os }}" = "macOS" ]; then
-            cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --target aarch64-apple-darwin --bin cc-switch-remote-helper
-            cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --target x86_64-apple-darwin --bin cc-switch-remote-helper
+            cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --features proxy-runtime --target aarch64-apple-darwin --bin cc-switch-remote-helper
+            cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --features proxy-runtime --target x86_64-apple-darwin --bin cc-switch-remote-helper
             mkdir -p src-tauri/target/universal-apple-darwin/release
             lipo -create \
               -output src-tauri/target/universal-apple-darwin/release/cc-switch-remote-helper \
@@ -83,7 +83,7 @@ jobs:
               src-tauri/target/x86_64-apple-darwin/release/cc-switch-remote-helper
             chmod +x src-tauri/target/universal-apple-darwin/release/cc-switch-remote-helper
           else
-            cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --bin cc-switch-remote-helper
+            cargo build --manifest-path src-tauri/Cargo.toml --release --no-default-features --features proxy-runtime --bin cc-switch-remote-helper
           fi
 
       - name: Prepare helper artifact

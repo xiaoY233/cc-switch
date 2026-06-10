@@ -7,8 +7,10 @@
 
 use crate::database::Database;
 use crate::error::AppError;
+use crate::proxy::ProxyAppHandle;
 use std::collections::HashSet;
 use std::sync::Arc;
+#[cfg(feature = "desktop")]
 use tauri::{Emitter, Manager};
 use tokio::sync::RwLock;
 
@@ -40,7 +42,7 @@ impl FailoverSwitchManager {
     /// - `Err(e)` - 切换过程中发生错误
     pub async fn try_switch(
         &self,
-        app_handle: Option<&tauri::AppHandle>,
+        app_handle: Option<&ProxyAppHandle>,
         app_type: &str,
         provider_id: &str,
         provider_name: &str,
@@ -73,7 +75,7 @@ impl FailoverSwitchManager {
 
     async fn do_switch(
         &self,
-        app_handle: Option<&tauri::AppHandle>,
+        app_handle: Option<&ProxyAppHandle>,
         app_type: &str,
         provider_id: &str,
         provider_name: &str,
@@ -97,36 +99,54 @@ impl FailoverSwitchManager {
 
         let mut switched = false;
 
-        if let Some(app) = app_handle {
-            if let Some(app_state) = app.try_state::<crate::store::AppState>() {
-                switched = app_state
-                    .proxy_service
-                    .hot_switch_provider(app_type, provider_id)
-                    .await
-                    .map_err(AppError::Message)?
-                    .logical_target_changed;
+        #[cfg(feature = "desktop")]
+        {
+            if let Some(app) = app_handle {
+                if let Some(app_state) = app.try_state::<crate::store::AppState>() {
+                    switched = app_state
+                        .proxy_service
+                        .hot_switch_provider(app_type, provider_id)
+                        .await
+                        .map_err(AppError::Message)?
+                        .logical_target_changed;
 
-                if !switched {
-                    return Ok(false);
-                }
+                    if !switched {
+                        return Ok(false);
+                    }
 
-                if let Ok(new_menu) = crate::tray::create_tray_menu(app, app_state.inner()) {
-                    if let Some(tray) = app.tray_by_id(crate::tray::TRAY_ID) {
-                        if let Err(e) = tray.set_menu(Some(new_menu)) {
-                            log::error!("[Failover] 更新托盘菜单失败: {e}");
+                    if let Ok(new_menu) = crate::tray::create_tray_menu(app, app_state.inner()) {
+                        if let Some(tray) = app.tray_by_id(crate::tray::TRAY_ID) {
+                            if let Err(e) = tray.set_menu(Some(new_menu)) {
+                                log::error!("[Failover] 更新托盘菜单失败: {e}");
+                            }
                         }
                     }
                 }
-            }
 
-            // 发射事件到前端
-            let event_data = serde_json::json!({
-                "appType": app_type,
-                "providerId": provider_id,
-                "source": "failover"  // 标识来源是故障转移
-            });
-            if let Err(e) = app.emit("provider-switched", event_data) {
-                log::error!("[Failover] 发射事件失败: {e}");
+                // 发射事件到前端
+                let event_data = serde_json::json!({
+                    "appType": app_type,
+                    "providerId": provider_id,
+                    "source": "failover"  // 标识来源是故障转移
+                });
+                if let Err(e) = app.emit("provider-switched", event_data) {
+                    log::error!("[Failover] 发射事件失败: {e}");
+                }
+            }
+        }
+
+        #[cfg(not(feature = "desktop"))]
+        {
+            let _ = app_handle;
+            let proxy_service = crate::services::ProxyService::new(self.db.clone());
+            switched = proxy_service
+                .hot_switch_provider(app_type, provider_id)
+                .await
+                .map_err(AppError::Message)?
+                .logical_target_changed;
+
+            if !switched {
+                return Ok(false);
             }
         }
 

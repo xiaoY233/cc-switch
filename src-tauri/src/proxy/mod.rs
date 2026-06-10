@@ -2,23 +2,30 @@
 //!
 //! 提供本地HTTP代理服务，支持多Provider故障转移和请求透传
 
+#[cfg(feature = "desktop")]
+pub(crate) type ProxyAppHandle = tauri::AppHandle;
+
+#[cfg(not(feature = "desktop"))]
+#[derive(Clone)]
+pub(crate) struct ProxyAppHandle;
+
 pub mod body_filter;
 pub mod cache_injector;
 pub mod circuit_breaker;
 pub mod copilot_optimizer;
 pub mod error;
 pub mod error_mapper;
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "proxy-runtime"))]
 pub(crate) mod failover_switch;
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "proxy-runtime"))]
 mod forwarder;
 pub mod gemini_url;
 pub mod handler_config;
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "proxy-runtime"))]
 pub mod handler_context;
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "proxy-runtime"))]
 mod handlers;
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "proxy-runtime"))]
 mod health;
 pub mod http_client;
 pub mod hyper_client;
@@ -29,13 +36,13 @@ pub mod model_mapper;
 pub mod provider_router;
 pub mod providers;
 pub mod response_handler;
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "proxy-runtime"))]
 pub mod response_processor;
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "proxy-runtime"))]
 pub(crate) mod server;
 pub mod session;
 pub(crate) mod sse;
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "proxy-runtime"))]
 pub(crate) mod switch_lock;
 pub mod thinking_budget_rectifier;
 pub mod thinking_optimizer;

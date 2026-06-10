@@ -18,6 +18,11 @@ export const EXPECTED_REMOTE_CAPABILITIES = [
     defaultLabel: "路由配置",
   },
   {
+    id: "routing-runtime",
+    labelKey: "remote.capabilities.routingRuntime",
+    defaultLabel: "路由运行态",
+  },
+  {
     id: "openclaw",
     labelKey: "remote.capabilities.openclaw",
     defaultLabel: "OpenClaw",

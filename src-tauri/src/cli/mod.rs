@@ -423,6 +423,41 @@ pub(crate) fn run_command(args: &[String]) -> Value {
                 .expect("serialize outbound proxy update error"),
             }
         }
+        [group, cmd] if group == "routing-runtime" && cmd == "status" => {
+            match commands::routing_runtime_status() {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize routing runtime status"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "routing_runtime_status_failed",
+                    message,
+                ))
+                .expect("serialize routing runtime status error"),
+            }
+        }
+        [group, cmd] if group == "routing-runtime" && cmd == "start" => {
+            match commands::routing_runtime_start() {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize routing runtime start")
+                }
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "routing_runtime_start_failed",
+                    message,
+                ))
+                .expect("serialize routing runtime start error"),
+            }
+        }
+        [group, cmd] if group == "routing-runtime" && cmd == "stop" => {
+            match commands::routing_runtime_stop() {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize routing runtime stop")
+                }
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "routing_runtime_stop_failed",
+                    message,
+                ))
+                .expect("serialize routing runtime stop error"),
+            }
+        }
         [group, cmd] if group == "sessions" && cmd == "list" => match commands::list_sessions() {
             Ok(value) => serde_json::to_value(types::ok(value)).expect("serialize sessions"),
             Err(message) => serde_json::to_value(types::err::<()>("sessions_list_failed", message))
@@ -900,7 +935,7 @@ pub(crate) fn run_command(args: &[String]) -> Value {
         }
         _ => serde_json::to_value(types::err::<()>(
             "unsupported_command",
-            "Supported commands: status, providers, universal-providers, routing-config, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools, settings, plugin",
+            "Supported commands: status, providers, universal-providers, routing-config, routing-runtime, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools, settings, plugin",
         ))
         .expect("serialize error response"),
     }

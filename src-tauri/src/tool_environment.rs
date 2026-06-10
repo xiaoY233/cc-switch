@@ -1,6 +1,8 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
+#[cfg(not(target_os = "windows"))]
+use std::ffi::OsString;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -126,9 +128,12 @@ fn run_tool_lifecycle_silently(command_line: &str, _label: &str) -> Result<(), S
     use std::process::Command;
     // command_line 是 bash 风格脚本（含 `set -e` 与多行命令）；强制用 bash 执行，
     // 避免用户默认 shell 为 fish/zsh 时 `set -e` 等语义不一致。
-    let output = Command::new("bash")
-        .arg("-c")
-        .arg(command_line)
+    let mut command = Command::new("bash");
+    command.arg("-c").arg(command_line);
+    if let Some(path) = lifecycle_execution_path_env() {
+        command.env("PATH", path);
+    }
+    let output = command
         .output()
         .map_err(|e| format!("启动安装进程失败: {e}"))?;
     finish_lifecycle_output(&output)
@@ -979,6 +984,50 @@ fn default_flag_for_shell(shell: &str) -> &'static str {
         "fish" => "-lc",
         _ => "-lic",
     }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn path_from_env_output(raw: &str) -> Option<OsString> {
+    raw.lines()
+        .find_map(|line| line.strip_prefix("PATH="))
+        .filter(|value| !value.trim().is_empty())
+        .map(OsString::from)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn merge_path_envs(preferred: Option<OsString>, fallback: Option<OsString>) -> Option<OsString> {
+    let mut paths = Vec::new();
+    for value in [preferred, fallback].into_iter().flatten() {
+        for path in std::env::split_paths(&value) {
+            push_unique_path(&mut paths, path);
+        }
+    }
+    if paths.is_empty() {
+        None
+    } else {
+        std::env::join_paths(paths).ok()
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn login_shell_path_env() -> Option<OsString> {
+    use std::process::Command;
+
+    let shell = std::env::var("SHELL")
+        .ok()
+        .filter(|s| is_valid_shell(s))
+        .unwrap_or_else(|| "sh".to_string());
+    let flag = default_flag_for_shell(&shell);
+    let output = Command::new(shell).arg(flag).arg("env").output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    path_from_env_output(&decode_command_output(&output.stdout))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn lifecycle_execution_path_env() -> Option<OsString> {
+    merge_path_envs(login_shell_path_env(), std::env::var_os("PATH"))
 }
 
 #[cfg(target_os = "windows")]
@@ -2305,6 +2354,32 @@ mod tests {
         assert_eq!(extract_version("claude 1.0.20"), "1.0.20");
         assert_eq!(extract_version("v2.3.4-beta.1"), "2.3.4-beta.1");
         assert_eq!(extract_version("no version here"), "no version here");
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn path_from_env_output_ignores_login_shell_noise() {
+        let raw = "Welcome back\nPWD=/tmp\nPATH=/home/me/.nvm/bin:/usr/local/bin:/usr/bin\n";
+        assert_eq!(
+            path_from_env_output(raw),
+            Some(std::ffi::OsString::from(
+                "/home/me/.nvm/bin:/usr/local/bin:/usr/bin"
+            ))
+        );
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn merge_path_envs_prefers_login_shell_and_keeps_fallbacks() {
+        let merged = merge_path_envs(
+            Some(std::ffi::OsString::from("/home/me/.nvm/bin:/usr/bin")),
+            Some(std::ffi::OsString::from("/usr/bin:/bin")),
+        )
+        .expect("merged path");
+        let paths: Vec<String> = std::env::split_paths(&merged)
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(paths, vec!["/home/me/.nvm/bin", "/usr/bin", "/bin"]);
     }
 
     #[test]

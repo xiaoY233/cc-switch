@@ -1,7 +1,10 @@
 use crate::app_config::{InstalledSkill, McpServer, UnmanagedSkill};
 use crate::prompt::Prompt;
 use crate::provider::{Provider, UniversalProvider};
-use crate::proxy::types::{AppProxyConfig, GlobalProxyConfig, OptimizerConfig, RectifierConfig};
+use crate::proxy::types::{
+    AppProxyConfig, GlobalProxyConfig, OptimizerConfig, ProxyServerInfo, ProxyStatus,
+    RectifierConfig,
+};
 use crate::remote::{
     build_helper_install_args, build_ssh_args, delete_profile, delete_profile_secret,
     install_helper_json, load_profiles, remote_session_manager, run_helper_json,
@@ -603,6 +606,7 @@ fn parse_remote_capability(value: &str) -> Option<RemoteCapability> {
         "providers" => Some(RemoteCapability::Providers),
         "universal-providers" => Some(RemoteCapability::UniversalProviders),
         "routing-config" => Some(RemoteCapability::RoutingConfig),
+        "routing-runtime" => Some(RemoteCapability::RoutingRuntime),
         "openclaw" => Some(RemoteCapability::Openclaw),
         "mcp" => Some(RemoteCapability::Mcp),
         "prompts" => Some(RemoteCapability::Prompts),
@@ -1074,6 +1078,48 @@ pub async fn remote_set_routing_global_outbound_proxy(
         ],
         secret,
         "Remote routing global outbound proxy set",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_routing_runtime_status(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<ProxyStatus, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["routing-runtime".to_string(), "status".to_string()],
+        secret,
+        "Remote routing runtime status",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_start_routing_runtime(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<ProxyServerInfo, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["routing-runtime".to_string(), "start".to_string()],
+        secret,
+        "Remote routing runtime start",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_stop_routing_runtime(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["routing-runtime".to_string(), "stop".to_string()],
+        secret,
+        "Remote routing runtime stop",
     )
     .await
 }
@@ -1972,6 +2018,10 @@ mod tests {
         assert_eq!(
             parse_remote_capability("routing-config"),
             Some(RemoteCapability::RoutingConfig)
+        );
+        assert_eq!(
+            parse_remote_capability("routing-runtime"),
+            Some(RemoteCapability::RoutingRuntime)
         );
     }
 

@@ -14,9 +14,20 @@ use crate::{
     ProviderService,
 };
 use indexmap::IndexMap;
+#[cfg(feature = "proxy-runtime")]
+use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
+
+#[cfg(feature = "proxy-runtime")]
+static ROUTING_RUNTIME: Lazy<Result<tokio::runtime::Runtime, String>> =
+    Lazy::new(|| tokio::runtime::Runtime::new().map_err(|e| e.to_string()));
+#[cfg(feature = "proxy-runtime")]
+static ROUTING_STATE: Lazy<Result<AppState, String>> = Lazy::new(|| {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    Ok(AppState::new(db))
+});
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,6 +49,55 @@ pub fn status_payload() -> StatusPayload {
         arch: std::env::consts::ARCH.to_string(),
         capabilities: crate::remote_capabilities::remote_helper_capabilities(),
     }
+}
+
+#[cfg(feature = "proxy-runtime")]
+fn routing_runtime() -> Result<&'static tokio::runtime::Runtime, String> {
+    ROUTING_RUNTIME.as_ref().map_err(Clone::clone)
+}
+
+#[cfg(feature = "proxy-runtime")]
+fn routing_state() -> Result<&'static AppState, String> {
+    ROUTING_STATE.as_ref().map_err(Clone::clone)
+}
+
+#[cfg(feature = "proxy-runtime")]
+pub fn routing_runtime_status() -> Result<crate::proxy::types::ProxyStatus, String> {
+    let state = routing_state()?;
+    routing_runtime()?.block_on(state.proxy_service.get_status())
+}
+
+#[cfg(not(feature = "proxy-runtime"))]
+pub fn routing_runtime_status() -> Result<crate::proxy::types::ProxyStatus, String> {
+    Err("This helper build does not include remote routing runtime support".to_string())
+}
+
+#[cfg(feature = "proxy-runtime")]
+pub fn routing_runtime_start() -> Result<crate::proxy::types::ProxyServerInfo, String> {
+    let state = routing_state()?;
+    routing_runtime()?.block_on(state.proxy_service.start())
+}
+
+#[cfg(not(feature = "proxy-runtime"))]
+pub fn routing_runtime_start() -> Result<crate::proxy::types::ProxyServerInfo, String> {
+    Err("This helper build does not include remote routing runtime support".to_string())
+}
+
+#[cfg(feature = "proxy-runtime")]
+pub fn routing_runtime_stop() -> Result<bool, String> {
+    let state = routing_state()?;
+    routing_runtime()?.block_on(async {
+        if !state.proxy_service.is_running().await {
+            return Ok(true);
+        }
+        state.proxy_service.stop().await?;
+        Ok(true)
+    })
+}
+
+#[cfg(not(feature = "proxy-runtime"))]
+pub fn routing_runtime_stop() -> Result<bool, String> {
+    Err("This helper build does not include remote routing runtime support".to_string())
 }
 
 pub fn get_settings() -> crate::settings::AppSettings {

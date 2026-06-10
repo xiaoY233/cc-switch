@@ -14,10 +14,13 @@ import {
 /**
  * 获取代理服务器状态
  */
-export function useProxyStatus() {
+export function useProxyStatus(
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
+  const targetKey = getManagementTargetKey(target);
   return useQuery({
-    queryKey: ["proxyStatus"],
-    queryFn: () => proxyApi.getProxyStatus(),
+    queryKey: ["proxyStatus", targetKey],
+    queryFn: () => proxyApi.getProxyStatus(target),
     refetchInterval: 5000, // 每 5 秒刷新一次
   });
 }
@@ -60,16 +63,21 @@ export function useProxyTakeoverStatus() {
 /**
  * 启动代理服务器
  */
-export function useStartProxyServer() {
+export function useStartProxyServer(
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
   const queryClient = useQueryClient();
+  const targetKey = getManagementTargetKey(target);
 
   return useMutation({
-    mutationFn: () => proxyApi.startProxyServer(),
+    mutationFn: () => proxyApi.startProxyServer(target),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["proxyStatus"] });
-      queryClient.invalidateQueries({ queryKey: ["proxyRunning"] });
-      queryClient.invalidateQueries({ queryKey: ["liveTakeoverActive"] });
-      queryClient.invalidateQueries({ queryKey: ["proxyTakeoverStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["proxyStatus", targetKey] });
+      if (target.type === "local") {
+        queryClient.invalidateQueries({ queryKey: ["proxyRunning"] });
+        queryClient.invalidateQueries({ queryKey: ["liveTakeoverActive"] });
+        queryClient.invalidateQueries({ queryKey: ["proxyTakeoverStatus"] });
+      }
     },
   });
 }
@@ -77,16 +85,21 @@ export function useStartProxyServer() {
 /**
  * 停止代理服务器
  */
-export function useStopProxyServer() {
+export function useStopProxyServer(
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
   const queryClient = useQueryClient();
+  const targetKey = getManagementTargetKey(target);
 
   return useMutation({
-    mutationFn: () => proxyApi.stopProxyWithRestore(),
+    mutationFn: () => proxyApi.stopProxyWithRestore(target),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["proxyStatus"] });
-      queryClient.invalidateQueries({ queryKey: ["proxyRunning"] });
-      queryClient.invalidateQueries({ queryKey: ["liveTakeoverActive"] });
-      queryClient.invalidateQueries({ queryKey: ["proxyTakeoverStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["proxyStatus", targetKey] });
+      if (target.type === "local") {
+        queryClient.invalidateQueries({ queryKey: ["proxyRunning"] });
+        queryClient.invalidateQueries({ queryKey: ["liveTakeoverActive"] });
+        queryClient.invalidateQueries({ queryKey: ["proxyTakeoverStatus"] });
+      }
     },
   });
 }

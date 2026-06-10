@@ -9,12 +9,14 @@ use crate::provider::Provider;
 use crate::proxy::server::ProxyServer;
 use crate::proxy::switch_lock::SwitchLockManager;
 use crate::proxy::types::*;
+use crate::proxy::ProxyAppHandle;
 use crate::services::provider::{
     build_effective_settings_with_common_config, write_live_with_common_config,
 };
 use serde_json::{json, Map, Value};
 use std::str::FromStr;
 use std::sync::Arc;
+#[cfg(feature = "desktop")]
 use tauri::Emitter;
 use tokio::sync::RwLock;
 
@@ -56,7 +58,7 @@ pub struct ProxyService {
     db: Arc<Database>,
     server: Arc<RwLock<Option<ProxyServer>>>,
     /// AppHandle，用于传递给 ProxyServer 以支持故障转移时的 UI 更新
-    app_handle: Arc<RwLock<Option<tauri::AppHandle>>>,
+    app_handle: Arc<RwLock<Option<ProxyAppHandle>>>,
     switch_locks: SwitchLockManager,
 }
 
@@ -383,6 +385,7 @@ impl ProxyService {
     }
 
     /// 设置 AppHandle（在应用初始化时调用）
+    #[cfg(feature = "desktop")]
     pub fn set_app_handle(&self, handle: tauri::AppHandle) {
         futures::executor::block_on(async {
             *self.app_handle.write().await = Some(handle);
@@ -697,19 +700,24 @@ impl ProxyService {
             let _ = self.db.set_live_takeover_active(true).await;
 
             // 8) Warn if the current provider is official (risk of account ban via proxy)
-            if let Ok(Some(current_id)) =
-                crate::settings::get_effective_current_provider(&self.db, &app)
+            #[cfg(feature = "desktop")]
             {
-                if let Ok(Some(provider)) = self.db.get_provider_by_id(&current_id, app_type_str) {
-                    if provider.category.as_deref() == Some("official") {
-                        if let Some(handle) = self.app_handle.read().await.as_ref() {
-                            let _ = handle.emit(
-                                "proxy-official-warning",
-                                serde_json::json!({
-                                    "appType": app_type_str,
-                                    "providerName": provider.name,
-                                }),
-                            );
+                if let Ok(Some(current_id)) =
+                    crate::settings::get_effective_current_provider(&self.db, &app)
+                {
+                    if let Ok(Some(provider)) =
+                        self.db.get_provider_by_id(&current_id, app_type_str)
+                    {
+                        if provider.category.as_deref() == Some("official") {
+                            if let Some(handle) = self.app_handle.read().await.as_ref() {
+                                let _ = handle.emit(
+                                    "proxy-official-warning",
+                                    serde_json::json!({
+                                        "appType": app_type_str,
+                                        "providerName": provider.name,
+                                    }),
+                                );
+                            }
                         }
                     }
                 }
