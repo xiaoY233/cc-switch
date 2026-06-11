@@ -73,7 +73,16 @@ mod tests {
 
     #[test]
     fn handle_line_dispatches_routing_runtime_status() {
+        let dir = tempfile::tempdir().expect("temp test home");
+        let previous_home = std::env::var_os("CC_SWITCH_TEST_HOME");
+        std::env::set_var("CC_SWITCH_TEST_HOME", dir.path());
+
         let response = handle_line(r#"{"id":"proxy","command":["routing-runtime","status"]}"#);
+
+        match previous_home {
+            Some(value) => std::env::set_var("CC_SWITCH_TEST_HOME", value),
+            None => std::env::remove_var("CC_SWITCH_TEST_HOME"),
+        }
 
         assert_eq!(response.id, "proxy");
         assert!(response.ok, "expected ok response: {:?}", response.error);

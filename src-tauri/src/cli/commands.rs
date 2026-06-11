@@ -18,6 +18,7 @@ use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde_json::{json, Value};
+use std::str::FromStr;
 use std::sync::Arc;
 
 #[cfg(feature = "proxy-runtime")]
@@ -402,6 +403,97 @@ pub fn get_routing_app_config(
     runtime
         .block_on(db.get_proxy_config_for_app(app_type))
         .map_err(|e| e.to_string())
+}
+
+pub fn get_routing_failover_queue(
+    app_type: &str,
+) -> Result<Vec<crate::database::FailoverQueueItem>, String> {
+    let db = Database::init().map_err(|e| e.to_string())?;
+    db.get_failover_queue(app_type).map_err(|e| e.to_string())
+}
+
+pub fn get_routing_available_failover_providers(app_type: &str) -> Result<Vec<Provider>, String> {
+    let db = Database::init().map_err(|e| e.to_string())?;
+    db.get_available_providers_for_failover(app_type)
+        .map_err(|e| e.to_string())
+}
+
+pub fn add_routing_failover_queue(app_type: &str, provider_id: &str) -> Result<(), String> {
+    let db = Database::init().map_err(|e| e.to_string())?;
+    db.add_to_failover_queue(app_type, provider_id)
+        .map_err(|e| e.to_string())
+}
+
+pub fn remove_routing_failover_queue(app_type: &str, provider_id: &str) -> Result<(), String> {
+    let db = Database::init().map_err(|e| e.to_string())?;
+    db.remove_from_failover_queue(app_type, provider_id)
+        .map_err(|e| e.to_string())
+}
+
+pub fn get_routing_auto_failover_enabled(app_type: &str) -> Result<bool, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+    runtime
+        .block_on(db.get_proxy_config_for_app(app_type))
+        .map(|config| config.auto_failover_enabled)
+        .map_err(|e| e.to_string())
+}
+
+pub fn set_routing_auto_failover_enabled(app_type: &str, enabled: bool) -> Result<(), String> {
+    let app = AppType::from_str(app_type).map_err(|_| format!("Invalid app type: {app_type}"))?;
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db.clone());
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+    runtime.block_on(async {
+        let mut config = db
+            .get_proxy_config_for_app(app_type)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let mut auto_added_provider_id: Option<String> = None;
+        let p1_provider_id = if enabled {
+            let mut queue = db.get_failover_queue(app_type).map_err(|e| e.to_string())?;
+            if queue.is_empty() {
+                let current_id = crate::settings::get_effective_current_provider(&db, &app)
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| {
+                        "故障转移队列为空，且未设置当前供应商，无法开启故障转移".to_string()
+                    })?;
+
+                db.add_to_failover_queue(app_type, &current_id)
+                    .map_err(|e| e.to_string())?;
+                auto_added_provider_id = Some(current_id);
+
+                queue = db.get_failover_queue(app_type).map_err(|e| e.to_string())?;
+            }
+
+            queue
+                .first()
+                .map(|item| item.provider_id.clone())
+                .ok_or_else(|| "故障转移队列为空，无法开启故障转移".to_string())?
+        } else {
+            String::new()
+        };
+
+        if enabled {
+            if let Err(error) = state
+                .proxy_service
+                .switch_proxy_target(app_type, &p1_provider_id)
+                .await
+            {
+                if let Some(provider_id) = auto_added_provider_id {
+                    let _ = db.remove_from_failover_queue(app_type, &provider_id);
+                }
+                return Err(error);
+            }
+            config.enabled = true;
+        }
+
+        config.auto_failover_enabled = enabled;
+        db.update_proxy_config_for_app(config)
+            .await
+            .map_err(|e| e.to_string())
+    })
 }
 
 pub fn update_routing_app_config(config_json: &str) -> Result<(), String> {

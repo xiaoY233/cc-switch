@@ -1,4 +1,5 @@
 use crate::app_config::{InstalledSkill, McpServer, UnmanagedSkill};
+use crate::database::FailoverQueueItem;
 use crate::prompt::Prompt;
 use crate::provider::{Provider, UniversalProvider};
 use crate::proxy::types::{
@@ -953,6 +954,126 @@ pub async fn remote_get_routing_app_config(
         vec!["routing-config".to_string(), "app".to_string(), appType],
         secret,
         "Remote routing app config get",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_routing_failover_queue(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] appType: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Vec<FailoverQueueItem>, String> {
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "failover-queue".to_string(),
+            appType,
+        ],
+        secret,
+        "Remote routing failover queue get",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_available_providers_for_failover(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] appType: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Vec<Provider>, String> {
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "available-failover-providers".to_string(),
+            appType,
+        ],
+        secret,
+        "Remote routing available failover providers",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_add_to_failover_queue(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] appType: String,
+    #[allow(non_snake_case)] providerId: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<(), String> {
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "add-failover-provider".to_string(),
+            appType,
+            providerId,
+        ],
+        secret,
+        "Remote routing failover queue add",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_remove_from_failover_queue(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] appType: String,
+    #[allow(non_snake_case)] providerId: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<(), String> {
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "remove-failover-provider".to_string(),
+            appType,
+            providerId,
+        ],
+        secret,
+        "Remote routing failover queue remove",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_auto_failover_enabled(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] appType: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "auto-failover".to_string(),
+            appType,
+        ],
+        secret,
+        "Remote routing auto failover get",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_set_auto_failover_enabled(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] appType: String,
+    enabled: bool,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<(), String> {
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "set-auto-failover".to_string(),
+            appType,
+            enabled.to_string(),
+        ],
+        secret,
+        "Remote routing auto failover set",
     )
     .await
 }

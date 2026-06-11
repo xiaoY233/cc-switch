@@ -16,6 +16,40 @@ pub fn run(args: &[String]) -> Value {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_bool_arg_accepts_helper_wire_values() {
+        assert_eq!(parse_bool_arg("true"), Ok(true));
+        assert_eq!(parse_bool_arg("1"), Ok(true));
+        assert_eq!(parse_bool_arg("false"), Ok(false));
+        assert_eq!(parse_bool_arg("0"), Ok(false));
+    }
+
+    #[test]
+    fn set_auto_failover_rejects_invalid_bool_before_touching_state() {
+        let args = vec![
+            "routing-config".to_string(),
+            "set-auto-failover".to_string(),
+            "claude".to_string(),
+            "enabled".to_string(),
+        ];
+
+        let response = run_command(&args);
+
+        assert_eq!(response.get("ok").and_then(Value::as_bool), Some(false));
+        assert_eq!(
+            response
+                .get("error")
+                .and_then(|error| error.get("code"))
+                .and_then(Value::as_str),
+            Some("routing_auto_failover_set_failed")
+        );
+    }
+}
+
 pub fn run_entry(args: &[String]) -> CliRunResult {
     let args = normalize_args(args);
     if args == ["serve"] {
@@ -35,6 +69,14 @@ fn normalize_args(args: &[String]) -> Vec<String> {
         .filter(|arg| arg.as_str() != "--json")
         .cloned()
         .collect()
+}
+
+fn parse_bool_arg(value: &str) -> Result<bool, String> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "true" | "1" => Ok(true),
+        "false" | "0" => Ok(false),
+        _ => Err(format!("Invalid boolean value: {value}")),
+    }
 }
 
 pub(crate) fn run_command(args: &[String]) -> Value {
@@ -344,6 +386,82 @@ pub(crate) fn run_command(args: &[String]) -> Value {
                     serde_json::to_value(types::err::<()>("routing_app_get_failed", message))
                         .expect("serialize routing app config error")
                 }
+            }
+        }
+        [group, cmd, app_type] if group == "routing-config" && cmd == "failover-queue" => {
+            match commands::get_routing_failover_queue(app_type) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize failover queue")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("routing_failover_queue_failed", message))
+                        .expect("serialize failover queue error")
+                }
+            }
+        }
+        [group, cmd, app_type]
+            if group == "routing-config" && cmd == "available-failover-providers" =>
+        {
+            match commands::get_routing_available_failover_providers(app_type) {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize available failover providers"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "routing_available_failover_providers_failed",
+                    message,
+                ))
+                .expect("serialize available failover providers error"),
+            }
+        }
+        [group, cmd, app_type, provider_id]
+            if group == "routing-config" && cmd == "add-failover-provider" =>
+        {
+            match commands::add_routing_failover_queue(app_type, provider_id) {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize failover queue add"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "routing_failover_queue_add_failed",
+                    message,
+                ))
+                .expect("serialize failover queue add error"),
+            }
+        }
+        [group, cmd, app_type, provider_id]
+            if group == "routing-config" && cmd == "remove-failover-provider" =>
+        {
+            match commands::remove_routing_failover_queue(app_type, provider_id) {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize failover queue remove"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "routing_failover_queue_remove_failed",
+                    message,
+                ))
+                .expect("serialize failover queue remove error"),
+            }
+        }
+        [group, cmd, app_type] if group == "routing-config" && cmd == "auto-failover" => {
+            match commands::get_routing_auto_failover_enabled(app_type) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize auto failover")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("routing_auto_failover_failed", message))
+                        .expect("serialize auto failover error")
+                }
+            }
+        }
+        [group, cmd, app_type, enabled]
+            if group == "routing-config" && cmd == "set-auto-failover" =>
+        {
+            match parse_bool_arg(enabled)
+                .and_then(|value| commands::set_routing_auto_failover_enabled(app_type, value))
+            {
+                Ok(value) => serde_json::to_value(types::ok(value))
+                    .expect("serialize auto failover set"),
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "routing_auto_failover_set_failed",
+                    message,
+                ))
+                .expect("serialize auto failover set error"),
             }
         }
         [group, cmd, config_json] if group == "routing-config" && cmd == "set-app" => {

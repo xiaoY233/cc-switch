@@ -18,7 +18,10 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::sync::Mutex;
 
-const REMOTE_SESSION_REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
+// Tool installs and upgrades can legitimately take several minutes on remote
+// servers. Timing out the helper session also tears down any in-process remote
+// routing runtime, so keep this higher than normal UI request timeouts.
+const REMOTE_SESSION_REQUEST_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
 static REMOTE_SESSION_MANAGER: Lazy<RemoteSessionManager> =
     Lazy::new(RemoteSessionManager::default);

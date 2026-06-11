@@ -1,4 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
+import { remoteApi, type ManagementTarget } from "@/lib/api/remote";
 import type {
   ProviderHealth,
   CircuitBreakerConfig,
@@ -62,17 +64,49 @@ export const failoverApi = {
   // ========== 故障转移队列 API（新） ==========
 
   // 获取故障转移队列
-  async getFailoverQueue(appType: string): Promise<FailoverQueueItem[]> {
+  async getFailoverQueue(
+    appType: string,
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+  ): Promise<FailoverQueueItem[]> {
+    if (target.type === "remote") {
+      return remoteApi.getRoutingFailoverQueue(
+        target.profile,
+        appType,
+        target.secret,
+      );
+    }
     return invoke("get_failover_queue", { appType });
   },
 
   // 获取可添加到队列的供应商（不在队列中的）
-  async getAvailableProvidersForFailover(appType: string): Promise<Provider[]> {
+  async getAvailableProvidersForFailover(
+    appType: string,
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+  ): Promise<Provider[]> {
+    if (target.type === "remote") {
+      return remoteApi.getAvailableProvidersForFailover(
+        target.profile,
+        appType,
+        target.secret,
+      );
+    }
     return invoke("get_available_providers_for_failover", { appType });
   },
 
   // 添加供应商到故障转移队列
-  async addToFailoverQueue(appType: string, providerId: string): Promise<void> {
+  async addToFailoverQueue(
+    appType: string,
+    providerId: string,
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+  ): Promise<void> {
+    if (target.type === "remote") {
+      return remoteApi.addToFailoverQueue(
+        target.profile,
+        appType,
+        providerId,
+        target.secret,
+      );
+    }
     return invoke("add_to_failover_queue", { appType, providerId });
   },
 
@@ -80,12 +114,31 @@ export const failoverApi = {
   async removeFromFailoverQueue(
     appType: string,
     providerId: string,
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
   ): Promise<void> {
+    if (target.type === "remote") {
+      return remoteApi.removeFromFailoverQueue(
+        target.profile,
+        appType,
+        providerId,
+        target.secret,
+      );
+    }
     return invoke("remove_from_failover_queue", { appType, providerId });
   },
 
   // 获取指定应用的自动故障转移开关状态
-  async getAutoFailoverEnabled(appType: string): Promise<boolean> {
+  async getAutoFailoverEnabled(
+    appType: string,
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+  ): Promise<boolean> {
+    if (target.type === "remote") {
+      return remoteApi.getAutoFailoverEnabled(
+        target.profile,
+        appType,
+        target.secret,
+      );
+    }
     return invoke("get_auto_failover_enabled", { appType });
   },
 
@@ -93,7 +146,16 @@ export const failoverApi = {
   async setAutoFailoverEnabled(
     appType: string,
     enabled: boolean,
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
   ): Promise<void> {
+    if (target.type === "remote") {
+      return remoteApi.setAutoFailoverEnabled(
+        target.profile,
+        appType,
+        enabled,
+        target.secret,
+      );
+    }
     return invoke("set_auto_failover_enabled", { appType, enabled });
   },
 };

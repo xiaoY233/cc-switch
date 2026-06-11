@@ -23,6 +23,8 @@ import {
 import { cn } from "@/lib/utils";
 import type { FailoverQueueItem } from "@/types/proxy";
 import type { AppId } from "@/lib/api";
+import type { ManagementTarget } from "@/lib/api/remote";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 import {
   useFailoverQueue,
   useAvailableProvidersForFailover,
@@ -35,31 +37,36 @@ import {
 interface FailoverQueueManagerProps {
   appType: AppId;
   disabled?: boolean;
+  target?: ManagementTarget;
 }
 
 export function FailoverQueueManager({
   appType,
   disabled = false,
+  target = LOCAL_MANAGEMENT_TARGET,
 }: FailoverQueueManagerProps) {
   const { t } = useTranslation();
   const [selectedProviderId, setSelectedProviderId] = useState<string>("");
 
   // 故障转移开关状态（每个应用独立）
-  const { data: isFailoverEnabled = false } = useAutoFailoverEnabled(appType);
-  const setFailoverEnabled = useSetAutoFailoverEnabled();
+  const { data: isFailoverEnabled = false } = useAutoFailoverEnabled(
+    appType,
+    target,
+  );
+  const setFailoverEnabled = useSetAutoFailoverEnabled(target);
 
   // 查询数据
   const {
     data: queue,
     isLoading: isQueueLoading,
     error: queueError,
-  } = useFailoverQueue(appType);
+  } = useFailoverQueue(appType, target);
   const { data: availableProviders, isLoading: isProvidersLoading } =
-    useAvailableProvidersForFailover(appType);
+    useAvailableProvidersForFailover(appType, target);
 
   // Mutations
-  const addToQueue = useAddToFailoverQueue();
-  const removeFromQueue = useRemoveFromFailoverQueue();
+  const addToQueue = useAddToFailoverQueue(target);
+  const removeFromQueue = useRemoveFromFailoverQueue(target);
 
   // 切换故障转移开关
   const handleToggleFailover = (enabled: boolean) => {

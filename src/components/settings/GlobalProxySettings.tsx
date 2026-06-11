@@ -160,7 +160,12 @@ export function GlobalProxySettings({
     <div className="space-y-3">
       {/* 描述 */}
       <p className="text-sm text-muted-foreground">
-        {t("settings.globalProxy.hint")}
+        {isRemoteTarget
+          ? t("remote.settings.routing.globalProxyHint", {
+              defaultValue:
+                "这里配置的是远程主机上的 CC Switch 出站代理，用于远程 Helper 和远程路由访问外部服务；不会修改本机网络代理。",
+            })
+          : t("settings.globalProxy.hint")}
       </p>
 
       {/* 代理地址输入框和按钮 */}

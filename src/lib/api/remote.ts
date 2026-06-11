@@ -32,6 +32,7 @@ import type {
 import type { Settings, SkillStorageLocation } from "@/types";
 import type {
   AppProxyConfig,
+  FailoverQueueItem,
   GlobalProxyConfig,
   ProxyServerInfo,
   ProxyStatus,
@@ -649,6 +650,84 @@ export const remoteApi = {
     return invoke<void>("remote_update_routing_app_config", {
       profile,
       config,
+      secret,
+    });
+  },
+
+  getRoutingFailoverQueue(
+    profile: RemoteHostProfile,
+    appType: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<FailoverQueueItem[]> {
+    return invoke<FailoverQueueItem[]>("remote_get_routing_failover_queue", {
+      profile,
+      appType,
+      secret,
+    });
+  },
+
+  getAvailableProvidersForFailover(
+    profile: RemoteHostProfile,
+    appType: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<Provider[]> {
+    return invoke<Provider[]>("remote_get_available_providers_for_failover", {
+      profile,
+      appType,
+      secret,
+    });
+  },
+
+  addToFailoverQueue(
+    profile: RemoteHostProfile,
+    appType: string,
+    providerId: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_add_to_failover_queue", {
+      profile,
+      appType,
+      providerId,
+      secret,
+    });
+  },
+
+  removeFromFailoverQueue(
+    profile: RemoteHostProfile,
+    appType: string,
+    providerId: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_remove_from_failover_queue", {
+      profile,
+      appType,
+      providerId,
+      secret,
+    });
+  },
+
+  getAutoFailoverEnabled(
+    profile: RemoteHostProfile,
+    appType: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_get_auto_failover_enabled", {
+      profile,
+      appType,
+      secret,
+    });
+  },
+
+  setAutoFailoverEnabled(
+    profile: RemoteHostProfile,
+    appType: string,
+    enabled: boolean,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_set_auto_failover_enabled", {
+      profile,
+      appType,
+      enabled,
       secret,
     });
   },

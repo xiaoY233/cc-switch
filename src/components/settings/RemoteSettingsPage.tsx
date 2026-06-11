@@ -33,6 +33,7 @@ import { ImportExportSection } from "@/components/settings/ImportExportSection";
 import { SkillStorageLocationSettings } from "@/components/settings/SkillStorageLocationSettings";
 import { SkillSyncMethodSettings } from "@/components/settings/SkillSyncMethodSettings";
 import { AutoFailoverConfigPanel } from "@/components/proxy/AutoFailoverConfigPanel";
+import { FailoverQueueManager } from "@/components/proxy/FailoverQueueManager";
 import { GlobalProxySettings } from "@/components/settings/GlobalProxySettings";
 import { RectifierConfigPanel } from "@/components/settings/RectifierConfigPanel";
 import {
@@ -77,7 +78,8 @@ interface RemoteSettingsPageProps {
 }
 
 function coerceRemoteTab(tab: string | undefined): string {
-  if (tab === "advanced") return "routing";
+  if (tab === "proxy") return "routing";
+  if (tab === "advanced") return "data";
   if (tab === "about") return "environment";
   return tab === "general" ||
     tab === "data" ||
@@ -422,20 +424,10 @@ export function RemoteSettingsPage({
         className="flex flex-col h-full"
       >
         <TabsList className="grid w-full grid-cols-4 mb-6 glass rounded-lg">
-          <TabsTrigger value="environment">
-            {t("remote.settings.tabs.environment", {
-              defaultValue: "远程环境",
-            })}
-          </TabsTrigger>
-          <TabsTrigger value="general">
-            {t("remote.settings.tabs.general", { defaultValue: "通用" })}
-          </TabsTrigger>
-          <TabsTrigger value="routing">
-            {t("remote.settings.tabs.routing", { defaultValue: "路由配置" })}
-          </TabsTrigger>
-          <TabsTrigger value="data">
-            {t("remote.settings.tabs.data", { defaultValue: "数据" })}
-          </TabsTrigger>
+          <TabsTrigger value="general">{t("settings.tabGeneral")}</TabsTrigger>
+          <TabsTrigger value="routing">{t("settings.tabProxy")}</TabsTrigger>
+          <TabsTrigger value="data">{t("settings.tabAdvanced")}</TabsTrigger>
+          <TabsTrigger value="environment">{t("common.about")}</TabsTrigger>
         </TabsList>
 
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-2">
@@ -830,7 +822,9 @@ function RemoteRoutingSettingsSection({
               <Activity className="h-5 w-5 text-orange-500" />
               <div className="text-left">
                 <h3 className="text-base font-semibold">
-                  {t("settings.advanced.failover.title")}
+                  {t("remote.settings.routing.failoverTitle", {
+                    defaultValue: "远程自动故障转移",
+                  })}
                 </h3>
                 <p className="text-sm text-muted-foreground font-normal">
                   {t("settings.advanced.failover.description")}
@@ -843,9 +837,9 @@ function RemoteRoutingSettingsSection({
               <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 text-sm text-muted-foreground">
                 <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
                 <span>
-                  {t("remote.settings.routing.failoverQueueUnsupported", {
+                  {t("remote.settings.routing.failoverRemoteHint", {
                     defaultValue:
-                      "远程故障转移队列管理暂未接入；这里先支持每个应用的自动故障转移参数配置。",
+                      "这里管理的是远程主机的故障转移队列和自动故障转移参数，不会修改本机路由配置。",
                   })}
                 </span>
               </div>
@@ -857,10 +851,13 @@ function RemoteRoutingSettingsSection({
                 </TabsList>
                 {(["claude", "codex", "gemini"] as const).map((appType) => (
                   <TabsContent key={appType} value={appType} className="mt-4">
-                    <AutoFailoverConfigPanel
-                      appType={appType}
-                      target={target}
-                    />
+                    <div className="space-y-4">
+                      <FailoverQueueManager appType={appType} target={target} />
+                      <AutoFailoverConfigPanel
+                        appType={appType}
+                        target={target}
+                      />
+                    </div>
                   </TabsContent>
                 ))}
               </Tabs>
@@ -877,7 +874,9 @@ function RemoteRoutingSettingsSection({
               <Zap className="h-5 w-5 text-purple-500" />
               <div className="text-left">
                 <h3 className="text-base font-semibold">
-                  {t("settings.advanced.rectifier.title")}
+                  {t("remote.settings.routing.rectifierTitle", {
+                    defaultValue: "远程整流器与优化",
+                  })}
                 </h3>
                 <p className="text-sm text-muted-foreground font-normal">
                   {t("settings.advanced.rectifier.description")}
@@ -899,7 +898,9 @@ function RemoteRoutingSettingsSection({
               <Globe className="h-5 w-5 text-cyan-500" />
               <div className="text-left">
                 <h3 className="text-base font-semibold">
-                  {t("settings.advanced.globalProxy.title")}
+                  {t("remote.settings.routing.globalProxyTitle", {
+                    defaultValue: "远程全局出站代理",
+                  })}
                 </h3>
                 <p className="text-sm text-muted-foreground font-normal">
                   {t("settings.advanced.globalProxy.description")}
