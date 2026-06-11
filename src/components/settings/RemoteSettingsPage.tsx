@@ -424,10 +424,18 @@ export function RemoteSettingsPage({
         className="flex flex-col h-full"
       >
         <TabsList className="grid w-full grid-cols-4 mb-6 glass rounded-lg">
-          <TabsTrigger value="general">{t("settings.tabGeneral")}</TabsTrigger>
-          <TabsTrigger value="routing">{t("settings.tabProxy")}</TabsTrigger>
-          <TabsTrigger value="data">{t("settings.tabAdvanced")}</TabsTrigger>
-          <TabsTrigger value="environment">{t("common.about")}</TabsTrigger>
+          <TabsTrigger value="general">
+            {t("settings.tabGeneral", { defaultValue: "通用" })}
+          </TabsTrigger>
+          <TabsTrigger value="routing">
+            {t("settings.tabProxy", { defaultValue: "代理" })}
+          </TabsTrigger>
+          <TabsTrigger value="data">
+            {t("settings.tabAdvanced", { defaultValue: "高级" })}
+          </TabsTrigger>
+          <TabsTrigger value="environment">
+            {t("common.about", { defaultValue: "关于" })}
+          </TabsTrigger>
         </TabsList>
 
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-2">
