@@ -63,6 +63,24 @@ fn routing_state() -> Result<&'static AppState, String> {
 }
 
 #[cfg(feature = "proxy-runtime")]
+async fn repair_enabled_routing_takeovers(state: &AppState) -> Result<(), String> {
+    for app_type in ["claude", "codex", "gemini"] {
+        let config = state
+            .db
+            .get_proxy_config_for_app(app_type)
+            .await
+            .map_err(|e| e.to_string())?;
+        if config.enabled {
+            state
+                .proxy_service
+                .set_takeover_for_app(app_type, true)
+                .await?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "proxy-runtime")]
 pub fn routing_runtime_status() -> Result<crate::proxy::types::ProxyStatus, String> {
     let state = routing_state()?;
     routing_runtime()?.block_on(state.proxy_service.get_status())
@@ -76,7 +94,11 @@ pub fn routing_runtime_status() -> Result<crate::proxy::types::ProxyStatus, Stri
 #[cfg(feature = "proxy-runtime")]
 pub fn routing_runtime_start() -> Result<crate::proxy::types::ProxyServerInfo, String> {
     let state = routing_state()?;
-    routing_runtime()?.block_on(state.proxy_service.start())
+    routing_runtime()?.block_on(async {
+        let info = state.proxy_service.start().await?;
+        repair_enabled_routing_takeovers(state).await?;
+        Ok(info)
+    })
 }
 
 #[cfg(not(feature = "proxy-runtime"))]
@@ -566,7 +588,7 @@ pub fn update_routing_app_config(config_json: &str) -> Result<(), String> {
                 .map_err(|e| e.to_string())?;
             let enabled_changed = previous.enabled != config.enabled;
 
-            if enabled_changed {
+            if enabled_changed || config.enabled {
                 state
                     .proxy_service
                     .set_takeover_for_app(&config.app_type, config.enabled)
