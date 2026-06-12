@@ -553,11 +553,46 @@ pub fn set_routing_auto_failover_enabled(app_type: &str, enabled: bool) -> Resul
 pub fn update_routing_app_config(config_json: &str) -> Result<(), String> {
     let config: crate::proxy::types::AppProxyConfig =
         serde_json::from_str(config_json).map_err(|e| e.to_string())?;
-    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
-    let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
-    runtime
-        .block_on(db.update_proxy_config_for_app(config))
-        .map_err(|e| e.to_string())
+
+    #[cfg(feature = "proxy-runtime")]
+    {
+        let state = routing_state()?;
+        let db = state.db.clone();
+        let runtime = routing_runtime()?;
+        return runtime.block_on(async {
+            let previous = db
+                .get_proxy_config_for_app(&config.app_type)
+                .await
+                .map_err(|e| e.to_string())?;
+            let enabled_changed = previous.enabled != config.enabled;
+
+            if enabled_changed {
+                state
+                    .proxy_service
+                    .set_takeover_for_app(&config.app_type, config.enabled)
+                    .await?;
+            }
+
+            db.update_proxy_config_for_app(config)
+                .await
+                .map_err(|e| e.to_string())
+        });
+    }
+
+    #[cfg(not(feature = "proxy-runtime"))]
+    {
+        if config.enabled {
+            return Err(
+                "This helper build does not include remote routing runtime support".to_string(),
+            );
+        }
+
+        let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+        let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+        return runtime
+            .block_on(db.update_proxy_config_for_app(config))
+            .map_err(|e| e.to_string());
+    }
 }
 
 pub fn get_routing_rectifier_config() -> Result<crate::proxy::types::RectifierConfig, String> {

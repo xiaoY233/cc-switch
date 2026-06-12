@@ -748,6 +748,13 @@ requires_openai_auth = true"#
             },
             "config": config_toml
         });
+        let mut meta = self.meta.clone();
+        if self.provider_type.eq_ignore_ascii_case("newapi") {
+            let provider_meta = meta.get_or_insert_with(ProviderMeta::default);
+            if provider_meta.api_format.is_none() {
+                provider_meta.api_format = Some("openai_chat".to_string());
+            }
+        }
 
         Some(Provider {
             id: format!("universal-codex-{}", self.id),
@@ -758,7 +765,7 @@ requires_openai_auth = true"#
             created_at: self.created_at,
             sort_index: self.sort_index,
             notes: self.notes.clone(),
-            meta: self.meta.clone(),
+            meta,
             icon: self.icon.clone(),
             icon_color: self.icon_color.clone(),
             in_failover_queue: false,
@@ -1114,6 +1121,39 @@ mod tests {
                 .pointer("/auth/OPENAI_API_KEY")
                 .and_then(|item| item.as_str()),
             Some("api-key")
+        );
+        assert_eq!(
+            provider
+                .meta
+                .as_ref()
+                .and_then(|meta| meta.api_format.as_deref()),
+            Some("openai_chat")
+        );
+    }
+
+    #[test]
+    fn universal_provider_to_codex_provider_preserves_explicit_api_format() {
+        let mut universal = UniversalProvider::new(
+            "u1".to_string(),
+            "Universal".to_string(),
+            "newapi".to_string(),
+            "https://api.example.com".to_string(),
+            "api-key".to_string(),
+        );
+        universal.apps.codex = true;
+        universal.meta = Some(ProviderMeta {
+            api_format: Some("openai_responses".to_string()),
+            ..Default::default()
+        });
+
+        let provider = universal.to_codex_provider().expect("codex provider");
+
+        assert_eq!(
+            provider
+                .meta
+                .as_ref()
+                .and_then(|meta| meta.api_format.as_deref()),
+            Some("openai_responses")
         );
     }
 

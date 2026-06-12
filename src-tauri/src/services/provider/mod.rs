@@ -833,6 +833,57 @@ base_url = "http://localhost:8080"
 
     #[test]
     #[serial]
+    fn sync_universal_current_codex_provider_refreshes_live_config() {
+        with_test_home(|state, _| {
+            let mut universal = crate::provider::UniversalProvider::new(
+                "u1".to_string(),
+                "NewAPI".to_string(),
+                "newapi".to_string(),
+                "https://old.example.com".to_string(),
+                "api-key".to_string(),
+            );
+            universal.apps.codex = true;
+            state
+                .db
+                .save_universal_provider(&universal)
+                .expect("save universal provider");
+            ProviderService::sync_universal_to_apps(state, "u1").expect("initial sync");
+
+            let codex_id = "universal-codex-u1";
+            state
+                .db
+                .set_current_provider("codex", codex_id)
+                .expect("set current provider");
+            crate::settings::set_current_provider(&AppType::Codex, Some(codex_id))
+                .expect("set settings current provider");
+
+            universal.base_url = "https://new.example.com".to_string();
+            state
+                .db
+                .save_universal_provider(&universal)
+                .expect("save updated universal provider");
+            ProviderService::sync_universal_to_apps(state, "u1").expect("sync updated universal");
+
+            let generated = state
+                .db
+                .get_provider_by_id(codex_id, "codex")
+                .expect("load generated provider")
+                .expect("generated provider exists");
+            let generated_config = generated
+                .settings_config
+                .get("config")
+                .and_then(|value| value.as_str())
+                .expect("generated config");
+            assert!(generated_config.contains("base_url = \"https://new.example.com/v1\""));
+
+            let live_config = std::fs::read_to_string(crate::codex_config::get_codex_config_path())
+                .expect("read live codex config");
+            assert!(live_config.contains("base_url = \"https://new.example.com/v1\""));
+        });
+    }
+
+    #[test]
+    #[serial]
     fn import_opencode_providers_from_live_marks_provider_as_live_managed() {
         with_test_home(|state, _| {
             let provider = opencode_provider("imported-opencode");
@@ -2902,7 +2953,8 @@ impl ProviderService {
                 Self::merge_json(&mut merged, &claude_provider.settings_config);
                 claude_provider.settings_config = merged;
             }
-            state.db.save_provider("claude", &claude_provider)?;
+            let original_id = claude_provider.id.clone();
+            Self::update(state, AppType::Claude, Some(&original_id), claude_provider)?;
         } else {
             // 如果禁用了 Claude，删除对应的子供应商
             let claude_id = format!("universal-claude-{id}");
@@ -2917,7 +2969,8 @@ impl ProviderService {
                 Self::merge_json(&mut merged, &codex_provider.settings_config);
                 codex_provider.settings_config = merged;
             }
-            state.db.save_provider("codex", &codex_provider)?;
+            let original_id = codex_provider.id.clone();
+            Self::update(state, AppType::Codex, Some(&original_id), codex_provider)?;
         } else {
             let codex_id = format!("universal-codex-{id}");
             let _ = state.db.delete_provider("codex", &codex_id);
@@ -2931,7 +2984,8 @@ impl ProviderService {
                 Self::merge_json(&mut merged, &gemini_provider.settings_config);
                 gemini_provider.settings_config = merged;
             }
-            state.db.save_provider("gemini", &gemini_provider)?;
+            let original_id = gemini_provider.id.clone();
+            Self::update(state, AppType::Gemini, Some(&original_id), gemini_provider)?;
         } else {
             let gemini_id = format!("universal-gemini-{id}");
             let _ = state.db.delete_provider("gemini", &gemini_id);
