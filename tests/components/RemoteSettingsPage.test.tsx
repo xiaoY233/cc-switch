@@ -103,6 +103,11 @@ describe("RemoteSettingsPage", () => {
       />,
     );
 
+    expect(screen.getByRole("tab", { name: "远程" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
     await user.click(screen.getByRole("tab", { name: "通用" }));
 
     await waitFor(() => {
@@ -137,8 +142,8 @@ describe("RemoteSettingsPage", () => {
       />,
     );
 
-    await user.click(screen.getByRole("tab", { name: "关于" }));
-    expect(screen.getByRole("tab", { name: "关于" })).toHaveAttribute(
+    await user.click(screen.getByRole("tab", { name: "远程" }));
+    expect(screen.getByRole("tab", { name: "远程" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
@@ -155,7 +160,7 @@ describe("RemoteSettingsPage", () => {
       expect(getSettingsMock).toHaveBeenCalled();
     });
 
-    expect(screen.getByRole("tab", { name: "关于" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "远程" })).toHaveAttribute(
       "aria-selected",
       "true",
     );

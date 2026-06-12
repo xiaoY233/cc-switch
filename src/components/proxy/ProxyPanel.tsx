@@ -25,17 +25,22 @@ import {
   useSetProxyTakeoverForApp,
   useGlobalProxyConfig,
   useUpdateGlobalProxyConfig,
+  useAppProxyConfig,
+  useUpdateAppProxyConfig,
 } from "@/lib/query/proxy";
 import type { ProxyStatus } from "@/types/proxy";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import { extractErrorMessage } from "@/utils/errorUtils";
+import type { ManagementTarget } from "@/lib/api";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 
 interface ProxyPanelProps {
   enableLocalProxy: boolean;
   onEnableLocalProxyChange: (checked: boolean) => void;
   onToggleProxy: (checked: boolean) => Promise<void>;
   isProxyPending: boolean;
+  target?: ManagementTarget;
 }
 
 export function ProxyPanel({
@@ -43,17 +48,20 @@ export function ProxyPanel({
   onEnableLocalProxyChange,
   onToggleProxy,
   isProxyPending,
+  target = LOCAL_MANAGEMENT_TARGET,
 }: ProxyPanelProps) {
   const { t } = useTranslation();
-  const { status, isRunning } = useProxyStatus();
+  const isLocalTarget = target.type === "local";
+  const { status, isRunning } = useProxyStatus(target);
 
   // 获取应用接管状态
   const { data: takeoverStatus } = useProxyTakeoverStatus();
   const setTakeoverForApp = useSetProxyTakeoverForApp();
 
   // 获取全局代理配置
-  const { data: globalConfig } = useGlobalProxyConfig();
-  const updateGlobalConfig = useUpdateGlobalProxyConfig();
+  const { data: globalConfig } = useGlobalProxyConfig(target);
+  const updateGlobalConfig = useUpdateGlobalProxyConfig(target);
+  const updateAppConfig = useUpdateAppProxyConfig(target);
 
   // 监听地址/端口的本地状态（端口用字符串以支持完全清空）
   const [listenAddress, setListenAddress] = useState("127.0.0.1");
@@ -69,11 +77,21 @@ export function ProxyPanel({
 
   // 获取所有三个应用类型的故障转移队列
   // 启用自动故障转移后，将按队列优先级（P1→P2→...）选择供应商
-  const { data: claudeQueue = [] } = useFailoverQueue("claude");
-  const { data: codexQueue = [] } = useFailoverQueue("codex");
-  const { data: geminiQueue = [] } = useFailoverQueue("gemini");
+  const { data: claudeQueue = [] } = useFailoverQueue("claude", target);
+  const { data: codexQueue = [] } = useFailoverQueue("codex", target);
+  const { data: geminiQueue = [] } = useFailoverQueue("gemini", target);
+  const { data: claudeAppConfig } = useAppProxyConfig("claude", target);
+  const { data: codexAppConfig } = useAppProxyConfig("codex", target);
+  const { data: geminiAppConfig } = useAppProxyConfig("gemini", target);
+
+  const appConfigs = {
+    claude: claudeAppConfig,
+    codex: codexAppConfig,
+    gemini: geminiAppConfig,
+  };
 
   const handleTakeoverChange = async (appType: string, enabled: boolean) => {
+    if (!isLocalTarget) return;
     try {
       await setTakeoverForApp.mutateAsync({ appType, enabled });
       toast.success(
@@ -96,6 +114,39 @@ export function ProxyPanel({
         t("proxy.takeover.failed", {
           detail,
           defaultValue: "切换接管状态失败",
+        }),
+      );
+    }
+  };
+
+  const handleRemoteAppRoutingChange = async (
+    appType: "claude" | "codex" | "gemini",
+    enabled: boolean,
+  ) => {
+    const config = appConfigs[appType];
+    if (!config) return;
+    try {
+      await updateAppConfig.mutateAsync({ ...config, enabled });
+      toast.success(
+        enabled
+          ? t("remote.routing.appEnabled", {
+              app: appType,
+              defaultValue: `${appType} 远程路由已启用`,
+            })
+          : t("remote.routing.appDisabled", {
+              app: appType,
+              defaultValue: `${appType} 远程路由已关闭`,
+            }),
+        { closeButton: true },
+      );
+    } catch (error) {
+      const detail =
+        extractErrorMessage(error) ||
+        t("common.unknown", { defaultValue: "未知错误" });
+      toast.error(
+        t("remote.routing.appToggleFailed", {
+          detail,
+          defaultValue: `切换远程应用路由失败: ${detail}`,
         }),
       );
     }
@@ -221,14 +272,15 @@ export function ProxyPanel({
   return (
     <>
       <section className="space-y-4">
-        {/* [1] Enable proxy button on main page — always visible */}
-        <ToggleRow
-          icon={<Zap className="h-4 w-4 text-green-500" />}
-          title={t("settings.advanced.proxy.enableFeature")}
-          description={t("settings.advanced.proxy.enableFeatureDescription")}
-          checked={enableLocalProxy}
-          onCheckedChange={onEnableLocalProxyChange}
-        />
+        {isLocalTarget ? (
+          <ToggleRow
+            icon={<Zap className="h-4 w-4 text-green-500" />}
+            title={t("settings.advanced.proxy.enableFeature")}
+            description={t("settings.advanced.proxy.enableFeatureDescription")}
+            checked={enableLocalProxy}
+            onCheckedChange={onEnableLocalProxyChange}
+          />
+        ) : null}
 
         {/* [2] Proxy service toggle — always visible */}
         <div className="flex items-center justify-between rounded-xl border border-border bg-card/50 p-4 transition-colors hover:bg-muted/50">
@@ -256,7 +308,7 @@ export function ProxyPanel({
           />
         </div>
 
-        {/* [3] App takeover switches — animated, visible only when proxy is running */}
+        {/* [3] App routing switches — animated, visible only when proxy is running */}
         <AnimatePresence>
           {isRunning && (
             <motion.div
@@ -274,10 +326,11 @@ export function ProxyPanel({
                 </p>
                 <div className="grid gap-2 sm:grid-cols-3">
                   {(["claude", "codex", "gemini"] as const).map((appType) => {
-                    const isEnabled =
-                      takeoverStatus?.[
-                        appType as keyof typeof takeoverStatus
-                      ] ?? false;
+                    const isEnabled = isLocalTarget
+                      ? (takeoverStatus?.[
+                          appType as keyof typeof takeoverStatus
+                        ] ?? false)
+                      : (appConfigs[appType]?.enabled ?? false);
                     return (
                       <div
                         key={appType}
@@ -289,9 +342,19 @@ export function ProxyPanel({
                         <Switch
                           checked={isEnabled}
                           onCheckedChange={(checked) =>
-                            handleTakeoverChange(appType, checked)
+                            isLocalTarget
+                              ? handleTakeoverChange(appType, checked)
+                              : void handleRemoteAppRoutingChange(
+                                  appType,
+                                  checked,
+                                )
                           }
-                          disabled={setTakeoverForApp.isPending}
+                          disabled={
+                            isLocalTarget
+                              ? setTakeoverForApp.isPending
+                              : updateAppConfig.isPending ||
+                                !appConfigs[appType]
+                          }
                         />
                       </div>
                     );
@@ -299,8 +362,9 @@ export function ProxyPanel({
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {t("proxy.takeover.hint", {
-                    defaultValue:
-                      "选择要接管的应用，启用后该应用的请求将通过本地代理转发",
+                    defaultValue: isLocalTarget
+                      ? "选择要接管的应用，启用后该应用的请求将通过本地代理转发"
+                      : "选择要通过远程路由处理的应用，启用后该应用请求将由远程路由转发",
                   })}
                 </p>
               </div>

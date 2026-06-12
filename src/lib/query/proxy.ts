@@ -235,12 +235,13 @@ export function useUpdateGlobalProxyConfig(
 export function useAppProxyConfig(
   appType: string,
   target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+  enabled = true,
 ) {
   const targetKey = getManagementTargetKey(target);
   return useQuery({
     queryKey: ["appProxyConfig", targetKey, appType],
     queryFn: () => proxyApi.getProxyConfigForApp(appType, target),
-    enabled: !!appType,
+    enabled: enabled && !!appType,
   });
 }
 
@@ -261,6 +262,12 @@ export function useUpdateAppProxyConfig(
       toast.success(t("proxy.settings.toast.saved"), { closeButton: true });
       queryClient.invalidateQueries({
         queryKey: ["appProxyConfig", targetKey, variables.appType],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["proxyStatus", targetKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["autoFailoverEnabled", targetKey, variables.appType],
       });
       if (target.type === "local") {
         queryClient.invalidateQueries({

@@ -274,6 +274,36 @@ pub fn provider_state(app: AppType) -> Result<ProviderStatePayload, String> {
 }
 
 pub fn switch_provider(app: AppType, id: &str) -> Result<crate::services::SwitchResult, String> {
+    #[cfg(feature = "proxy-runtime")]
+    {
+        let state = routing_state()?;
+        let runtime = routing_runtime()?;
+        let app_type = app.as_str().to_string();
+        let provider_id = id.to_string();
+
+        let routed = runtime.block_on(async {
+            let config = state
+                .db
+                .get_proxy_config_for_app(&app_type)
+                .await
+                .map_err(|e| e.to_string())?;
+
+            if config.enabled && state.proxy_service.is_running().await {
+                state
+                    .proxy_service
+                    .switch_proxy_target(&app_type, &provider_id)
+                    .await?;
+                return Ok::<bool, String>(true);
+            }
+
+            Ok::<bool, String>(false)
+        })?;
+
+        if routed {
+            return Ok(crate::services::SwitchResult::default());
+        }
+    }
+
     let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
     let state = AppState::new(db);
     ProviderService::switch(&state, app, id).map_err(|e| e.to_string())
@@ -441,14 +471,28 @@ pub fn get_routing_auto_failover_enabled(app_type: &str) -> Result<bool, String>
 
 pub fn set_routing_auto_failover_enabled(app_type: &str, enabled: bool) -> Result<(), String> {
     let app = AppType::from_str(app_type).map_err(|_| format!("Invalid app type: {app_type}"))?;
+
+    #[cfg(feature = "proxy-runtime")]
+    let state = routing_state()?;
+    #[cfg(feature = "proxy-runtime")]
+    let db = state.db.clone();
+    #[cfg(feature = "proxy-runtime")]
+    let runtime = routing_runtime()?;
+
+    #[cfg(not(feature = "proxy-runtime"))]
     let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
-    let state = AppState::new(db.clone());
+    #[cfg(not(feature = "proxy-runtime"))]
     let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+
     runtime.block_on(async {
         let mut config = db
             .get_proxy_config_for_app(app_type)
             .await
             .map_err(|e| e.to_string())?;
+
+        if enabled && !config.enabled {
+            return Err("需要先启用该应用的远程路由，再开启故障转移".to_string());
+        }
 
         let mut auto_added_provider_id: Option<String> = None;
         let p1_provider_id = if enabled {
@@ -476,6 +520,17 @@ pub fn set_routing_auto_failover_enabled(app_type: &str, enabled: bool) -> Resul
         };
 
         if enabled {
+            #[cfg(not(feature = "proxy-runtime"))]
+            {
+                if let Some(provider_id) = auto_added_provider_id {
+                    let _ = db.remove_from_failover_queue(app_type, &provider_id);
+                }
+                return Err(
+                    "This helper build does not include remote routing runtime support".to_string(),
+                );
+            }
+
+            #[cfg(feature = "proxy-runtime")]
             if let Err(error) = state
                 .proxy_service
                 .switch_proxy_target(app_type, &p1_provider_id)
@@ -486,7 +541,6 @@ pub fn set_routing_auto_failover_enabled(app_type: &str, enabled: bool) -> Resul
                 }
                 return Err(error);
             }
-            config.enabled = true;
         }
 
         config.auto_failover_enabled = enabled;

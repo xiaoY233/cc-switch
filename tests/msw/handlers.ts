@@ -1,12 +1,7 @@
 import { http, HttpResponse } from "msw";
 import type { RemoteHostProfile } from "@/lib/api/remote";
 import type { AppId } from "@/lib/api/types";
-import type {
-  HermesMemoryKind,
-  McpServer,
-  Provider,
-  Settings,
-} from "@/types";
+import type { HermesMemoryKind, McpServer, Provider, Settings } from "@/types";
 import {
   addProvider,
   deleteProvider,
@@ -520,6 +515,60 @@ export const handlers = [
   ),
 
   http.post(`${TAURI_ENDPOINT}/is_live_takeover_active`, () => success(false)),
+
+  http.post(`${TAURI_ENDPOINT}/remote_get_routing_runtime_status`, () =>
+    success({
+      running: true,
+      address: "127.0.0.1",
+      port: 15721,
+      active_connections: 0,
+      total_requests: 0,
+      success_requests: 0,
+      failed_requests: 0,
+      success_rate: 0,
+      uptime_seconds: 0,
+      current_provider: null,
+      current_provider_id: null,
+      last_request_at: null,
+      last_error: null,
+      failover_count: 0,
+      active_targets: [],
+    }),
+  ),
+
+  http.post(
+    `${TAURI_ENDPOINT}/remote_get_routing_app_config`,
+    async ({ request }) => {
+      const { appType } = await withJson<{ appType?: string }>(request);
+      return success({
+        appType: appType ?? "claude",
+        enabled: true,
+        autoFailoverEnabled: false,
+        maxRetries: 3,
+        streamingFirstByteTimeout: 60,
+        streamingIdleTimeout: 120,
+        nonStreamingTimeout: 600,
+        circuitFailureThreshold: 5,
+        circuitSuccessThreshold: 2,
+        circuitTimeoutSeconds: 60,
+        circuitErrorRateThreshold: 0.5,
+        circuitMinRequests: 10,
+      });
+    },
+  ),
+
+  http.post(
+    `${TAURI_ENDPOINT}/remote_get_session_status`,
+    async ({ request }) => {
+      const { profileId } = await withJson<{ profileId?: string }>(request);
+      return success({
+        profileId: profileId ?? "remote-1",
+        state: "ready",
+        lastError: null,
+        activeRequestId: null,
+      });
+    },
+  ),
 
   // Failover / circuit breaker defaults
   http.post(`${TAURI_ENDPOINT}/get_failover_queue`, () => success([])),

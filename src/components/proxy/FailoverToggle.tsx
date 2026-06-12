@@ -10,26 +10,39 @@ import {
   useAutoFailoverEnabled,
   useSetAutoFailoverEnabled,
 } from "@/lib/query/failover";
+import { useAppProxyConfig } from "@/lib/query/proxy";
 import { useProxyStatus } from "@/hooks/useProxyStatus";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
-import type { AppId } from "@/lib/api";
+import type { AppId, ManagementTarget } from "@/lib/api";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 
 interface FailoverToggleProps {
   className?: string;
   activeApp: AppId;
+  target?: ManagementTarget;
 }
 
-export function FailoverToggle({ className, activeApp }: FailoverToggleProps) {
+export function FailoverToggle({
+  className,
+  activeApp,
+  target = LOCAL_MANAGEMENT_TARGET,
+}: FailoverToggleProps) {
   const { t } = useTranslation();
-  const { data: isEnabled = false, isLoading } =
-    useAutoFailoverEnabled(activeApp);
-  const setEnabled = useSetAutoFailoverEnabled();
-  const { takeoverStatus } = useProxyStatus();
-  const takeoverEnabled = takeoverStatus?.[activeApp] ?? false;
+  const { data: isEnabled = false, isLoading } = useAutoFailoverEnabled(
+    activeApp,
+    target,
+  );
+  const setEnabled = useSetAutoFailoverEnabled(target);
+  const { isRunning, takeoverStatus } = useProxyStatus(target);
+  const isLocalTarget = target.type === "local";
+  const { data: remoteAppConfig } = useAppProxyConfig(activeApp, target);
+  const routingReady = isLocalTarget
+    ? (takeoverStatus?.[activeApp] ?? false)
+    : isRunning && (remoteAppConfig?.enabled ?? false);
 
   const handleToggle = (checked: boolean) => {
-    if (checked && !takeoverEnabled) return;
+    if (checked && !routingReady) return;
     setEnabled.mutate({ appType: activeApp, enabled: checked });
   };
 
@@ -40,11 +53,16 @@ export function FailoverToggle({ className, activeApp }: FailoverToggleProps) {
         ? "Codex"
         : "Gemini";
 
-  const tooltipText = !takeoverEnabled
-    ? t("failover.tooltip.takeoverRequired", {
-        app: appLabel,
-        defaultValue: `请先接管 ${appLabel}，再启用故障转移`,
-      })
+  const tooltipText = !routingReady
+    ? isLocalTarget
+      ? t("failover.tooltip.takeoverRequired", {
+          app: appLabel,
+          defaultValue: `请先接管 ${appLabel}，再启用故障转移`,
+        })
+      : t("remote.routing.failover.tooltip.routingRequired", {
+          app: appLabel,
+          defaultValue: `请先启动远程路由并启用 ${appLabel} 路由，再启用故障转移`,
+        })
     : isEnabled
       ? t("failover.tooltip.enabled", {
           app: appLabel,
@@ -78,7 +96,7 @@ export function FailoverToggle({ className, activeApp }: FailoverToggleProps) {
       <Switch
         checked={isEnabled}
         onCheckedChange={handleToggle}
-        disabled={setEnabled.isPending || isLoading || !takeoverEnabled}
+        disabled={setEnabled.isPending || isLoading || !routingReady}
       />
     </div>
   );

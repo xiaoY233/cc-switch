@@ -82,6 +82,9 @@ import { EnvWarningBanner } from "@/components/env/EnvWarningBanner";
 import { ProxyToggle } from "@/components/proxy/ProxyToggle";
 import { ClaudeDesktopRouteToggle } from "@/components/proxy/ClaudeDesktopRouteToggle";
 import { FailoverToggle } from "@/components/proxy/FailoverToggle";
+import { RemoteRoutingToggle } from "@/components/proxy/RemoteRoutingToggle";
+import { RemoteAppRoutingToggle } from "@/components/proxy/RemoteAppRoutingToggle";
+import { useAppProxyConfig } from "@/lib/query/proxy";
 import UsageScriptModal from "@/components/UsageScriptModal";
 import UnifiedMcpPanel from "@/components/mcp/UnifiedMcpPanel";
 import PromptPanel from "@/components/prompts/PromptPanel";
@@ -453,6 +456,24 @@ function App() {
     status: proxyStatus,
   } = useProxyStatus(managementTarget);
   const isCurrentAppTakeoverActive = takeoverStatus?.[activeApp] || false;
+  const remoteRoutableActiveApp =
+    activeApp === "claude" || activeApp === "codex" || activeApp === "gemini"
+      ? activeApp
+      : null;
+  const { data: activeRemoteAppProxyConfig } = useAppProxyConfig(
+    remoteRoutableActiveApp ?? "claude",
+    managementTarget,
+    managementTarget.type === "remote" && Boolean(remoteRoutableActiveApp),
+  );
+  const isCurrentRemoteAppRouteActive =
+    managementTarget.type === "remote" &&
+    isProxyRunning &&
+    Boolean(remoteRoutableActiveApp) &&
+    Boolean(activeRemoteAppProxyConfig?.enabled);
+  const isCurrentAppRouteActive =
+    managementTarget.type === "local"
+      ? isCurrentAppTakeoverActive
+      : isCurrentRemoteAppRouteActive;
   const activeProviderId = useMemo(() => {
     const target = proxyStatus?.active_targets?.find(
       (t) => t.app_type === activeApp,
@@ -523,7 +544,7 @@ function App() {
   } = useProviderActions(
     activeApp,
     isProxyRunning,
-    isProxyRunning && isCurrentAppTakeoverActive,
+    isProxyRunning && isCurrentAppRouteActive,
     managementTarget,
   );
 
@@ -1220,7 +1241,7 @@ function App() {
                       isLoading={isLoading}
                       isProxyRunning={isProxyRunning}
                       isProxyTakeover={
-                        isProxyRunning && isCurrentAppTakeoverActive
+                        isProxyRunning && isCurrentAppRouteActive
                       }
                       loadError={providerLoadError}
                       activeProviderId={activeProviderId}
@@ -1452,7 +1473,7 @@ function App() {
                     rel="noreferrer"
                     className={cn(
                       "text-xl font-semibold transition-colors",
-                      isProxyRunning && isCurrentAppTakeoverActive
+                      isProxyRunning && isCurrentAppRouteActive
                         ? "text-emerald-500 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
                         : "text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300",
                     )}
@@ -1464,7 +1485,11 @@ function App() {
                   variant="ghost"
                   size="icon"
                   onClick={() => {
-                    setSettingsDefaultTab("general");
+                    setSettingsDefaultTab(
+                      managementTarget.type === "remote"
+                        ? "environment"
+                        : "general",
+                    );
                     setCurrentView("settings");
                   }}
                   title={t("common.settings")}
@@ -1496,7 +1521,7 @@ function App() {
                     setCurrentView("settings");
                   }}
                 />
-                {isCurrentAppTakeoverActive && (
+                {isCurrentAppRouteActive && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -1537,6 +1562,24 @@ function App() {
                     settingsData?.enableFailoverToggle && (
                       <FailoverToggle activeApp={activeApp} />
                     )}
+                </div>
+              )}
+            {currentView === "providers" &&
+              managementTarget.type === "remote" &&
+              remoteRoutableActiveApp && (
+                <div
+                  className="flex shrink-0 items-center gap-1.5"
+                  style={{ WebkitAppRegion: "no-drag" } as any}
+                >
+                  <RemoteRoutingToggle target={managementTarget} />
+                  <RemoteAppRoutingToggle
+                    activeApp={remoteRoutableActiveApp}
+                    target={managementTarget}
+                  />
+                  <FailoverToggle
+                    activeApp={remoteRoutableActiveApp}
+                    target={managementTarget}
+                  />
                 </div>
               )}
             <div
@@ -1880,7 +1923,7 @@ function App() {
         onSubmit={handleEditProvider}
         appId={activeApp}
         target={managementTarget}
-        isProxyTakeover={isCurrentAppTakeoverActive}
+        isProxyTakeover={isCurrentAppRouteActive}
       />
 
       {effectiveUsageProvider && (

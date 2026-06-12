@@ -176,6 +176,14 @@ vi.mock("@/components/proxy/FailoverToggle", () => ({
   FailoverToggle: () => <div data-testid="failover-toggle" />,
 }));
 
+vi.mock("@/components/proxy/RemoteRoutingToggle", () => ({
+  RemoteRoutingToggle: () => <div data-testid="remote-routing-toggle" />,
+}));
+
+vi.mock("@/components/proxy/RemoteAppRoutingToggle", () => ({
+  RemoteAppRoutingToggle: () => <div data-testid="remote-app-routing-toggle" />,
+}));
+
 vi.mock("@/components/proxy/ClaudeDesktopRouteToggle", () => ({
   ClaudeDesktopRouteToggle: () => <div data-testid="desktop-route-toggle" />,
 }));
@@ -827,7 +835,9 @@ describe("App integration with MSW", () => {
     await waitFor(() =>
       expect(screen.queryByTestId("proxy-toggle")).not.toBeInTheDocument(),
     );
-    expect(screen.queryByTestId("failover-toggle")).not.toBeInTheDocument();
+    expect(screen.getByTestId("remote-routing-toggle")).toBeInTheDocument();
+    expect(screen.getByTestId("remote-app-routing-toggle")).toBeInTheDocument();
+    expect(screen.getByTestId("failover-toggle")).toBeInTheDocument();
     expect(screen.getByTitle("sessionManager.title")).toBeInTheDocument();
   });
 

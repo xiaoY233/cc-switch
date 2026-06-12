@@ -2845,6 +2845,7 @@
     },
     "settings": {
       "tabs": {
+        "remote": "远程",
         "environment": "远程环境",
         "general": "通用",
         "data": "数据"
@@ -2877,6 +2878,9 @@
       },
       "data": {
         "description": "导入或导出当前远程服务器自己的 CC Switch 数据"
+      },
+      "routing": {
+        "failoverRequired": "需要先启动远程路由，并启用 {{app}} 的远程路由后才能配置故障转移。"
       }
     },
     "errors": {
@@ -2917,6 +2921,27 @@
       "importExport": "导入 / 导出",
       "settings": "通用设置",
       "plugin": "Claude 插件"
+    },
+    "routing": {
+      "appEnabled": "{{app}} 远程路由已启用",
+      "appDisabled": "{{app}} 远程路由已关闭",
+      "appToggleFailed": "切换远程应用路由失败: {{detail}}",
+      "app": {
+        "tooltip": {
+          "runtimeRequired": "请先启动远程路由服务，再启用 {{app}} 路由",
+          "active": "{{app}} 请求将通过远程路由转发",
+          "inactive": "启用 {{app}} 远程路由"
+        }
+      },
+      "failover": {
+        "tooltip": {
+          "routingRequired": "请先启动远程路由并启用 {{app}} 路由，再启用故障转移"
+        }
+      },
+      "tooltip": {
+        "active": "远程路由已启动 - {{address}}:{{port}}",
+        "inactive": "启动远程主机上的路由代理服务"
+      }
     }
   },
   "subscription": {

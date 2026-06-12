@@ -2845,6 +2845,7 @@
     },
     "settings": {
       "tabs": {
+        "remote": "リモート",
         "environment": "リモート環境",
         "general": "一般",
         "data": "データ"
@@ -2877,6 +2878,9 @@
       },
       "data": {
         "description": "選択中のリモートサーバー自身の CC Switch データをインポートまたはエクスポートします"
+      },
+      "routing": {
+        "failoverRequired": "フェイルオーバーを設定する前に、リモートルーティングを開始し、{{app}} のリモートルーティングを有効にしてください。"
       }
     },
     "errors": {
@@ -2917,6 +2921,27 @@
       "importExport": "インポート / エクスポート",
       "settings": "一般設定",
       "plugin": "Claude プラグイン"
+    },
+    "routing": {
+      "appEnabled": "{{app}} のリモートルーティングを有効にしました",
+      "appDisabled": "{{app}} のリモートルーティングを無効にしました",
+      "appToggleFailed": "リモートアプリルーティングの切り替えに失敗しました: {{detail}}",
+      "app": {
+        "tooltip": {
+          "runtimeRequired": "{{app}} のルーティングを有効にする前に、リモートルーティングサービスを開始してください",
+          "active": "{{app}} のリクエストはリモートルーティング経由で転送されます",
+          "inactive": "{{app}} のリモートルーティングを有効にします"
+        }
+      },
+      "failover": {
+        "tooltip": {
+          "routingRequired": "フェイルオーバーを有効にする前に、リモートルーティングを開始し、{{app}} のルーティングを有効にしてください"
+        }
+      },
+      "tooltip": {
+        "active": "リモートルーティングは実行中です - {{address}}:{{port}}",
+        "inactive": "リモートホスト上のルーティングプロキシサービスを開始します"
+      }
     }
   },
   "subscription": {

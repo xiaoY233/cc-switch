@@ -2790,6 +2790,7 @@
     },
     "settings": {
       "tabs": {
+        "remote": "遠端",
         "environment": "遠端環境",
         "general": "通用",
         "data": "資料"
@@ -2822,6 +2823,9 @@
       },
       "data": {
         "description": "匯入或匯出目前遠端伺服器自己的 CC Switch 資料"
+      },
+      "routing": {
+        "failoverRequired": "需要先啟動遠端路由，並啟用 {{app}} 的遠端路由後才能設定故障轉移。"
       }
     },
     "errors": {
@@ -2862,6 +2866,27 @@
       "importExport": "匯入 / 匯出",
       "settings": "通用設定",
       "plugin": "Claude 外掛"
+    },
+    "routing": {
+      "appEnabled": "{{app}} 遠端路由已啟用",
+      "appDisabled": "{{app}} 遠端路由已關閉",
+      "appToggleFailed": "切換遠端應用路由失敗: {{detail}}",
+      "app": {
+        "tooltip": {
+          "runtimeRequired": "請先啟動遠端路由服務，再啟用 {{app}} 路由",
+          "active": "{{app}} 請求將透過遠端路由轉發",
+          "inactive": "啟用 {{app}} 遠端路由"
+        }
+      },
+      "failover": {
+        "tooltip": {
+          "routingRequired": "請先啟動遠端路由並啟用 {{app}} 路由，再啟用故障轉移"
+        }
+      },
+      "tooltip": {
+        "active": "遠端路由已啟動 - {{address}}:{{port}}",
+        "inactive": "啟動遠端主機上的路由代理服務"
+      }
     }
   },
   "subscription": {

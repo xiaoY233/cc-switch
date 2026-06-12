@@ -2845,6 +2845,7 @@
     },
     "settings": {
       "tabs": {
+        "remote": "Remote",
         "environment": "Remote Environment",
         "general": "General",
         "data": "Data"
@@ -2877,6 +2878,9 @@
       },
       "data": {
         "description": "Import or export the selected remote server's own CC Switch data"
+      },
+      "routing": {
+        "failoverRequired": "Start remote routing and enable {{app}} remote routing before configuring failover."
       }
     },
     "errors": {
@@ -2917,6 +2921,27 @@
       "importExport": "Import / Export",
       "settings": "General Settings",
       "plugin": "Claude Plugin"
+    },
+    "routing": {
+      "appEnabled": "{{app}} remote routing enabled",
+      "appDisabled": "{{app}} remote routing disabled",
+      "appToggleFailed": "Failed to toggle remote app routing: {{detail}}",
+      "app": {
+        "tooltip": {
+          "runtimeRequired": "Start the remote routing service before enabling {{app}} routing",
+          "active": "{{app}} requests will be forwarded through remote routing",
+          "inactive": "Enable {{app}} remote routing"
+        }
+      },
+      "failover": {
+        "tooltip": {
+          "routingRequired": "Start remote routing and enable {{app}} routing before enabling failover"
+        }
+      },
+      "tooltip": {
+        "active": "Remote routing is running - {{address}}:{{port}}",
+        "inactive": "Start the routing proxy service on the remote host"
+      }
     }
   },
   "subscription": {

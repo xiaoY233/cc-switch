@@ -196,15 +196,14 @@ impl RemoteSessionManager {
         })
         .await;
 
-        let result = tokio::time::timeout(
+        let session_result = tokio::time::timeout(
             REMOTE_SESSION_REQUEST_TIMEOUT,
             executor.execute(&request_id, &helper_args),
         )
         .await
-        .map_err(|_| AppError::Message(RemoteSessionError::Timeout.to_string()))?
-        .map_err(|error| AppError::Message(error.to_string()));
+        .unwrap_or(Err(RemoteSessionError::Timeout));
 
-        match &result {
+        match &session_result {
             Ok(_) => {
                 self.set_status(RemoteSessionStatus {
                     profile_id: profile.id.clone(),
@@ -215,23 +214,29 @@ impl RemoteSessionManager {
                 .await;
             }
             Err(error) => {
-                let mut sessions = self.sessions.lock().await;
-                sessions.insert(
-                    profile.id.clone(),
-                    ManagedRemoteSession {
-                        status: RemoteSessionStatus {
-                            profile_id: profile.id.clone(),
-                            state: RemoteSessionState::Failed,
-                            last_error: Some(error.to_string()),
-                            active_request_id: None,
+                let failed_status = RemoteSessionStatus {
+                    profile_id: profile.id.clone(),
+                    state: RemoteSessionState::Failed,
+                    last_error: Some(error.to_string()),
+                    active_request_id: None,
+                };
+
+                if should_drop_executor_after_error(error) {
+                    let mut sessions = self.sessions.lock().await;
+                    sessions.insert(
+                        profile.id.clone(),
+                        ManagedRemoteSession {
+                            status: failed_status,
+                            executor: None,
                         },
-                        executor: None,
-                    },
-                );
+                    );
+                } else {
+                    self.set_status(failed_status).await;
+                }
             }
         }
 
-        result
+        session_result.map_err(|error| AppError::Message(error.to_string()))
     }
 
     async fn get_or_start_executor(
@@ -274,6 +279,16 @@ impl RemoteSessionManager {
         );
         Ok(executor)
     }
+}
+
+fn should_drop_executor_after_error(error: &RemoteSessionError) -> bool {
+    matches!(
+        error,
+        RemoteSessionError::InvalidJson(_)
+            | RemoteSessionError::Io(_)
+            | RemoteSessionError::Timeout
+            | RemoteSessionError::Closed
+    )
 }
 
 struct RemoteSessionProcess {
@@ -348,7 +363,7 @@ impl RemoteSessionProcess {
             )));
         }
         if response.ok {
-            response.data.ok_or(RemoteSessionError::MissingData)
+            Ok(response.data.unwrap_or(Value::Null))
         } else {
             Err(RemoteSessionError::CommandFailed(response.error.unwrap_or(
                 RemoteCommandError {
@@ -383,7 +398,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     struct FakeExecutor {
-        response: Value,
+        response: Result<Value, RemoteSessionError>,
         execute_count: Arc<AtomicUsize>,
         closed: Arc<AtomicBool>,
     }
@@ -391,7 +406,15 @@ mod tests {
     impl FakeExecutor {
         fn new(response: Value) -> Self {
             Self {
-                response,
+                response: Ok(response),
+                execute_count: Arc::new(AtomicUsize::new(0)),
+                closed: Arc::new(AtomicBool::new(false)),
+            }
+        }
+
+        fn failing(error: RemoteSessionError) -> Self {
+            Self {
+                response: Err(error),
                 execute_count: Arc::new(AtomicUsize::new(0)),
                 closed: Arc::new(AtomicBool::new(false)),
             }
@@ -406,7 +429,7 @@ mod tests {
         ) -> Pin<Box<dyn Future<Output = Result<Value, RemoteSessionError>> + Send + 'a>> {
             Box::pin(async move {
                 self.execute_count.fetch_add(1, Ordering::SeqCst);
-                Ok(self.response.clone())
+                self.response.clone()
             })
         }
 
@@ -462,6 +485,43 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn ok_without_data_deserializes_as_unit() {
+        let manager = RemoteSessionManager::default();
+        let executor = Arc::new(FakeExecutor::new(Value::Null));
+        manager.sessions.lock().await.insert(
+            "prod".to_string(),
+            ManagedRemoteSession {
+                status: RemoteSessionStatus {
+                    profile_id: "prod".to_string(),
+                    state: RemoteSessionState::Ready,
+                    last_error: None,
+                    active_request_id: None,
+                },
+                executor: Some(executor.clone()),
+            },
+        );
+
+        manager
+            .execute_json::<()>(
+                profile(),
+                None,
+                vec![
+                    "routing-config".to_string(),
+                    "auto-failover".to_string(),
+                    "set".to_string(),
+                ],
+            )
+            .await
+            .expect("unit command should accept ok without data");
+
+        assert_eq!(executor.execute_count.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            manager.status("prod").await.state,
+            RemoteSessionState::Ready
+        );
+    }
+
+    #[tokio::test]
     async fn close_existing_session_closes_executor() {
         let manager = RemoteSessionManager::default();
         let executor = Arc::new(FakeExecutor::new(Value::Null));
@@ -481,5 +541,42 @@ mod tests {
         assert!(manager.close("prod").await);
         assert!(executor.closed.load(Ordering::SeqCst));
         assert_eq!(manager.status("prod").await.state, RemoteSessionState::Idle);
+    }
+
+    #[tokio::test]
+    async fn command_failed_error_preserves_executor() {
+        let manager = RemoteSessionManager::default();
+        let executor = Arc::new(FakeExecutor::failing(RemoteSessionError::CommandFailed(
+            RemoteCommandError {
+                code: "tools_lifecycle_failed".to_string(),
+                message: "npm failed".to_string(),
+            },
+        )));
+        manager.sessions.lock().await.insert(
+            "prod".to_string(),
+            ManagedRemoteSession {
+                status: RemoteSessionStatus {
+                    profile_id: "prod".to_string(),
+                    state: RemoteSessionState::Ready,
+                    last_error: None,
+                    active_request_id: None,
+                },
+                executor: Some(executor.clone()),
+            },
+        );
+
+        let error = manager
+            .execute_json::<Value>(profile(), None, vec!["tools".to_string()])
+            .await
+            .expect_err("command failure should surface");
+
+        assert!(error.to_string().contains("tools_lifecycle_failed"));
+        assert_eq!(
+            manager.status("prod").await.state,
+            RemoteSessionState::Failed
+        );
+
+        assert!(manager.close("prod").await);
+        assert!(executor.closed.load(Ordering::SeqCst));
     }
 }
