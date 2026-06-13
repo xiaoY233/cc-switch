@@ -15,7 +15,7 @@ function health(overrides: Partial<RemoteHealth> = {}): RemoteHealth {
 }
 
 describe("remote helper version formatting", () => {
-  it("includes the helper build so same-version helper updates are visible", () => {
+  it("hides helper build hashes from display text", () => {
     const remoteHealth = health({
       helperVersion: "3.16.4",
       helperBuild: "9f1869de1234567890",
@@ -23,8 +23,8 @@ describe("remote helper version formatting", () => {
       helperLatestBuild: "b98d8acb1234567890",
     });
 
-    expect(formatRemoteHelperVersion(remoteHealth)).toBe("3.16.4 (9f1869de)");
-    expect(formatRemoteHelperLatest(remoteHealth)).toBe("3.16.4 (b98d8acb)");
+    expect(formatRemoteHelperVersion(remoteHealth)).toBe("3.16.4");
+    expect(formatRemoteHelperLatest(remoteHealth)).toBe("3.16.4");
   });
 
   it("keeps legacy helper versions readable when no build is reported", () => {
