@@ -652,7 +652,7 @@ pub fn update_routing_app_config(config_json: &str) -> Result<(), String> {
         let state = routing_state()?;
         let db = state.db.clone();
         let runtime = routing_runtime()?;
-        return runtime.block_on(async {
+        runtime.block_on(async {
             let previous = db
                 .get_proxy_config_for_app(&config.app_type)
                 .await
@@ -677,7 +677,7 @@ pub fn update_routing_app_config(config_json: &str) -> Result<(), String> {
             }
 
             Ok(())
-        });
+        })
     }
 
     #[cfg(not(feature = "proxy-runtime"))]
@@ -829,11 +829,11 @@ pub fn get_routing_circuit_breaker_stats(
     {
         let state = routing_state()?;
         let runtime = routing_runtime()?;
-        return runtime.block_on(
+        runtime.block_on(
             state
                 .proxy_service
                 .get_circuit_breaker_stats(provider_id, app_type),
-        );
+        )
     }
 
     #[cfg(not(feature = "proxy-runtime"))]
