@@ -290,9 +290,13 @@ export function ProxyPanel({
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium leading-none">
-                {t("proxyConfig.proxyEnabled", {
-                  defaultValue: "代理服务",
-                })}
+                {isLocalTarget
+                  ? t("proxyConfig.proxyEnabled", {
+                      defaultValue: "代理服务",
+                    })
+                  : t("remote.routing.runtime.title", {
+                      defaultValue: "远程路由服务",
+                    })}
               </p>
               <p className="text-xs text-muted-foreground">
                 {isRunning
@@ -320,9 +324,13 @@ export function ProxyPanel({
             >
               <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4 space-y-3">
                 <p className="text-xs font-medium text-primary">
-                  {t("proxyConfig.appTakeover", {
-                    defaultValue: "应用接管",
-                  })}
+                  {isLocalTarget
+                    ? t("proxyConfig.appTakeover", {
+                        defaultValue: "应用接管",
+                      })
+                    : t("remote.routing.appRouting", {
+                        defaultValue: "应用路由",
+                      })}
                 </p>
                 <div className="grid gap-2 sm:grid-cols-3">
                   {(["claude", "codex", "gemini"] as const).map((appType) => {

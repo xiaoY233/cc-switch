@@ -2869,6 +2869,7 @@
       "plugin": "Claude 外掛"
     },
     "routing": {
+      "appRouting": "應用路由",
       "appEnabled": "{{app}} 遠端路由已啟用",
       "appDisabled": "{{app}} 遠端路由已關閉",
       "appToggleFailed": "切換遠端應用路由失敗: {{detail}}",
@@ -2889,6 +2890,9 @@
       "tooltip": {
         "active": "遠端路由已啟動 - {{address}}:{{port}}",
         "inactive": "啟動遠端主機上的路由代理服務"
+      },
+      "runtime": {
+        "title": "遠端路由服務"
       }
     }
   },

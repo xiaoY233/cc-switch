@@ -2924,6 +2924,7 @@
       "plugin": "Claude Plugin"
     },
     "routing": {
+      "appRouting": "App Routing",
       "appEnabled": "{{app}} remote routing enabled",
       "appDisabled": "{{app}} remote routing disabled",
       "appToggleFailed": "Failed to toggle remote app routing: {{detail}}",
@@ -2944,6 +2945,9 @@
       "tooltip": {
         "active": "Remote routing is running - {{address}}:{{port}}",
         "inactive": "Start the routing proxy service on the remote host"
+      },
+      "runtime": {
+        "title": "Remote Routing Service"
       }
     }
   },

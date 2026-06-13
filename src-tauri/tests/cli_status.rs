@@ -1,13 +1,22 @@
 #![cfg(feature = "desktop")]
 
 use serial_test::serial;
+use std::path::Path;
+use std::sync::OnceLock;
+
+fn cli_test_home() -> &'static Path {
+    static CLI_TEST_HOME: OnceLock<tempfile::TempDir> = OnceLock::new();
+    CLI_TEST_HOME
+        .get_or_init(|| tempfile::tempdir().expect("cli test home"))
+        .path()
+}
 
 fn with_temp_home<T>(run: impl FnOnce() -> T) -> T {
-    let temp = tempfile::tempdir().expect("temp dir");
     let old_test_home = std::env::var_os("CC_SWITCH_TEST_HOME");
     let old_home = std::env::var_os("HOME");
-    std::env::set_var("CC_SWITCH_TEST_HOME", temp.path());
-    std::env::set_var("HOME", temp.path());
+    let test_home = cli_test_home();
+    std::env::set_var("CC_SWITCH_TEST_HOME", test_home);
+    std::env::set_var("HOME", test_home);
 
     let result = run();
 
@@ -24,6 +33,7 @@ fn with_temp_home<T>(run: impl FnOnce() -> T) -> T {
 }
 
 #[test]
+#[serial]
 fn status_returns_stable_json_envelope() {
     let response = cc_switch_lib::cli::run(&["status".to_string()]);
 
@@ -38,6 +48,7 @@ fn status_returns_stable_json_envelope() {
 }
 
 #[test]
+#[serial]
 fn status_advertises_session_capability() {
     let response = cc_switch_lib::cli::run(&["status".to_string()]);
     let capabilities = response
@@ -197,6 +208,251 @@ fn routing_circuit_breaker_commands_round_trip_through_json_cli() {
 }
 
 #[test]
+#[serial]
+fn routing_config_commands_round_trip_through_json_cli() {
+    let (
+        add_provider_response,
+        set_global_response,
+        get_global_response,
+        set_app_response,
+        get_app_response,
+        available_response,
+        add_queue_response,
+        queue_after_add_response,
+        auto_failover_response,
+        set_auto_failover_response,
+        remove_queue_response,
+        queue_after_remove_response,
+        set_rectifier_response,
+        get_rectifier_response,
+        set_optimizer_response,
+        get_optimizer_response,
+        set_outbound_response,
+        get_outbound_response,
+        clear_outbound_response,
+        get_cleared_outbound_response,
+        runtime_status_response,
+    ) = with_temp_home(|| {
+        let provider_json = serde_json::json!({
+            "id": "provider-b",
+            "name": "Provider B",
+            "settingsConfig": {
+                "auth": { "OPENAI_API_KEY": "sk-test" },
+                "config": "model_provider = \"test\"\nmodel = \"gpt-5\"\n\n[model_providers.test]\nname = \"Test\"\nbase_url = \"https://example.com/v1\"\nwire_api = \"responses\"\nrequires_openai_auth = true\n"
+            },
+            "sortIndex": 7
+        })
+        .to_string();
+        let global_json = serde_json::json!({
+            "proxyEnabled": false,
+            "listenAddress": "127.0.0.1",
+            "listenPort": 15722,
+            "enableLogging": false
+        })
+        .to_string();
+        let app_json = serde_json::json!({
+            "appType": "codex",
+            "enabled": false,
+            "autoFailoverEnabled": false,
+            "maxRetries": 5,
+            "streamingFirstByteTimeout": 45,
+            "streamingIdleTimeout": 150,
+            "nonStreamingTimeout": 650,
+            "circuitFailureThreshold": 8,
+            "circuitSuccessThreshold": 3,
+            "circuitTimeoutSeconds": 75,
+            "circuitErrorRateThreshold": 0.55,
+            "circuitMinRequests": 11
+        })
+        .to_string();
+        let rectifier_json = serde_json::json!({
+            "enabled": false,
+            "requestThinkingSignature": true,
+            "requestThinkingBudget": false,
+            "requestMediaFallback": true,
+            "requestMediaHeuristic": false
+        })
+        .to_string();
+        let optimizer_json = serde_json::json!({
+            "enabled": true,
+            "thinkingOptimizer": false,
+            "cacheInjection": true,
+            "cacheTtl": "5m"
+        })
+        .to_string();
+
+        let add_provider_response = cc_switch_lib::cli::run(&[
+            "providers".to_string(),
+            "add".to_string(),
+            "codex".to_string(),
+            provider_json,
+            "false".to_string(),
+        ]);
+        let set_global_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "set-global".to_string(),
+            global_json,
+        ]);
+        let get_global_response =
+            cc_switch_lib::cli::run(&["routing-config".to_string(), "global".to_string()]);
+        let set_app_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "set-app".to_string(),
+            app_json,
+        ]);
+        let get_app_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "app".to_string(),
+            "codex".to_string(),
+        ]);
+        let available_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "available-failover-providers".to_string(),
+            "codex".to_string(),
+        ]);
+        let add_queue_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "add-failover-provider".to_string(),
+            "codex".to_string(),
+            "provider-b".to_string(),
+        ]);
+        let queue_after_add_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "failover-queue".to_string(),
+            "codex".to_string(),
+        ]);
+        let auto_failover_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "auto-failover".to_string(),
+            "codex".to_string(),
+        ]);
+        let set_auto_failover_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "set-auto-failover".to_string(),
+            "codex".to_string(),
+            "false".to_string(),
+        ]);
+        let remove_queue_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "remove-failover-provider".to_string(),
+            "codex".to_string(),
+            "provider-b".to_string(),
+        ]);
+        let queue_after_remove_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "failover-queue".to_string(),
+            "codex".to_string(),
+        ]);
+        let set_rectifier_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "set-rectifier".to_string(),
+            rectifier_json,
+        ]);
+        let get_rectifier_response =
+            cc_switch_lib::cli::run(&["routing-config".to_string(), "rectifier".to_string()]);
+        let set_optimizer_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "set-optimizer".to_string(),
+            optimizer_json,
+        ]);
+        let get_optimizer_response =
+            cc_switch_lib::cli::run(&["routing-config".to_string(), "optimizer".to_string()]);
+        let set_outbound_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "set-global-outbound".to_string(),
+            "socks5://127.0.0.1:1080".to_string(),
+        ]);
+        let get_outbound_response =
+            cc_switch_lib::cli::run(&["routing-config".to_string(), "global-outbound".to_string()]);
+        let clear_outbound_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "set-global-outbound".to_string(),
+            "-".to_string(),
+        ]);
+        let get_cleared_outbound_response =
+            cc_switch_lib::cli::run(&["routing-config".to_string(), "global-outbound".to_string()]);
+        let runtime_status_response =
+            cc_switch_lib::cli::run(&["routing-runtime".to_string(), "status".to_string()]);
+
+        (
+            add_provider_response,
+            set_global_response,
+            get_global_response,
+            set_app_response,
+            get_app_response,
+            available_response,
+            add_queue_response,
+            queue_after_add_response,
+            auto_failover_response,
+            set_auto_failover_response,
+            remove_queue_response,
+            queue_after_remove_response,
+            set_rectifier_response,
+            get_rectifier_response,
+            set_optimizer_response,
+            get_optimizer_response,
+            set_outbound_response,
+            get_outbound_response,
+            clear_outbound_response,
+            get_cleared_outbound_response,
+            runtime_status_response,
+        )
+    });
+
+    assert_eq!(add_provider_response["ok"], true);
+    assert_eq!(set_global_response["ok"], true);
+    assert_eq!(get_global_response["ok"], true);
+    assert_eq!(get_global_response["data"]["listenPort"], 15722);
+    assert_eq!(get_global_response["data"]["enableLogging"], false);
+    assert_eq!(
+        set_app_response["ok"], true,
+        "set_app_response={set_app_response:?}"
+    );
+    assert_eq!(get_app_response["ok"], true);
+    assert_eq!(get_app_response["data"]["appType"], "codex");
+    assert_eq!(get_app_response["data"]["maxRetries"], 5);
+    assert_eq!(get_app_response["data"]["streamingIdleTimeout"], 150);
+    assert_eq!(available_response["ok"], true);
+    assert_eq!(available_response["data"][0]["id"], "provider-b");
+    assert_eq!(add_queue_response["ok"], true);
+    assert!(add_queue_response["data"].is_null());
+    assert_eq!(queue_after_add_response["ok"], true);
+    assert_eq!(
+        queue_after_add_response["data"][0]["providerId"],
+        "provider-b"
+    );
+    assert_eq!(auto_failover_response["ok"], true);
+    assert_eq!(auto_failover_response["data"], false);
+    assert_eq!(set_auto_failover_response["ok"], true);
+    assert!(set_auto_failover_response["data"].is_null());
+    assert_eq!(remove_queue_response["ok"], true);
+    assert!(remove_queue_response["data"].is_null());
+    assert_eq!(queue_after_remove_response["ok"], true);
+    assert_eq!(queue_after_remove_response["data"], serde_json::json!([]));
+    assert_eq!(set_rectifier_response["ok"], true);
+    assert_eq!(get_rectifier_response["ok"], true);
+    assert_eq!(get_rectifier_response["data"]["enabled"], false);
+    assert_eq!(
+        get_rectifier_response["data"]["requestThinkingBudget"],
+        false
+    );
+    assert_eq!(set_optimizer_response["ok"], true);
+    assert_eq!(get_optimizer_response["ok"], true);
+    assert_eq!(get_optimizer_response["data"]["enabled"], true);
+    assert_eq!(get_optimizer_response["data"]["thinkingOptimizer"], false);
+    assert_eq!(get_optimizer_response["data"]["cacheTtl"], "5m");
+    assert_eq!(set_outbound_response["ok"], true);
+    assert_eq!(get_outbound_response["ok"], true);
+    assert_eq!(get_outbound_response["data"], "socks5://127.0.0.1:1080");
+    assert_eq!(clear_outbound_response["ok"], true);
+    assert_eq!(get_cleared_outbound_response["ok"], true);
+    assert!(get_cleared_outbound_response["data"].is_null());
+    assert_eq!(runtime_status_response["ok"], true);
+    assert!(runtime_status_response["data"]["running"].is_boolean());
+}
+
+#[test]
+#[serial]
 fn status_accepts_json_flag_for_remote_invocation() {
     let response = cc_switch_lib::cli::run(&["--json".to_string(), "status".to_string()]);
 
@@ -441,6 +697,7 @@ fn import_export_round_trips_database_sql_through_json_cli() {
 }
 
 #[test]
+#[serial]
 fn unsupported_command_returns_stable_error_envelope() {
     let response = cc_switch_lib::cli::run(&["unknown".to_string()]);
 
@@ -449,6 +706,6 @@ fn unsupported_command_returns_stable_error_envelope() {
     assert_eq!(response["error"]["code"], "unsupported_command");
     assert_eq!(
         response["error"]["message"],
-        "Supported commands: status, providers, universal-providers, routing-config, routing-runtime, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools, settings, plugin"
+        "Supported commands: status, providers, universal-providers, routing-config, routing-runtime, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools, settings, plugin, stream-check"
     );
 }

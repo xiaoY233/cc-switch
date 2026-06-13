@@ -2924,6 +2924,7 @@
       "plugin": "Claude プラグイン"
     },
     "routing": {
+      "appRouting": "アプリルーティング",
       "appEnabled": "{{app}} のリモートルーティングを有効にしました",
       "appDisabled": "{{app}} のリモートルーティングを無効にしました",
       "appToggleFailed": "リモートアプリルーティングの切り替えに失敗しました: {{detail}}",
@@ -2944,6 +2945,9 @@
       "tooltip": {
         "active": "リモートルーティングは実行中です - {{address}}:{{port}}",
         "inactive": "リモートホスト上のルーティングプロキシサービスを開始します"
+      },
+      "runtime": {
+        "title": "リモートルーティングサービス"
       }
     }
   },

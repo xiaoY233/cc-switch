@@ -2924,6 +2924,7 @@
       "plugin": "Claude 插件"
     },
     "routing": {
+      "appRouting": "应用路由",
       "appEnabled": "{{app}} 远程路由已启用",
       "appDisabled": "{{app}} 远程路由已关闭",
       "appToggleFailed": "切换远程应用路由失败: {{detail}}",
@@ -2944,6 +2945,9 @@
       "tooltip": {
         "active": "远程路由已启动 - {{address}}:{{port}}",
         "inactive": "启动远程主机上的路由代理服务"
+      },
+      "runtime": {
+        "title": "远程路由服务"
       }
     }
   },
