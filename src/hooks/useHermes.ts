@@ -54,7 +54,9 @@ export function invalidateHermesProviderCaches(
     queryClient.invalidateQueries({
       queryKey: hermesKeys.liveProviderIds(targetKey),
     }),
-    queryClient.invalidateQueries({ queryKey: hermesKeys.modelConfig(targetKey) }),
+    queryClient.invalidateQueries({
+      queryKey: hermesKeys.modelConfig(targetKey),
+    }),
   ]);
 }
 

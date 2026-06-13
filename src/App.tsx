@@ -63,7 +63,10 @@ import {
 import { isTextEditableTarget } from "@/utils/domUtils";
 import { deepClone } from "@/utils/deepClone";
 import { cn } from "@/lib/utils";
-import { getManagementTargetKey, isRemoteSafeView } from "@/lib/managementTarget";
+import {
+  getManagementTargetKey,
+  isRemoteSafeView,
+} from "@/lib/managementTarget";
 import {
   isWindows,
   isLinux,

@@ -176,10 +176,7 @@ export function ProviderList({
   );
 
   // 故障转移相关
-  const { data: isAutoFailoverEnabled } = useAutoFailoverEnabled(
-    appId,
-    target,
-  );
+  const { data: isAutoFailoverEnabled } = useAutoFailoverEnabled(appId, target);
   const { data: failoverQueue } = useFailoverQueue(appId, target);
   const addToQueue = useAddToFailoverQueue(target);
   const removeFromQueue = useRemoveFromFailoverQueue(target);
