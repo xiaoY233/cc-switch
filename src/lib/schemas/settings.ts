@@ -15,6 +15,9 @@ export const settingsSchema = z.object({
   skipClaudeOnboarding: z.boolean().optional(),
   launchOnStartup: z.boolean().optional(),
   enableLocalProxy: z.boolean().optional(),
+  enableFailoverToggle: z.boolean().optional(),
+  enableRemoteRoutingToggle: z.boolean().optional(),
+  enableRemoteFailoverToggle: z.boolean().optional(),
   preserveCodexOfficialAuthOnSwitch: z.boolean().optional(),
   language: z.enum(["en", "zh", "zh-TW", "ja"]).optional(),
 

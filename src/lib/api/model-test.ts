@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { AppId } from "./types";
+import { remoteApi, type ManagementTarget } from "./remote";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 
 // ===== 流式健康检查类型 =====
 
@@ -36,7 +38,16 @@ export interface StreamCheckResult {
 export async function streamCheckProvider(
   appType: AppId,
   providerId: string,
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
 ): Promise<StreamCheckResult> {
+  if (target.type === "remote") {
+    return remoteApi.streamCheckProvider(
+      target.profile,
+      appType,
+      providerId,
+      target.secret,
+    );
+  }
   return invoke("stream_check_provider", { appType, providerId });
 }
 

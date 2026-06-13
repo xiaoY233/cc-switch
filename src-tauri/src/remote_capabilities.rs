@@ -12,6 +12,7 @@ pub const REMOTE_HELPER_CAPABILITIES: &[&str] = &[
     "hermes-memory",
     "import-export",
     "tools",
+    "stream-check",
     "settings",
     "plugin",
     "session",

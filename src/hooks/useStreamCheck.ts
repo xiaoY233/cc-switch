@@ -5,13 +5,17 @@ import {
   streamCheckProvider,
   type StreamCheckResult,
 } from "@/lib/api/model-test";
-import type { AppId } from "@/lib/api";
+import type { AppId, ManagementTarget } from "@/lib/api";
 import { useResetCircuitBreaker } from "@/lib/query/failover";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 
-export function useStreamCheck(appId: AppId) {
+export function useStreamCheck(
+  appId: AppId,
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
   const { t } = useTranslation();
   const [checkingIds, setCheckingIds] = useState<Set<string>>(new Set());
-  const resetCircuitBreaker = useResetCircuitBreaker();
+  const resetCircuitBreaker = useResetCircuitBreaker(target);
 
   const checkProvider = useCallback(
     async (
@@ -21,7 +25,7 @@ export function useStreamCheck(appId: AppId) {
       setCheckingIds((prev) => new Set(prev).add(providerId));
 
       try {
-        const result = await streamCheckProvider(appId, providerId);
+        const result = await streamCheckProvider(appId, providerId, target);
 
         if (result.status === "operational") {
           toast.success(
@@ -128,7 +132,7 @@ export function useStreamCheck(appId: AppId) {
         });
       }
     },
-    [appId, t, resetCircuitBreaker],
+    [appId, t, resetCircuitBreaker, target],
   );
 
   const isChecking = useCallback(

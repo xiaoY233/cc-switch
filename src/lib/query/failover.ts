@@ -8,17 +8,103 @@ import {
   getManagementTargetKey,
   LOCAL_MANAGEMENT_TARGET,
 } from "@/lib/managementTarget";
+import type { QueryClient } from "@tanstack/react-query";
+
+function invalidateProvidersForTarget(
+  queryClient: QueryClient,
+  target: ManagementTarget,
+  targetKey: string,
+  appType: string,
+) {
+  queryClient.invalidateQueries({
+    queryKey: ["providers", appType, targetKey],
+  });
+  if (target.type === "local") {
+    queryClient.invalidateQueries({
+      queryKey: ["providers", appType],
+    });
+  }
+}
+
+function invalidateProxyStatusForTarget(
+  queryClient: QueryClient,
+  target: ManagementTarget,
+  targetKey: string,
+) {
+  queryClient.invalidateQueries({
+    queryKey: ["proxyStatus", targetKey],
+  });
+  if (target.type === "local") {
+    queryClient.invalidateQueries({
+      queryKey: ["proxyStatus"],
+    });
+  }
+}
+
+function invalidateProviderHealthForTarget(
+  queryClient: QueryClient,
+  target: ManagementTarget,
+  targetKey: string,
+  providerId: string,
+  appType: string,
+) {
+  queryClient.invalidateQueries({
+    queryKey: ["providerHealth", targetKey, providerId, appType],
+  });
+  if (target.type === "local") {
+    queryClient.invalidateQueries({
+      queryKey: ["providerHealth", providerId, appType],
+    });
+  }
+}
+
+function invalidateCircuitBreakerStatsForTarget(
+  queryClient: QueryClient,
+  target: ManagementTarget,
+  targetKey: string,
+  providerId: string,
+  appType: string,
+) {
+  queryClient.invalidateQueries({
+    queryKey: ["circuitBreakerStats", targetKey, providerId, appType],
+  });
+  if (target.type === "local") {
+    queryClient.invalidateQueries({
+      queryKey: ["circuitBreakerStats", providerId, appType],
+    });
+  }
+}
+
+function invalidateCircuitBreakerConfigForTarget(
+  queryClient: QueryClient,
+  target: ManagementTarget,
+  targetKey: string,
+) {
+  queryClient.invalidateQueries({
+    queryKey: ["circuitBreakerConfig", targetKey],
+  });
+  if (target.type === "local") {
+    queryClient.invalidateQueries({ queryKey: ["circuitBreakerConfig"] });
+  }
+}
 
 // ========== 熔断器 Hooks ==========
 
 /**
  * 获取供应商健康状态
  */
-export function useProviderHealth(providerId: string, appType: string) {
+export function useProviderHealth(
+  providerId: string,
+  appType: string,
+  targetOrEnabled: ManagementTarget | boolean = LOCAL_MANAGEMENT_TARGET,
+  enabled = true,
+) {
+  const resolved = resolveTargetAndEnabled(targetOrEnabled, enabled);
   return useQuery({
-    queryKey: ["providerHealth", providerId, appType],
-    queryFn: () => failoverApi.getProviderHealth(providerId, appType),
-    enabled: !!providerId && !!appType,
+    queryKey: ["providerHealth", resolved.targetKey, providerId, appType],
+    queryFn: () =>
+      failoverApi.getProviderHealth(providerId, appType, resolved.target),
+    enabled: resolved.enabled && !!providerId && !!appType,
     refetchInterval: 5000, // 每 5 秒刷新一次
     retry: false,
   });
@@ -30,8 +116,11 @@ export function useProviderHealth(providerId: string, appType: string) {
  * 重置后后端会检查是否应该切回优先级更高的供应商，
  * 因此需要同时刷新供应商列表和代理状态。
  */
-export function useResetCircuitBreaker() {
+export function useResetCircuitBreaker(
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
   const queryClient = useQueryClient();
+  const targetKey = getManagementTargetKey(target);
 
   return useMutation({
     mutationFn: ({
@@ -40,20 +129,32 @@ export function useResetCircuitBreaker() {
     }: {
       providerId: string;
       appType: string;
-    }) => failoverApi.resetCircuitBreaker(providerId, appType),
+    }) => failoverApi.resetCircuitBreaker(providerId, appType, target),
     onSuccess: (_, variables) => {
       // 刷新健康状态
-      queryClient.invalidateQueries({
-        queryKey: ["providerHealth", variables.providerId, variables.appType],
-      });
+      invalidateProviderHealthForTarget(
+        queryClient,
+        target,
+        targetKey,
+        variables.providerId,
+        variables.appType,
+      );
+      invalidateCircuitBreakerStatsForTarget(
+        queryClient,
+        target,
+        targetKey,
+        variables.providerId,
+        variables.appType,
+      );
       // 刷新供应商列表（因为可能发生了自动恢复切换）
-      queryClient.invalidateQueries({
-        queryKey: ["providers", variables.appType],
-      });
+      invalidateProvidersForTarget(
+        queryClient,
+        target,
+        targetKey,
+        variables.appType,
+      );
       // 刷新代理状态（更新 active_targets）
-      queryClient.invalidateQueries({
-        queryKey: ["proxyStatus"],
-      });
+      invalidateProxyStatusForTarget(queryClient, target, targetKey);
     },
   });
 }
@@ -61,23 +162,33 @@ export function useResetCircuitBreaker() {
 /**
  * 获取熔断器配置
  */
-export function useCircuitBreakerConfig() {
+export function useCircuitBreakerConfig(
+  targetOrEnabled: ManagementTarget | boolean = LOCAL_MANAGEMENT_TARGET,
+  enabled = true,
+) {
+  const resolved = resolveTargetAndEnabled(targetOrEnabled, enabled);
   return useQuery({
-    queryKey: ["circuitBreakerConfig"],
-    queryFn: () => failoverApi.getCircuitBreakerConfig(),
+    queryKey: ["circuitBreakerConfig", resolved.targetKey],
+    queryFn: () => failoverApi.getCircuitBreakerConfig(resolved.target),
+    enabled: resolved.enabled,
   });
 }
 
 /**
  * 更新熔断器配置
  */
-export function useUpdateCircuitBreakerConfig() {
+export function useUpdateCircuitBreakerConfig(
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
   const queryClient = useQueryClient();
+  const targetKey = getManagementTargetKey(target);
 
   return useMutation({
-    mutationFn: failoverApi.updateCircuitBreakerConfig,
+    mutationFn: (
+      config: Parameters<typeof failoverApi.updateCircuitBreakerConfig>[0],
+    ) => failoverApi.updateCircuitBreakerConfig(config, target),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["circuitBreakerConfig"] });
+      invalidateCircuitBreakerConfigForTarget(queryClient, target, targetKey);
     },
   });
 }
@@ -85,11 +196,18 @@ export function useUpdateCircuitBreakerConfig() {
 /**
  * 获取熔断器统计信息
  */
-export function useCircuitBreakerStats(providerId: string, appType: string) {
+export function useCircuitBreakerStats(
+  providerId: string,
+  appType: string,
+  targetOrEnabled: ManagementTarget | boolean = LOCAL_MANAGEMENT_TARGET,
+  enabled = true,
+) {
+  const resolved = resolveTargetAndEnabled(targetOrEnabled, enabled);
   return useQuery({
-    queryKey: ["circuitBreakerStats", providerId, appType],
-    queryFn: () => failoverApi.getCircuitBreakerStats(providerId, appType),
-    enabled: !!providerId && !!appType,
+    queryKey: ["circuitBreakerStats", resolved.targetKey, providerId, appType],
+    queryFn: () =>
+      failoverApi.getCircuitBreakerStats(providerId, appType, resolved.target),
+    enabled: resolved.enabled && !!providerId && !!appType,
     refetchInterval: 5000, // 每 5 秒刷新一次
   });
 }
@@ -174,9 +292,12 @@ export function useAddToFailoverQueue(
           variables.appType,
         ],
       });
-      queryClient.invalidateQueries({
-        queryKey: ["providers", variables.appType],
-      });
+      invalidateProvidersForTarget(
+        queryClient,
+        target,
+        targetKey,
+        variables.appType,
+      );
     },
   });
 }
@@ -209,21 +330,28 @@ export function useRemoveFromFailoverQueue(
           variables.appType,
         ],
       });
-      queryClient.invalidateQueries({
-        queryKey: ["providers", variables.appType],
-      });
+      invalidateProvidersForTarget(
+        queryClient,
+        target,
+        targetKey,
+        variables.appType,
+      );
       // 清除该供应商的健康状态缓存（退出队列后不再需要健康监控）
-      queryClient.invalidateQueries({
-        queryKey: ["providerHealth", variables.providerId, variables.appType],
-      });
+      invalidateProviderHealthForTarget(
+        queryClient,
+        target,
+        targetKey,
+        variables.providerId,
+        variables.appType,
+      );
       // 清除该供应商的熔断器统计缓存
-      queryClient.invalidateQueries({
-        queryKey: [
-          "circuitBreakerStats",
-          variables.providerId,
-          variables.appType,
-        ],
-      });
+      invalidateCircuitBreakerStatsForTarget(
+        queryClient,
+        target,
+        targetKey,
+        variables.providerId,
+        variables.appType,
+      );
     },
   });
 }
@@ -341,12 +469,13 @@ export function useSetAutoFailoverEnabled(
           variables.appType,
         ],
       });
-      queryClient.invalidateQueries({
-        queryKey: ["providers", variables.appType],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["proxyStatus"],
-      });
+      invalidateProvidersForTarget(
+        queryClient,
+        target,
+        targetKey,
+        variables.appType,
+      );
+      invalidateProxyStatusForTarget(queryClient, target, targetKey);
     },
   });
 }

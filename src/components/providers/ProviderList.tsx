@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Provider } from "@/types";
 import type { AppId, ManagementTarget } from "@/lib/api";
+import { getManagementTargetKey } from "@/lib/managementTarget";
 import { providersApi } from "@/lib/api/providers";
 import { useDragSort } from "@/hooks/useDragSort";
 import {
@@ -98,7 +99,8 @@ export function ProviderList({
 }: ProviderListProps) {
   const { t } = useTranslation();
   const isLocalTarget = target.type === "local";
-  const { checkProvider, isChecking } = useStreamCheck(appId);
+  const targetKey = getManagementTargetKey(target);
+  const { checkProvider, isChecking } = useStreamCheck(appId, target);
   const { sortedProviders, sensors, handleDragEnd } = useDragSort(
     providers,
     appId,
@@ -106,24 +108,27 @@ export function ProviderList({
   );
 
   const { data: opencodeLiveIds } = useQuery({
-    queryKey: ["opencodeLiveProviderIds"],
-    queryFn: () => providersApi.getOpenCodeLiveProviderIds(),
-    enabled: isLocalTarget && appId === "opencode",
+    queryKey: ["opencodeLiveProviderIds", targetKey],
+    queryFn: () => providersApi.getOpenCodeLiveProviderIds(target),
+    enabled: appId === "opencode",
   });
 
   // OpenClaw: 查询 live 配置中的供应商 ID 列表，用于判断 isInConfig
   const { data: openclawLiveIds } = useOpenClawLiveProviderIds(
-    isLocalTarget && appId === "openclaw",
+    appId === "openclaw",
+    target,
   );
 
   // Hermes: 查询 live 配置中的供应商 ID 列表，用于判断 isInConfig
   const { data: hermesLiveIds } = useHermesLiveProviderIds(
-    isLocalTarget && appId === "hermes",
+    appId === "hermes",
+    target,
   );
 
   // Hermes: 读取当前 model.provider，用于判断哪个供应商是"当前激活"（高亮）
   const { data: hermesModelConfig } = useHermesModelConfig(
-    isLocalTarget && appId === "hermes",
+    appId === "hermes",
+    target,
   );
   const hermesCurrentProviderId = hermesModelConfig?.provider;
 
@@ -131,6 +136,15 @@ export function ProviderList({
   const isProviderInConfig = useCallback(
     (providerId: string): boolean => {
       if (!isLocalTarget) {
+        if (appId === "opencode") {
+          return opencodeLiveIds?.includes(providerId) ?? false;
+        }
+        if (appId === "openclaw") {
+          return openclawLiveIds?.includes(providerId) ?? false;
+        }
+        if (appId === "hermes") {
+          return hermesLiveIds?.includes(providerId) ?? false;
+        }
         return true;
       }
       if (appId === "opencode") {
@@ -164,14 +178,14 @@ export function ProviderList({
   // 故障转移相关
   const { data: isAutoFailoverEnabled } = useAutoFailoverEnabled(
     appId,
-    isLocalTarget,
+    target,
   );
-  const { data: failoverQueue } = useFailoverQueue(appId, isLocalTarget);
-  const addToQueue = useAddToFailoverQueue();
-  const removeFromQueue = useRemoveFromFailoverQueue();
+  const { data: failoverQueue } = useFailoverQueue(appId, target);
+  const addToQueue = useAddToFailoverQueue(target);
+  const removeFromQueue = useRemoveFromFailoverQueue(target);
 
   const isFailoverModeActive =
-    isLocalTarget && isProxyTakeover === true && isAutoFailoverEnabled === true;
+    isProxyTakeover === true && isAutoFailoverEnabled === true;
 
   const isOpenCode = appId === "opencode";
   const { data: currentOmoId } = useCurrentOmoProviderId(
@@ -233,10 +247,7 @@ export function ProviderList({
 
   const handleTest = useCallback(
     (provider: Provider) => {
-      if (!isLocalTarget) {
-        return;
-      }
-      if (!settings?.streamCheckConfirmed) {
+      if (isLocalTarget && !settings?.streamCheckConfirmed) {
         setPendingTestProvider(provider);
         setShowStreamCheckConfirm(true);
       } else {
@@ -464,7 +475,8 @@ export function ProviderList({
                 onConfigureUsage={onConfigureUsage}
                 onOpenWebsite={onOpenWebsite}
                 onOpenTerminal={onOpenTerminal}
-                onTest={isLocalTarget ? handleTest : undefined}
+                onTest={handleTest}
+                target={target}
                 isTesting={isChecking(provider.id)}
                 isProxyRunning={isProxyRunning}
                 isProxyTakeover={isProxyTakeover}
@@ -617,6 +629,7 @@ interface SortableProviderCardProps {
   onOpenWebsite: (url: string) => void;
   onOpenTerminal?: (provider: Provider) => void;
   onTest?: (provider: Provider) => void;
+  target: ManagementTarget;
   isTesting: boolean;
   isProxyRunning: boolean;
   isProxyTakeover: boolean;
@@ -648,6 +661,7 @@ function SortableProviderCard({
   onOpenWebsite,
   onOpenTerminal,
   onTest,
+  target,
   isTesting,
   isProxyRunning,
   isProxyTakeover,
@@ -695,6 +709,7 @@ function SortableProviderCard({
         onOpenWebsite={onOpenWebsite}
         onOpenTerminal={onOpenTerminal}
         onTest={onTest}
+        target={target}
         isTesting={isTesting}
         isProxyRunning={isProxyRunning}
         isProxyTakeover={isProxyTakeover}

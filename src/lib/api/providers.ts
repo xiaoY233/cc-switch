@@ -153,7 +153,19 @@ export const providersApi = {
    * Remove provider from live config only (for additive mode apps like OpenCode)
    * Does NOT delete from database - provider remains in the list
    */
-  async removeFromLiveConfig(id: string, appId: AppId): Promise<boolean> {
+  async removeFromLiveConfig(
+    id: string,
+    appId: AppId,
+    target: ManagementTarget = { type: "local" },
+  ): Promise<boolean> {
+    if (target.type === "remote") {
+      return await remoteApi.removeProviderFromLiveConfig(
+        target.profile,
+        appId,
+        id,
+        target.secret,
+      );
+    }
     return await invoke("remove_provider_from_live_config", { id, app: appId });
   },
 
@@ -282,7 +294,16 @@ export const providersApi = {
    * 获取 OpenCode live 配置中的供应商 ID 列表
    * 用于前端判断供应商是否已添加到 opencode.json
    */
-  async getOpenCodeLiveProviderIds(): Promise<string[]> {
+  async getOpenCodeLiveProviderIds(
+    target: ManagementTarget = { type: "local" },
+  ): Promise<string[]> {
+    if (target.type === "remote") {
+      return await remoteApi.getLiveProviderIds(
+        target.profile,
+        "opencode",
+        target.secret,
+      );
+    }
     return await invoke("get_opencode_live_provider_ids");
   },
 
@@ -290,7 +311,16 @@ export const providersApi = {
    * 获取 OpenClaw live 配置中的供应商 ID 列表
    * 用于前端判断供应商是否已添加到 openclaw.json
    */
-  async getOpenClawLiveProviderIds(): Promise<string[]> {
+  async getOpenClawLiveProviderIds(
+    target: ManagementTarget = { type: "local" },
+  ): Promise<string[]> {
+    if (target.type === "remote") {
+      return await remoteApi.getLiveProviderIds(
+        target.profile,
+        "openclaw",
+        target.secret,
+      );
+    }
     return await invoke("get_openclaw_live_provider_ids");
   },
 
@@ -298,7 +328,16 @@ export const providersApi = {
    * 获取 Hermes live 配置中的供应商 ID 列表
    * 用于前端判断供应商是否已添加到 Hermes 配置
    */
-  async getHermesLiveProviderIds(): Promise<string[]> {
+  async getHermesLiveProviderIds(
+    target: ManagementTarget = { type: "local" },
+  ): Promise<string[]> {
+    if (target.type === "remote") {
+      return await remoteApi.getLiveProviderIds(
+        target.profile,
+        "hermes",
+        target.secret,
+      );
+    }
     return await invoke("get_hermes_live_provider_ids");
   },
 

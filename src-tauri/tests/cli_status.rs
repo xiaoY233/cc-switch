@@ -67,6 +67,8 @@ fn settings_round_trip_through_json_cli() {
             "launchOnStartup": false,
             "silentStartup": false,
             "enableLocalProxy": false,
+            "enableRemoteRoutingToggle": true,
+            "enableRemoteFailoverToggle": true,
             "visibleApps": {
                 "claude": true,
                 "claude-desktop": false,
@@ -92,9 +94,106 @@ fn settings_round_trip_through_json_cli() {
     assert_eq!(get_response["ok"], true);
     assert_eq!(get_response["data"]["visibleApps"]["claude-desktop"], false);
     assert_eq!(get_response["data"]["visibleApps"]["hermes"], true);
+    assert_eq!(get_response["data"]["enableRemoteRoutingToggle"], true);
+    assert_eq!(get_response["data"]["enableRemoteFailoverToggle"], true);
     assert_eq!(get_response["data"]["skillStorageLocation"], "unified");
     assert_eq!(get_response["data"]["enableClaudePluginIntegration"], true);
     assert_eq!(get_response["data"]["skipClaudeOnboarding"], true);
+}
+
+#[test]
+#[serial]
+fn routing_circuit_breaker_commands_round_trip_through_json_cli() {
+    let (
+        add_provider_response,
+        set_response,
+        get_response,
+        health_response,
+        reset_response,
+        stats_response,
+    ) = with_temp_home(|| {
+        let config_json = serde_json::json!({
+            "failureThreshold": 6,
+            "successThreshold": 3,
+            "timeoutSeconds": 90,
+            "errorRateThreshold": 0.7,
+            "minRequests": 12
+        })
+        .to_string();
+        let provider_json = serde_json::json!({
+                "id": "provider-a",
+                "name": "Provider A",
+                "settingsConfig": {
+                    "auth": { "OPENAI_API_KEY": "sk-test" },
+                    "config": "model_provider = \"test\"\nmodel = \"gpt-5\"\n\n[model_providers.test]\nname = \"Test\"\nbase_url = \"https://example.com/v1\"\nwire_api = \"responses\"\nrequires_openai_auth = true\n"
+                }
+            })
+            .to_string();
+
+        let add_provider_response = cc_switch_lib::cli::run(&[
+            "providers".to_string(),
+            "add".to_string(),
+            "codex".to_string(),
+            provider_json,
+            "false".to_string(),
+        ]);
+        let set_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "set-circuit-breaker".to_string(),
+            config_json,
+        ]);
+        let get_response =
+            cc_switch_lib::cli::run(&["routing-config".to_string(), "circuit-breaker".to_string()]);
+        let health_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "provider-health".to_string(),
+            "codex".to_string(),
+            "provider-a".to_string(),
+        ]);
+        let reset_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "reset-circuit-breaker".to_string(),
+            "codex".to_string(),
+            "provider-a".to_string(),
+        ]);
+        let stats_response = cc_switch_lib::cli::run(&[
+            "routing-config".to_string(),
+            "circuit-breaker-stats".to_string(),
+            "codex".to_string(),
+            "provider-a".to_string(),
+        ]);
+
+        (
+            add_provider_response,
+            set_response,
+            get_response,
+            health_response,
+            reset_response,
+            stats_response,
+        )
+    });
+
+    assert_eq!(
+        add_provider_response["ok"], true,
+        "add_provider_response={add_provider_response:?}"
+    );
+    assert_eq!(set_response["ok"], true);
+    assert!(set_response["error"].is_null());
+    assert_eq!(get_response["ok"], true);
+    assert_eq!(get_response["data"]["failureThreshold"], 6);
+    assert_eq!(get_response["data"]["successThreshold"], 3);
+    assert_eq!(get_response["data"]["timeoutSeconds"], 90);
+    assert_eq!(health_response["ok"], true);
+    assert_eq!(health_response["data"]["provider_id"], "provider-a");
+    assert_eq!(health_response["data"]["app_type"], "codex");
+    assert_eq!(health_response["data"]["is_healthy"], true);
+    assert_eq!(
+        reset_response["ok"], true,
+        "reset_response={reset_response:?}"
+    );
+    assert!(reset_response["data"].is_null());
+    assert_eq!(stats_response["ok"], true);
+    assert!(stats_response["error"].is_null());
 }
 
 #[test]

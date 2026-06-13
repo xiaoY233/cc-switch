@@ -799,7 +799,7 @@ describe("App integration with MSW", () => {
     );
   });
 
-  it("hides local runtime controls while managing a remote target", async () => {
+  it("hides homepage routing controls while managing a remote target until remote settings enable them", async () => {
     localStorage.setItem("cc-switch-last-app", "claude");
     localStorage.setItem("cc-switch-last-view", "providers");
     setSettings({
@@ -835,10 +835,55 @@ describe("App integration with MSW", () => {
     await waitFor(() =>
       expect(screen.queryByTestId("proxy-toggle")).not.toBeInTheDocument(),
     );
-    expect(screen.getByTestId("remote-routing-toggle")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("remote-routing-toggle"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("remote-app-routing-toggle"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("failover-toggle")).not.toBeInTheDocument();
+    expect(screen.getByTitle("sessionManager.title")).toBeInTheDocument();
+  });
+
+  it("shows only remote app routing and failover homepage controls when enabled per remote host", async () => {
+    localStorage.setItem("cc-switch-last-app", "claude");
+    localStorage.setItem("cc-switch-last-view", "providers");
+    setSettings({
+      enableLocalProxy: true,
+      enableFailoverToggle: true,
+      firstRunNoticeConfirmed: true,
+    });
+    setRemoteSettings({
+      enableRemoteRoutingToggle: true,
+      enableRemoteFailoverToggle: true,
+    });
+    setRemoteProfiles([
+      {
+        id: "remote-1",
+        name: "Remote 1",
+        host: "192.168.1.20",
+        port: 22,
+        username: "root",
+        authMethod: { type: "sshAgent" },
+        helperPath: "~/.local/bin/cc-switch-remote-helper",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+
+    const { default: App } = await import("@/App");
+    renderApp(App);
+
+    fireEvent.click(await screen.findByText("Remote 1"));
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("proxy-toggle")).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByTestId("remote-routing-toggle"),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("remote-app-routing-toggle")).toBeInTheDocument();
     expect(screen.getByTestId("failover-toggle")).toBeInTheDocument();
-    expect(screen.getByTitle("sessionManager.title")).toBeInTheDocument();
   });
 
   it("opens remote session management without using local session data", async () => {

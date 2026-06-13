@@ -19,7 +19,12 @@ const LOCAL_TARGET: ManagementTarget = { type: "local" };
  * `apply_switch_defaults` when the user switches providers.
  */
 export const hermesApi = {
-  async getModelConfig(): Promise<HermesModelConfig | null> {
+  async getModelConfig(
+    target: ManagementTarget = LOCAL_TARGET,
+  ): Promise<HermesModelConfig | null> {
+    if (target.type === "remote") {
+      return remoteApi.getHermesModelConfig(target.profile, target.secret);
+    }
     return await invoke("get_hermes_model_config");
   },
 

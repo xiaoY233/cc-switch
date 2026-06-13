@@ -3,9 +3,10 @@ use crate::database::FailoverQueueItem;
 use crate::prompt::Prompt;
 use crate::provider::{Provider, UniversalProvider};
 use crate::proxy::types::{
-    AppProxyConfig, GlobalProxyConfig, OptimizerConfig, ProxyServerInfo, ProxyStatus,
-    RectifierConfig,
+    AppProxyConfig, GlobalProxyConfig, OptimizerConfig, ProviderHealth, ProxyServerInfo,
+    ProxyStatus, RectifierConfig,
 };
+use crate::proxy::{CircuitBreakerConfig, CircuitBreakerStats};
 use crate::remote::{
     build_helper_install_args, build_ssh_args, delete_profile, delete_profile_secret,
     install_helper_json, load_profiles, remote_session_manager, run_helper_json,
@@ -616,6 +617,7 @@ fn parse_remote_capability(value: &str) -> Option<RemoteCapability> {
         "hermes-memory" => Some(RemoteCapability::HermesMemory),
         "import-export" => Some(RemoteCapability::ImportExport),
         "tools" => Some(RemoteCapability::Tools),
+        "stream-check" => Some(RemoteCapability::StreamCheck),
         "settings" => Some(RemoteCapability::Settings),
         "plugin" => Some(RemoteCapability::Plugin),
         "session" => Some(RemoteCapability::Session),
@@ -789,6 +791,59 @@ pub async fn remote_delete_provider(
         vec!["providers".to_string(), "delete".to_string(), app, id],
         secret,
         "Remote provider delete",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_remove_provider_from_live_config(
+    profile: RemoteHostProfile,
+    app: String,
+    id: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<bool, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["providers".to_string(), "remove-live".to_string(), app, id],
+        secret,
+        "Remote provider remove from live config",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_live_provider_ids(
+    profile: RemoteHostProfile,
+    app: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Vec<String>, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["providers".to_string(), "live-ids".to_string(), app],
+        secret,
+        "Remote provider live IDs",
+    )
+    .await
+}
+
+#[tauri::command]
+#[allow(non_snake_case)]
+pub async fn remote_stream_check_provider(
+    profile: RemoteHostProfile,
+    app: String,
+    providerId: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<crate::services::stream_check::StreamCheckResult, String> {
+    run_remote_helper_json(
+        profile,
+        vec![
+            "stream-check".to_string(),
+            "provider".to_string(),
+            app,
+            providerId,
+        ],
+        secret,
+        "Remote stream check provider",
     )
     .await
 }
@@ -1079,6 +1134,103 @@ pub async fn remote_set_auto_failover_enabled(
 }
 
 #[tauri::command]
+pub async fn remote_get_routing_provider_health(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] providerId: String,
+    #[allow(non_snake_case)] appType: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<ProviderHealth, String> {
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "provider-health".to_string(),
+            appType,
+            providerId,
+        ],
+        secret,
+        "Remote routing provider health get",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_reset_routing_circuit_breaker(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] providerId: String,
+    #[allow(non_snake_case)] appType: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<(), String> {
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "reset-circuit-breaker".to_string(),
+            appType,
+            providerId,
+        ],
+        secret,
+        "Remote routing circuit breaker reset",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_routing_circuit_breaker_config(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<CircuitBreakerConfig, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["routing-config".to_string(), "circuit-breaker".to_string()],
+        secret,
+        "Remote routing circuit breaker config get",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_update_routing_circuit_breaker_config(
+    profile: RemoteHostProfile,
+    config: CircuitBreakerConfig,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<(), String> {
+    let config_json = serde_json::to_string(&config).map_err(|e| e.to_string())?;
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "set-circuit-breaker".to_string(),
+            config_json,
+        ],
+        secret,
+        "Remote routing circuit breaker config update",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_routing_circuit_breaker_stats(
+    profile: RemoteHostProfile,
+    #[allow(non_snake_case)] providerId: String,
+    #[allow(non_snake_case)] appType: String,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Option<CircuitBreakerStats>, String> {
+    run_remote_helper_json(
+        profile,
+        vec![
+            "routing-config".to_string(),
+            "circuit-breaker-stats".to_string(),
+            appType,
+            providerId,
+        ],
+        secret,
+        "Remote routing circuit breaker stats get",
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn remote_update_routing_app_config(
     profile: RemoteHostProfile,
     config: AppProxyConfig,
@@ -1339,6 +1491,20 @@ pub async fn remote_get_hermes_memory(
         ],
         secret,
         "Remote Hermes memory get",
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remote_get_hermes_model_config(
+    profile: RemoteHostProfile,
+    secret: Option<RemoteConnectionSecret>,
+) -> Result<Option<crate::hermes_config::HermesModelConfig>, String> {
+    run_remote_helper_json(
+        profile,
+        vec!["hermes".to_string(), "model".to_string(), "get".to_string()],
+        secret,
+        "Remote Hermes model get",
     )
     .await
 }
@@ -2143,6 +2309,10 @@ mod tests {
         assert_eq!(
             parse_remote_capability("routing-runtime"),
             Some(RemoteCapability::RoutingRuntime)
+        );
+        assert_eq!(
+            parse_remote_capability("stream-check"),
+            Some(RemoteCapability::StreamCheck)
         );
     }
 

@@ -347,6 +347,10 @@ export interface Settings {
   streamCheckConfirmed?: boolean;
   // Whether to show the failover toggle independently on the main page
   enableFailoverToggle?: boolean;
+  // Whether to show the remote app routing toggle on the main page for this target
+  enableRemoteRoutingToggle?: boolean;
+  // Whether to show the remote failover toggle on the main page for this target
+  enableRemoteFailoverToggle?: boolean;
   // Preserve Codex ChatGPT login in auth.json when switching third-party providers
   preserveCodexOfficialAuthOnSwitch?: boolean;
   // User has confirmed the failover toggle first-run notice

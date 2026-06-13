@@ -49,7 +49,11 @@ export function RemoteHealthPanel({
   const helperLatestText = formatRemoteHelperLatest(health);
   const helperInstallLabel = health?.helperUpdateAvailable
     ? t("remote.health.updateHelper", { defaultValue: "更新 Helper" })
-    : t("remote.health.install", { defaultValue: "安装 Helper" });
+    : health?.helperInstalled
+      ? t("remote.health.reinstallHelper", {
+          defaultValue: "重新安装 Helper",
+        })
+      : t("remote.health.install", { defaultValue: "安装 Helper" });
   const helperUpdateErrorText = health?.helperUpdateError
     ? formatRemoteHelperUpdateError(health.helperUpdateError, t)
     : null;

@@ -18,7 +18,8 @@ export const getOpenClawTargetKey = (target: ManagementTarget) =>
  */
 export const openclawKeys = {
   all: ["openclaw"] as const,
-  liveProviderIds: ["openclaw", "liveProviderIds"] as const,
+  liveProviderIds: (targetKey = "local") =>
+    ["openclaw", "liveProviderIds", targetKey] as const,
   defaultModel: ["openclaw", "defaultModel"] as const,
   env: ["openclaw", "env"] as const,
   tools: ["openclaw", "tools"] as const,
@@ -34,10 +35,14 @@ export const openclawKeys = {
  * Query live provider IDs from openclaw.json config.
  * Used by ProviderList to show "In Config" badge.
  */
-export function useOpenClawLiveProviderIds(enabled: boolean) {
+export function useOpenClawLiveProviderIds(
+  enabled: boolean,
+  target: ManagementTarget = LOCAL_TARGET,
+) {
+  const targetKey = getOpenClawTargetKey(target);
   return useQuery({
-    queryKey: openclawKeys.liveProviderIds,
-    queryFn: () => providersApi.getOpenClawLiveProviderIds(),
+    queryKey: openclawKeys.liveProviderIds(targetKey),
+    queryFn: () => providersApi.getOpenClawLiveProviderIds(target),
     enabled,
   });
 }

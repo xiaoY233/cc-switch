@@ -63,7 +63,7 @@ import {
 import { isTextEditableTarget } from "@/utils/domUtils";
 import { deepClone } from "@/utils/deepClone";
 import { cn } from "@/lib/utils";
-import { isRemoteSafeView } from "@/lib/managementTarget";
+import { getManagementTargetKey, isRemoteSafeView } from "@/lib/managementTarget";
 import {
   isWindows,
   isLinux,
@@ -82,7 +82,6 @@ import { EnvWarningBanner } from "@/components/env/EnvWarningBanner";
 import { ProxyToggle } from "@/components/proxy/ProxyToggle";
 import { ClaudeDesktopRouteToggle } from "@/components/proxy/ClaudeDesktopRouteToggle";
 import { FailoverToggle } from "@/components/proxy/FailoverToggle";
-import { RemoteRoutingToggle } from "@/components/proxy/RemoteRoutingToggle";
 import { RemoteAppRoutingToggle } from "@/components/proxy/RemoteAppRoutingToggle";
 import { useAppProxyConfig } from "@/lib/query/proxy";
 import UsageScriptModal from "@/components/UsageScriptModal";
@@ -470,6 +469,10 @@ function App() {
     isProxyRunning &&
     Boolean(remoteRoutableActiveApp) &&
     Boolean(activeRemoteAppProxyConfig?.enabled);
+  const showRemoteHomepageRoutingToggle =
+    activeRemoteSettings?.enableRemoteRoutingToggle === true;
+  const showRemoteHomepageFailoverToggle =
+    activeRemoteSettings?.enableRemoteFailoverToggle === true;
   const isCurrentAppRouteActive =
     managementTarget.type === "local"
       ? isCurrentAppTakeoverActive
@@ -881,22 +884,33 @@ function App() {
     if (action === "remove") {
       // Remove from live config only (for additive mode apps like OpenCode/OpenClaw)
       // Does NOT delete from database - provider remains in the list
-      await providersApi.removeFromLiveConfig(provider.id, activeApp);
+      await providersApi.removeFromLiveConfig(
+        provider.id,
+        activeApp,
+        managementTarget,
+      );
       // Invalidate queries to refresh the isInConfig state
       if (activeApp === "opencode") {
         await queryClient.invalidateQueries({
-          queryKey: ["opencodeLiveProviderIds"],
+          queryKey: [
+            "opencodeLiveProviderIds",
+            getManagementTargetKey(managementTarget),
+          ],
         });
       } else if (activeApp === "openclaw") {
         await queryClient.invalidateQueries({
-          queryKey: openclawKeys.liveProviderIds,
+          queryKey: openclawKeys.liveProviderIds(
+            getManagementTargetKey(managementTarget),
+          ),
         });
         await queryClient.invalidateQueries({
           queryKey: openclawKeys.health,
         });
       } else if (activeApp === "hermes") {
         await queryClient.invalidateQueries({
-          queryKey: hermesKeys.liveProviderIds,
+          queryKey: hermesKeys.liveProviderIds(
+            getManagementTargetKey(managementTarget),
+          ),
         });
       }
       toast.success(
@@ -952,36 +966,44 @@ function App() {
       activeApp === "hermes"
     ) {
       let liveProviderIds: string[] = [];
-      if (managementTarget.type === "local") {
-        try {
-          liveProviderIds =
-            activeApp === "opencode"
+      try {
+        liveProviderIds =
+          activeApp === "opencode"
+            ? await queryClient.ensureQueryData({
+                queryKey: [
+                  "opencodeLiveProviderIds",
+                  getManagementTargetKey(managementTarget),
+                ],
+                queryFn: () =>
+                  providersApi.getOpenCodeLiveProviderIds(managementTarget),
+              })
+            : activeApp === "openclaw"
               ? await queryClient.ensureQueryData({
-                  queryKey: ["opencodeLiveProviderIds"],
-                  queryFn: () => providersApi.getOpenCodeLiveProviderIds(),
+                  queryKey: openclawKeys.liveProviderIds(
+                    getManagementTargetKey(managementTarget),
+                  ),
+                  queryFn: () =>
+                    providersApi.getOpenClawLiveProviderIds(managementTarget),
                 })
-              : activeApp === "openclaw"
-                ? await queryClient.ensureQueryData({
-                    queryKey: openclawKeys.liveProviderIds,
-                    queryFn: () => providersApi.getOpenClawLiveProviderIds(),
-                  })
-                : await queryClient.ensureQueryData({
-                    queryKey: hermesKeys.liveProviderIds,
-                    queryFn: () => providersApi.getHermesLiveProviderIds(),
-                  });
-        } catch (error) {
-          console.error(
-            "[App] Failed to load live provider IDs for duplication",
-            error,
-          );
-          const errorMessage = extractErrorMessage(error);
-          toast.error(
-            t("provider.duplicateLiveIdsLoadFailed", {
-              defaultValue: "读取配置中的供应商标识失败，请先修复配置后再试",
-            }) + (errorMessage ? `: ${errorMessage}` : ""),
-          );
-          return;
-        }
+              : await queryClient.ensureQueryData({
+                  queryKey: hermesKeys.liveProviderIds(
+                    getManagementTargetKey(managementTarget),
+                  ),
+                  queryFn: () =>
+                    providersApi.getHermesLiveProviderIds(managementTarget),
+                });
+      } catch (error) {
+        console.error(
+          "[App] Failed to load live provider IDs for duplication",
+          error,
+        );
+        const errorMessage = extractErrorMessage(error);
+        toast.error(
+          t("provider.duplicateLiveIdsLoadFailed", {
+            defaultValue: "读取配置中的供应商标识失败，请先修复配置后再试",
+          }) + (errorMessage ? `: ${errorMessage}` : ""),
+        );
+        return;
       }
       const existingKeys = Array.from(
         new Set([...Object.keys(providers), ...liveProviderIds]),
@@ -1254,10 +1276,9 @@ function App() {
                         setConfirmAction({ provider, action: "delete" })
                       }
                       onRemoveFromConfig={
-                        managementTarget.type === "local" &&
-                        (activeApp === "opencode" ||
-                          activeApp === "openclaw" ||
-                          activeApp === "hermes")
+                        activeApp === "opencode" ||
+                        activeApp === "openclaw" ||
+                        activeApp === "hermes"
                           ? (provider) =>
                               setConfirmAction({ provider, action: "remove" })
                           : undefined
@@ -1566,20 +1587,25 @@ function App() {
               )}
             {currentView === "providers" &&
               managementTarget.type === "remote" &&
-              remoteRoutableActiveApp && (
+              remoteRoutableActiveApp &&
+              (showRemoteHomepageRoutingToggle ||
+                showRemoteHomepageFailoverToggle) && (
                 <div
                   className="flex shrink-0 items-center gap-1.5"
                   style={{ WebkitAppRegion: "no-drag" } as any}
                 >
-                  <RemoteRoutingToggle target={managementTarget} />
-                  <RemoteAppRoutingToggle
-                    activeApp={remoteRoutableActiveApp}
-                    target={managementTarget}
-                  />
-                  <FailoverToggle
-                    activeApp={remoteRoutableActiveApp}
-                    target={managementTarget}
-                  />
+                  {showRemoteHomepageRoutingToggle && (
+                    <RemoteAppRoutingToggle
+                      activeApp={remoteRoutableActiveApp}
+                      target={managementTarget}
+                    />
+                  )}
+                  {showRemoteHomepageFailoverToggle && (
+                    <FailoverToggle
+                      activeApp={remoteRoutableActiveApp}
+                      target={managementTarget}
+                    />
+                  )}
                 </div>
               )}
             <div

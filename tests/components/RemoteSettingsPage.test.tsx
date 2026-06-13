@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RemoteSettingsPage } from "@/components/settings/RemoteSettingsPage";
@@ -10,6 +10,8 @@ const getSettingsMock = vi.fn();
 const saveSettingsMock = vi.fn();
 const getInstalledSkillsMock = vi.fn();
 const migrateSkillStorageMock = vi.fn();
+const startProxyServerMock = vi.fn();
+const stopWithRestoreMock = vi.fn();
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
@@ -37,6 +39,62 @@ vi.mock("@/lib/api", async () => {
     },
   };
 });
+
+vi.mock("@/hooks/useProxyStatus", () => ({
+  useProxyStatus: () => ({
+    isRunning: false,
+    status: null,
+    takeoverStatus: {},
+    startProxyServer: startProxyServerMock,
+    stopWithRestore: stopWithRestoreMock,
+    isStarting: false,
+    isStopping: false,
+    isPending: false,
+  }),
+}));
+
+vi.mock("@/lib/query/proxy", () => ({
+  useAppProxyConfig: () => ({
+    data: {
+      appType: "claude",
+      enabled: false,
+      targetUrl: "http://127.0.0.1:15721",
+    },
+  }),
+  useUpdateAppProxyConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useGlobalProxyConfig: () => ({
+    data: {
+      listenAddress: "127.0.0.1",
+      listenPort: 15721,
+      enableLogging: true,
+    },
+  }),
+  useUpdateGlobalProxyConfig: () => ({ mutateAsync: vi.fn() }),
+  useProxyTakeoverStatus: () => ({ data: {} }),
+  useSetProxyTakeoverForApp: () => ({ mutateAsync: vi.fn() }),
+}));
+
+vi.mock("@/components/proxy/FailoverQueueManager", () => ({
+  FailoverQueueManager: () => <div data-testid="failover-queue-manager" />,
+}));
+
+vi.mock("@/components/proxy/AutoFailoverConfigPanel", () => ({
+  AutoFailoverConfigPanel: () => (
+    <div data-testid="auto-failover-config-panel" />
+  ),
+}));
+
+vi.mock("@/components/proxy/ProxyPanel", () => ({
+  ProxyPanel: () => <div data-testid="proxy-panel" />,
+}));
+
+vi.mock("@/components/settings/RectifierConfigPanel", () => ({
+  RectifierConfigPanel: () => <div data-testid="rectifier-config-panel" />,
+}));
+
+vi.mock("@/components/settings/GlobalProxySettings", () => ({
+  GlobalProxySettings: () => <div data-testid="global-proxy-settings" />,
+}));
 
 const profile: RemoteHostProfile = {
   id: "remote-1",
@@ -79,17 +137,111 @@ describe("RemoteSettingsPage", () => {
     saveSettingsMock.mockReset();
     getInstalledSkillsMock.mockReset();
     migrateSkillStorageMock.mockReset();
+    startProxyServerMock.mockReset();
+    stopWithRestoreMock.mockReset();
 
     checkHealthMock.mockResolvedValue({
       reachable: true,
       helperInstalled: true,
       helperVersion: "3.16.2",
       platform: "linux",
-      capabilities: ["settings", "plugin", "skills", "tools"],
+      capabilities: [
+        "settings",
+        "plugin",
+        "skills",
+        "tools",
+        "routing-config",
+        "routing-runtime",
+      ],
     });
     getSettingsMock.mockResolvedValue(settings);
     saveSettingsMock.mockResolvedValue(true);
     getInstalledSkillsMock.mockResolvedValue([]);
+  });
+
+  it("keeps remote homepage routing display settings in the routing tab", async () => {
+    const user = userEvent.setup();
+    const saveDeferred = createDeferred<boolean>();
+    saveSettingsMock.mockReturnValue(saveDeferred.promise);
+
+    render(
+      <RemoteSettingsPage
+        open
+        onOpenChange={vi.fn()}
+        defaultTab="general"
+        target={{ type: "remote", profile, secret: { password: "secret" } }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /gemini/i }),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("远程通用设置")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("这些设置保存到当前远程主机自己的配置目录。"),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.queryByText("在主页面显示远程路由开关"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("在主页面显示远程故障转移开关"),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "代理" }));
+    expect(
+      screen.queryByRole("button", { name: /远程路由/ }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: /settings\.advanced\.proxy\.title/ }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("在主页面显示远程路由开关")).toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByRole("button", { name: /远程自动故障转移/ }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", {
+        name: /settings\.advanced\.failover\.title/,
+      }),
+    );
+
+    expect(
+      screen.getByText("在主页面显示远程故障转移开关"),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("switch", {
+        name: "在主页面显示远程路由开关",
+      }),
+    );
+
+    expect(
+      screen.getByRole("switch", {
+        name: "在主页面显示远程路由开关",
+      }),
+    ).toBeChecked();
+
+    await waitFor(() => {
+      expect(saveSettingsMock).toHaveBeenCalledWith(
+        profile,
+        expect.objectContaining({
+          enableRemoteRoutingToggle: true,
+        }),
+        { password: "secret" },
+      );
+    });
+
+    await act(async () => {
+      saveDeferred.resolve(true);
+      await saveDeferred.promise;
+    });
   });
 
   it("loads remote general settings and saves per-host app visibility", async () => {
@@ -111,8 +263,15 @@ describe("RemoteSettingsPage", () => {
     await user.click(screen.getByRole("tab", { name: "通用" }));
 
     await waitFor(() => {
-      expect(screen.getByText("远程通用设置")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /gemini/i }),
+      ).toBeInTheDocument();
     });
+
+    expect(screen.queryByText("远程通用设置")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("这些设置保存到当前远程主机自己的配置目录。"),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /gemini/i }));
 

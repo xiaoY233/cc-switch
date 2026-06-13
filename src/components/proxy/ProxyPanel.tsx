@@ -497,6 +497,7 @@ export function ProxyPanel({
                         name: item.providerName,
                       }))}
                       status={status}
+                      target={target}
                     />
                   )}
 
@@ -509,6 +510,7 @@ export function ProxyPanel({
                         name: item.providerName,
                       }))}
                       status={status}
+                      target={target}
                     />
                   )}
 
@@ -521,6 +523,7 @@ export function ProxyPanel({
                         name: item.providerName,
                       }))}
                       status={status}
+                      target={target}
                     />
                   )}
                 </div>
@@ -708,6 +711,7 @@ interface ProviderQueueGroupProps {
     name: string;
   }>;
   status: ProxyStatus;
+  target: ManagementTarget;
 }
 
 function ProviderQueueGroup({
@@ -715,6 +719,7 @@ function ProviderQueueGroup({
   appLabel,
   targets,
   status,
+  target,
 }: ProviderQueueGroupProps) {
   // 查找该应用类型的当前活跃目标
   const activeTarget = status.active_targets?.find(
@@ -733,13 +738,14 @@ function ProviderQueueGroup({
 
       {/* 供应商列表 */}
       <div className="space-y-1.5">
-        {targets.map((target, index) => (
+        {targets.map((queueTarget, index) => (
           <ProviderQueueItem
-            key={target.id}
-            provider={target}
+            key={queueTarget.id}
+            provider={queueTarget}
             priority={index + 1}
             appType={appType}
-            isCurrent={activeTarget?.provider_id === target.id}
+            isCurrent={activeTarget?.provider_id === queueTarget.id}
+            target={target}
           />
         ))}
       </div>
@@ -755,6 +761,7 @@ interface ProviderQueueItemProps {
   priority: number;
   appType: string;
   isCurrent: boolean;
+  target: ManagementTarget;
 }
 
 function ProviderQueueItem({
@@ -762,9 +769,10 @@ function ProviderQueueItem({
   priority,
   appType,
   isCurrent,
+  target,
 }: ProviderQueueItemProps) {
   const { t } = useTranslation();
-  const { data: health } = useProviderHealth(provider.id, appType);
+  const { data: health } = useProviderHealth(provider.id, appType, target);
 
   return (
     <div

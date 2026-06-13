@@ -60,6 +60,22 @@ interface SettingsDialogProps {
   target?: ManagementTarget;
 }
 
+const LOCAL_SETTINGS_TABS = new Set([
+  "general",
+  "proxy",
+  "auth",
+  "advanced",
+  "usage",
+  "about",
+]);
+
+function coerceLocalSettingsTab(tab: string | undefined): string {
+  if (tab === "routing") return "proxy";
+  if (tab === "environment") return "about";
+  if (tab === "data") return "advanced";
+  return tab && LOCAL_SETTINGS_TABS.has(tab) ? tab : "general";
+}
+
 export function SettingsPage({
   open,
   onOpenChange,
@@ -108,7 +124,7 @@ export function SettingsPage({
 
   useEffect(() => {
     if (open) {
-      setActiveTab(defaultTab);
+      setActiveTab(coerceLocalSettingsTab(defaultTab));
       resetStatus();
     }
   }, [open, resetStatus, defaultTab]);

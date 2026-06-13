@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   HermesMemoryKind,
   HermesMemoryLimits,
+  HermesModelConfig,
   McpServer,
   McpServersMap,
   OpenClawAgentsDefaults,
@@ -17,6 +18,7 @@ import type {
 } from "@/types";
 import type { AppId } from "./types";
 import type { ProviderSortUpdate, SwitchResult } from "./providers";
+import type { StreamCheckResult } from "./model-test";
 import type { Prompt } from "./prompts";
 import type {
   DiscoverableSkill,
@@ -32,8 +34,11 @@ import type {
 import type { Settings, SkillStorageLocation } from "@/types";
 import type {
   AppProxyConfig,
+  CircuitBreakerConfig,
+  CircuitBreakerStats,
   FailoverQueueItem,
   GlobalProxyConfig,
+  ProviderHealth,
   ProxyServerInfo,
   ProxyStatus,
 } from "@/types/proxy";
@@ -524,6 +529,46 @@ export const remoteApi = {
     });
   },
 
+  removeProviderFromLiveConfig(
+    profile: RemoteHostProfile,
+    app: AppId,
+    id: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<boolean> {
+    return invoke<boolean>("remote_remove_provider_from_live_config", {
+      profile,
+      app,
+      id,
+      secret,
+    });
+  },
+
+  getLiveProviderIds(
+    profile: RemoteHostProfile,
+    app: AppId,
+    secret?: RemoteConnectionSecret,
+  ): Promise<string[]> {
+    return invoke<string[]>("remote_get_live_provider_ids", {
+      profile,
+      app,
+      secret,
+    });
+  },
+
+  streamCheckProvider(
+    profile: RemoteHostProfile,
+    app: AppId,
+    providerId: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<StreamCheckResult> {
+    return invoke<StreamCheckResult>("remote_stream_check_provider", {
+      profile,
+      app,
+      providerId,
+      secret,
+    });
+  },
+
   importProviders(
     profile: RemoteHostProfile,
     app: AppId,
@@ -732,6 +777,76 @@ export const remoteApi = {
     });
   },
 
+  getRoutingProviderHealth(
+    profile: RemoteHostProfile,
+    providerId: string,
+    appType: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<ProviderHealth> {
+    return invoke<ProviderHealth>("remote_get_routing_provider_health", {
+      profile,
+      providerId,
+      appType,
+      secret,
+    });
+  },
+
+  resetRoutingCircuitBreaker(
+    profile: RemoteHostProfile,
+    providerId: string,
+    appType: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_reset_routing_circuit_breaker", {
+      profile,
+      providerId,
+      appType,
+      secret,
+    });
+  },
+
+  getRoutingCircuitBreakerConfig(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<CircuitBreakerConfig> {
+    return invoke<CircuitBreakerConfig>(
+      "remote_get_routing_circuit_breaker_config",
+      {
+        profile,
+        secret,
+      },
+    );
+  },
+
+  updateRoutingCircuitBreakerConfig(
+    profile: RemoteHostProfile,
+    config: CircuitBreakerConfig,
+    secret?: RemoteConnectionSecret,
+  ): Promise<void> {
+    return invoke<void>("remote_update_routing_circuit_breaker_config", {
+      profile,
+      config,
+      secret,
+    });
+  },
+
+  getRoutingCircuitBreakerStats(
+    profile: RemoteHostProfile,
+    providerId: string,
+    appType: string,
+    secret?: RemoteConnectionSecret,
+  ): Promise<CircuitBreakerStats | null> {
+    return invoke<CircuitBreakerStats | null>(
+      "remote_get_routing_circuit_breaker_stats",
+      {
+        profile,
+        providerId,
+        appType,
+        secret,
+      },
+    );
+  },
+
   getRoutingRectifierConfig(
     profile: RemoteHostProfile,
     secret?: RemoteConnectionSecret,
@@ -887,6 +1002,16 @@ export const remoteApi = {
     return invoke<string>("remote_get_hermes_memory", {
       profile,
       kind,
+      secret,
+    });
+  },
+
+  getHermesModelConfig(
+    profile: RemoteHostProfile,
+    secret?: RemoteConnectionSecret,
+  ): Promise<HermesModelConfig | null> {
+    return invoke<HermesModelConfig | null>("remote_get_hermes_model_config", {
+      profile,
       secret,
     });
   },

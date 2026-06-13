@@ -179,6 +179,32 @@ pub(crate) fn run_command(args: &[String]) -> Value {
             Err(err) => serde_json::to_value(types::err::<()>("invalid_app", err.to_string()))
                 .expect("serialize invalid app error"),
         },
+        [group, cmd, app, id] if group == "providers" && cmd == "remove-live" => match app.parse()
+        {
+            Ok(app_type) => match commands::remove_provider_from_live_config(app_type, id) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize remove live")
+                }
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "providers_remove_live_failed",
+                    message,
+                ))
+                .expect("serialize provider remove live error"),
+            },
+            Err(err) => serde_json::to_value(types::err::<()>("invalid_app", err.to_string()))
+                .expect("serialize invalid app error"),
+        },
+        [group, cmd, app] if group == "providers" && cmd == "live-ids" => match app.parse() {
+            Ok(app_type) => match commands::live_provider_ids(app_type) {
+                Ok(value) => serde_json::to_value(types::ok(value)).expect("serialize live ids"),
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("providers_live_ids_failed", message))
+                        .expect("serialize provider live ids error")
+                }
+            },
+            Err(err) => serde_json::to_value(types::err::<()>("invalid_app", err.to_string()))
+                .expect("serialize invalid app error"),
+        },
         [group, cmd, app] if group == "providers" && cmd == "import" => match app.parse() {
             Ok(app_type) => match commands::import_providers(app_type) {
                 Ok(value) => serde_json::to_value(types::ok(value)).expect("serialize import"),
@@ -239,6 +265,21 @@ pub(crate) fn run_command(args: &[String]) -> Value {
                     serde_json::to_value(types::err::<()>("tools_probe_failed", message))
                         .expect("serialize tool probe error")
                 }
+            }
+        }
+        [group, cmd, app, provider_id] if group == "stream-check" && cmd == "provider" => {
+            match app.parse() {
+                Ok(app_type) => match commands::stream_check_provider(app_type, provider_id) {
+                    Ok(value) => {
+                        serde_json::to_value(types::ok(value)).expect("serialize stream check")
+                    }
+                    Err(message) => {
+                        serde_json::to_value(types::err::<()>("stream_check_failed", message))
+                            .expect("serialize stream check error")
+                    }
+                },
+                Err(err) => serde_json::to_value(types::err::<()>("invalid_app", err.to_string()))
+                    .expect("serialize invalid app error"),
             }
         }
         [group, cmd] if group == "settings" && cmd == "get" => {
@@ -475,6 +516,71 @@ pub(crate) fn run_command(args: &[String]) -> Value {
                 }
             }
         }
+        [group, cmd, app_type, provider_id]
+            if group == "routing-config" && cmd == "provider-health" =>
+        {
+            match commands::get_routing_provider_health(app_type, provider_id) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize provider health")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("routing_provider_health_failed", message))
+                        .expect("serialize provider health error")
+                }
+            }
+        }
+        [group, cmd, app_type, provider_id]
+            if group == "routing-config" && cmd == "reset-circuit-breaker" =>
+        {
+            match commands::reset_routing_circuit_breaker(app_type, provider_id) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize circuit breaker reset")
+                }
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "routing_circuit_breaker_reset_failed",
+                    message,
+                ))
+                .expect("serialize circuit breaker reset error"),
+            }
+        }
+        [group, cmd] if group == "routing-config" && cmd == "circuit-breaker" => {
+            match commands::get_routing_circuit_breaker_config() {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize circuit breaker config")
+                }
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "routing_circuit_breaker_get_failed",
+                    message,
+                ))
+                .expect("serialize circuit breaker config error"),
+            }
+        }
+        [group, cmd, config_json] if group == "routing-config" && cmd == "set-circuit-breaker" => {
+            match commands::update_routing_circuit_breaker_config(config_json) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize circuit breaker update")
+                }
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "routing_circuit_breaker_set_failed",
+                    message,
+                ))
+                .expect("serialize circuit breaker update error"),
+            }
+        }
+        [group, cmd, app_type, provider_id]
+            if group == "routing-config" && cmd == "circuit-breaker-stats" =>
+        {
+            match commands::get_routing_circuit_breaker_stats(app_type, provider_id) {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize circuit breaker stats")
+                }
+                Err(message) => serde_json::to_value(types::err::<()>(
+                    "routing_circuit_breaker_stats_failed",
+                    message,
+                ))
+                .expect("serialize circuit breaker stats error"),
+            }
+        }
         [group, cmd] if group == "routing-config" && cmd == "rectifier" => {
             match commands::get_routing_rectifier_config() {
                 Ok(value) => {
@@ -653,6 +759,17 @@ pub(crate) fn run_command(args: &[String]) -> Value {
                     message,
                 ))
                 .expect("serialize hermes memory limits error"),
+            }
+        }
+        [group, scope, cmd] if group == "hermes" && scope == "model" && cmd == "get" => {
+            match commands::get_hermes_model_config() {
+                Ok(value) => {
+                    serde_json::to_value(types::ok(value)).expect("serialize hermes model")
+                }
+                Err(message) => {
+                    serde_json::to_value(types::err::<()>("hermes_model_get_failed", message))
+                        .expect("serialize hermes model error")
+                }
             }
         }
         [group, scope, cmd, kind, enabled]
@@ -1053,7 +1170,7 @@ pub(crate) fn run_command(args: &[String]) -> Value {
         }
         _ => serde_json::to_value(types::err::<()>(
             "unsupported_command",
-            "Supported commands: status, providers, universal-providers, routing-config, routing-runtime, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools, settings, plugin",
+            "Supported commands: status, providers, universal-providers, routing-config, routing-runtime, sessions, hermes, openclaw, mcp, prompts, skills, import-export, tools, settings, plugin, stream-check",
         ))
         .expect("serialize error response"),
     }

@@ -1,17 +1,35 @@
 import { useTranslation } from "react-i18next";
-import type { SettingsFormState } from "@/hooks/useSettings";
+import type { Settings } from "@/types";
 import { AppWindow, MonitorUp, Power, EyeOff } from "lucide-react";
 import { ToggleRow } from "@/components/ui/toggle-row";
 import { AnimatePresence, motion } from "framer-motion";
 import { isLinux } from "@/lib/platform";
 
+type WindowSettingsState = Pick<
+  Settings,
+  | "launchOnStartup"
+  | "silentStartup"
+  | "enableClaudePluginIntegration"
+  | "skipClaudeOnboarding"
+  | "minimizeToTrayOnClose"
+  | "useAppWindowControls"
+>;
+
 interface WindowSettingsProps {
-  settings: SettingsFormState;
-  onChange: (updates: Partial<SettingsFormState>) => void;
+  settings: WindowSettingsState;
+  onChange: (updates: Partial<WindowSettingsState>) => void;
+  mode?: "local" | "remote";
+  disabled?: boolean;
 }
 
-export function WindowSettings({ settings, onChange }: WindowSettingsProps) {
+export function WindowSettings({
+  settings,
+  onChange,
+  mode = "local",
+  disabled = false,
+}: WindowSettingsProps) {
   const { t } = useTranslation();
+  const isRemote = mode === "remote";
 
   return (
     <section className="space-y-4">
@@ -21,16 +39,18 @@ export function WindowSettings({ settings, onChange }: WindowSettingsProps) {
       </div>
 
       <div className="space-y-3">
-        <ToggleRow
-          icon={<Power className="h-4 w-4 text-orange-500" />}
-          title={t("settings.launchOnStartup")}
-          description={t("settings.launchOnStartupDescription")}
-          checked={!!settings.launchOnStartup}
-          onCheckedChange={(value) => onChange({ launchOnStartup: value })}
-        />
+        {!isRemote ? (
+          <ToggleRow
+            icon={<Power className="h-4 w-4 text-orange-500" />}
+            title={t("settings.launchOnStartup")}
+            description={t("settings.launchOnStartupDescription")}
+            checked={!!settings.launchOnStartup}
+            onCheckedChange={(value) => onChange({ launchOnStartup: value })}
+          />
+        ) : null}
 
         <AnimatePresence initial={false}>
-          {settings.launchOnStartup && (
+          {!isRemote && settings.launchOnStartup && (
             <motion.div
               key="silent-startup"
               initial={{ opacity: 0, y: 10 }}
@@ -44,6 +64,7 @@ export function WindowSettings({ settings, onChange }: WindowSettingsProps) {
                 description={t("settings.silentStartupDescription")}
                 checked={!!settings.silentStartup}
                 onCheckedChange={(value) => onChange({ silentStartup: value })}
+                disabled={disabled}
               />
             </motion.div>
           )}
@@ -57,6 +78,7 @@ export function WindowSettings({ settings, onChange }: WindowSettingsProps) {
           onCheckedChange={(value) =>
             onChange({ enableClaudePluginIntegration: value })
           }
+          disabled={disabled}
         />
 
         <ToggleRow
@@ -65,19 +87,22 @@ export function WindowSettings({ settings, onChange }: WindowSettingsProps) {
           description={t("settings.skipClaudeOnboardingDescription")}
           checked={!!settings.skipClaudeOnboarding}
           onCheckedChange={(value) => onChange({ skipClaudeOnboarding: value })}
+          disabled={disabled}
         />
 
-        <ToggleRow
-          icon={<AppWindow className="h-4 w-4 text-blue-500" />}
-          title={t("settings.minimizeToTray")}
-          description={t("settings.minimizeToTrayDescription")}
-          checked={settings.minimizeToTrayOnClose}
-          onCheckedChange={(value) =>
-            onChange({ minimizeToTrayOnClose: value })
-          }
-        />
+        {!isRemote ? (
+          <ToggleRow
+            icon={<AppWindow className="h-4 w-4 text-blue-500" />}
+            title={t("settings.minimizeToTray")}
+            description={t("settings.minimizeToTrayDescription")}
+            checked={!!settings.minimizeToTrayOnClose}
+            onCheckedChange={(value) =>
+              onChange({ minimizeToTrayOnClose: value })
+            }
+          />
+        ) : null}
 
-        {isLinux() && (
+        {!isRemote && isLinux() && (
           <ToggleRow
             icon={<AppWindow className="h-4 w-4 text-amber-500" />}
             title={t("settings.useAppWindowControls")}

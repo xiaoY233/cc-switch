@@ -1,0 +1,98 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { RemoteAppRoutingToggle } from "@/components/proxy/RemoteAppRoutingToggle";
+import type { ManagementTarget } from "@/lib/api";
+
+const mocks = vi.hoisted(() => ({
+  startProxyServer: vi.fn(),
+  updateAppConfig: vi.fn(),
+  proxyRunning: false,
+  appConfig: {
+    appType: "codex",
+    enabled: false,
+    autoFailoverEnabled: false,
+    maxRetries: 3,
+    streamingFirstByteTimeout: 60,
+    streamingIdleTimeout: 120,
+    nonStreamingTimeout: 600,
+    circuitFailureThreshold: 5,
+    circuitSuccessThreshold: 2,
+    circuitTimeoutSeconds: 60,
+    circuitErrorRateThreshold: 0.5,
+    circuitMinRequests: 10,
+  },
+}));
+
+vi.mock("@/hooks/useProxyStatus", () => ({
+  useProxyStatus: () => ({
+    isRunning: mocks.proxyRunning,
+    startProxyServer: mocks.startProxyServer,
+  }),
+}));
+
+vi.mock("@/lib/query/proxy", () => ({
+  useAppProxyConfig: () => ({
+    data: mocks.appConfig,
+    isLoading: false,
+  }),
+  useUpdateAppProxyConfig: () => ({
+    mutateAsync: mocks.updateAppConfig,
+    isPending: false,
+  }),
+}));
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (_key: string, options?: { defaultValue?: string }) =>
+      options?.defaultValue ?? _key,
+  }),
+}));
+
+const target: Extract<ManagementTarget, { type: "remote" }> = {
+  type: "remote",
+  profile: {
+    id: "remote-1",
+    name: "Remote 1",
+    host: "192.168.1.20",
+    port: 22,
+    username: "root",
+    authMethod: { type: "sshAgent" },
+    helperPath: "~/.local/bin/cc-switch-remote-helper",
+    createdAt: 1,
+    updatedAt: 1,
+  },
+};
+
+describe("RemoteAppRoutingToggle", () => {
+  beforeEach(() => {
+    mocks.startProxyServer.mockReset();
+    mocks.updateAppConfig.mockReset();
+    mocks.startProxyServer.mockResolvedValue({
+      address: "127.0.0.1",
+      port: 15721,
+    });
+    mocks.updateAppConfig.mockResolvedValue(undefined);
+    mocks.proxyRunning = false;
+    mocks.appConfig = { ...mocks.appConfig, enabled: false };
+  });
+
+  it("allows enabling the active app route when the runtime is not yet reported running", async () => {
+    const user = userEvent.setup();
+
+    render(<RemoteAppRoutingToggle activeApp="codex" target={target} />);
+
+    const toggle = screen.getByRole("switch");
+    expect(toggle).not.toBeDisabled();
+
+    await user.click(toggle);
+
+    await waitFor(() =>
+      expect(mocks.updateAppConfig).toHaveBeenCalledWith({
+        ...mocks.appConfig,
+        enabled: true,
+      }),
+    );
+    expect(mocks.startProxyServer).not.toHaveBeenCalled();
+  });
+});

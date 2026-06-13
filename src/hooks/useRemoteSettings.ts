@@ -29,7 +29,7 @@ export function useRemoteSettings({
       setIsLoading(true);
       setActiveTask(
         t("remote.settings.tasks.loadSettings", {
-          defaultValue: "正在读取远程通用设置...",
+          defaultValue: "正在读取远程设置...",
         }),
       );
       try {
@@ -47,7 +47,7 @@ export function useRemoteSettings({
         setSettings(null);
         toast.error(
           t("remote.settings.general.loadFailed", {
-            defaultValue: "远程通用设置加载失败",
+            defaultValue: "远程设置加载失败",
           }),
           { description: extractErrorMessage(error) },
         );
@@ -116,10 +116,13 @@ export function useRemoteSettings({
     async (updates: Partial<Settings>) => {
       if (!settings) return;
       const nextSettings: Settings = { ...settings, ...updates };
+      const previousSettings = settings;
+      setSettings(nextSettings);
+      onSettingsSaved?.(nextSettings);
       setIsSaving(true);
       setActiveTask(
         t("remote.settings.tasks.saveSettings", {
-          defaultValue: "正在保存远程通用设置...",
+          defaultValue: "正在保存远程设置...",
         }),
       );
       try {
@@ -130,13 +133,13 @@ export function useRemoteSettings({
         );
         await syncClaudePluginIfChanged(nextSettings, settings);
         await syncClaudeOnboardingIfChanged(nextSettings, settings);
-        setSettings(nextSettings);
-        onSettingsSaved?.(nextSettings);
       } catch (error) {
+        setSettings(previousSettings);
+        onSettingsSaved?.(previousSettings);
         console.error("[useRemoteSettings] Failed to save settings", error);
         toast.error(
           t("remote.settings.general.saveFailed", {
-            defaultValue: "远程通用设置保存失败",
+            defaultValue: "远程设置保存失败",
           }),
           { description: extractErrorMessage(error) },
         );

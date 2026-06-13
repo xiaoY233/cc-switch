@@ -11,11 +11,15 @@ const useSortableMock = vi.fn();
 const providerCardRenderSpy = vi.fn();
 const useAutoFailoverEnabledMock = vi.fn();
 const useFailoverQueueMock = vi.fn();
+const useAddToFailoverQueueMock = vi.fn();
+const useRemoveFromFailoverQueueMock = vi.fn();
+const getOpenCodeLiveProviderIdsMock = vi.fn();
 const useCurrentOmoProviderIdMock = vi.fn();
 const useCurrentOmoSlimProviderIdMock = vi.fn();
 const useOpenClawLiveProviderIdsMock = vi.fn();
 const useOpenClawDefaultModelMock = vi.fn();
 const importCurrentProviderMock = vi.fn();
+const checkProviderMock = vi.fn();
 
 vi.mock("@/hooks/useDragSort", () => ({
   useDragSort: (...args: unknown[]) => useDragSortMock(...args),
@@ -65,6 +69,24 @@ vi.mock("@/components/providers/ProviderCard", () => ({
         >
           delete
         </button>
+        <button
+          data-testid={`test-${provider.id}`}
+          onClick={() => props.onTest?.(provider)}
+        >
+          test
+        </button>
+        <button
+          data-testid={`toggle-failover-${provider.id}`}
+          onClick={() => props.onToggleFailover?.(!props.isInFailoverQueue)}
+        >
+          toggle failover
+        </button>
+        <button
+          data-testid={`remove-from-config-${provider.id}`}
+          onClick={() => props.onRemoveFromConfig?.(provider)}
+        >
+          remove from config
+        </button>
         <span data-testid={`is-current-${provider.id}`}>
           {props.isCurrent ? "current" : "inactive"}
         </span>
@@ -91,9 +113,10 @@ vi.mock("@dnd-kit/sortable", async () => {
 
 // Mock hooks that use QueryClient
 vi.mock("@/hooks/useStreamCheck", () => ({
-  useStreamCheck: () => ({
-    checkProvider: vi.fn(),
+  useStreamCheck: (...args: unknown[]) => ({
+    checkProvider: (...checkArgs: unknown[]) => checkProviderMock(...checkArgs),
     isChecking: () => false,
+    args,
   }),
 }));
 
@@ -101,8 +124,9 @@ vi.mock("@/lib/query/failover", () => ({
   useAutoFailoverEnabled: (...args: unknown[]) =>
     useAutoFailoverEnabledMock(...args),
   useFailoverQueue: (...args: unknown[]) => useFailoverQueueMock(...args),
-  useAddToFailoverQueue: () => ({ mutate: vi.fn() }),
-  useRemoveFromFailoverQueue: () => ({ mutate: vi.fn() }),
+  useAddToFailoverQueue: (...args: unknown[]) => useAddToFailoverQueueMock(...args),
+  useRemoveFromFailoverQueue: (...args: unknown[]) =>
+    useRemoveFromFailoverQueueMock(...args),
   useReorderFailoverQueue: () => ({ mutate: vi.fn() }),
 }));
 
@@ -123,6 +147,8 @@ vi.mock("@/hooks/useOpenClaw", () => ({
 vi.mock("@/lib/api/providers", () => ({
   providersApi: {
     importCurrent: (...args: unknown[]) => importCurrentProviderMock(...args),
+    getOpenCodeLiveProviderIds: (...args: unknown[]) =>
+      getOpenCodeLiveProviderIdsMock(...args),
   },
 }));
 
@@ -171,14 +197,21 @@ beforeEach(() => {
   providerCardRenderSpy.mockClear();
   useAutoFailoverEnabledMock.mockReset();
   useFailoverQueueMock.mockReset();
+  useAddToFailoverQueueMock.mockReset();
+  useRemoveFromFailoverQueueMock.mockReset();
+  getOpenCodeLiveProviderIdsMock.mockReset();
   useCurrentOmoProviderIdMock.mockReset();
   useCurrentOmoSlimProviderIdMock.mockReset();
   useOpenClawLiveProviderIdsMock.mockReset();
   useOpenClawDefaultModelMock.mockReset();
   importCurrentProviderMock.mockReset();
+  checkProviderMock.mockReset();
 
   useAutoFailoverEnabledMock.mockReturnValue({ data: false });
   useFailoverQueueMock.mockReturnValue({ data: [] });
+  useAddToFailoverQueueMock.mockReturnValue({ mutate: vi.fn() });
+  useRemoveFromFailoverQueueMock.mockReturnValue({ mutate: vi.fn() });
+  getOpenCodeLiveProviderIdsMock.mockResolvedValue([]);
   useCurrentOmoProviderIdMock.mockReturnValue({ data: undefined });
   useCurrentOmoSlimProviderIdMock.mockReturnValue({ data: undefined });
   useOpenClawLiveProviderIdsMock.mockReturnValue({ data: undefined });
@@ -360,10 +393,138 @@ describe("ProviderList Component", () => {
       "claude",
       remoteTarget,
     );
-    expect(useAutoFailoverEnabledMock).toHaveBeenCalledWith("claude", false);
-    expect(useFailoverQueueMock).toHaveBeenCalledWith("claude", false);
+    expect(useAutoFailoverEnabledMock).toHaveBeenCalledWith(
+      "claude",
+      remoteTarget,
+    );
+    expect(useFailoverQueueMock).toHaveBeenCalledWith("claude", remoteTarget);
     expect(useCurrentOmoProviderIdMock).toHaveBeenCalledWith(false);
     expect(useCurrentOmoSlimProviderIdMock).toHaveBeenCalledWith(false);
+  });
+
+  it("wires remote provider cards to remote failover queue state and mutations", () => {
+    const provider = createProvider({ id: "remote-provider", name: "Remote" });
+    const addMutate = vi.fn();
+    const removeMutate = vi.fn();
+    useDragSortMock.mockReturnValue({
+      sortedProviders: [provider],
+      sensors: [],
+      handleDragEnd: vi.fn(),
+    });
+    useAutoFailoverEnabledMock.mockReturnValue({ data: true });
+    useFailoverQueueMock.mockReturnValue({
+      data: [
+        {
+          providerId: "remote-provider",
+          providerName: "Remote",
+          sortIndex: 1,
+        },
+      ],
+    });
+    useAddToFailoverQueueMock.mockReturnValue({ mutate: addMutate });
+    useRemoveFromFailoverQueueMock.mockReturnValue({ mutate: removeMutate });
+
+    renderWithQueryClient(
+      <ProviderList
+        providers={{ "remote-provider": provider }}
+        currentProviderId="remote-provider"
+        appId="codex"
+        target={remoteTarget}
+        isProxyRunning
+        isProxyTakeover
+        onSwitch={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onDuplicate={vi.fn()}
+        onOpenWebsite={vi.fn()}
+      />,
+    );
+
+    expect(useAutoFailoverEnabledMock).toHaveBeenCalledWith(
+      "codex",
+      remoteTarget,
+    );
+    expect(useFailoverQueueMock).toHaveBeenCalledWith("codex", remoteTarget);
+    expect(useAddToFailoverQueueMock).toHaveBeenCalledWith(remoteTarget);
+    expect(useRemoveFromFailoverQueueMock).toHaveBeenCalledWith(remoteTarget);
+    expect(providerCardRenderSpy.mock.calls[0][0]).toMatchObject({
+      isAutoFailoverEnabled: true,
+      isInFailoverQueue: true,
+      failoverPriority: 1,
+      target: remoteTarget,
+    });
+
+    fireEvent.click(screen.getByTestId("toggle-failover-remote-provider"));
+    expect(removeMutate).toHaveBeenCalledWith({
+      appType: "codex",
+      providerId: "remote-provider",
+    });
+  });
+
+  it("keeps provider testing available on remote targets", () => {
+    const provider = createProvider({ id: "remote-provider", name: "Remote" });
+    useDragSortMock.mockReturnValue({
+      sortedProviders: [provider],
+      sensors: [],
+      handleDragEnd: vi.fn(),
+    });
+
+    renderWithQueryClient(
+      <ProviderList
+        providers={{ "remote-provider": provider }}
+        currentProviderId="remote-provider"
+        appId="claude"
+        target={remoteTarget}
+        onSwitch={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onDuplicate={vi.fn()}
+        onOpenWebsite={vi.fn()}
+      />,
+    );
+
+    expect(providerCardRenderSpy.mock.calls[0][0].onTest).toEqual(
+      expect.any(Function),
+    );
+    fireEvent.click(screen.getByTestId("test-remote-provider"));
+    expect(checkProviderMock).toHaveBeenCalledWith(
+      "remote-provider",
+      "Remote",
+    );
+  });
+
+  it("passes the remote remove-from-config action to additive provider cards", () => {
+    const provider = createProvider({ id: "remote-openclaw", name: "Remote" });
+    const handleDelete = vi.fn();
+    const handleSwitch = vi.fn();
+    const handleRemoveFromConfig = vi.fn();
+    useDragSortMock.mockReturnValue({
+      sortedProviders: [provider],
+      sensors: [],
+      handleDragEnd: vi.fn(),
+    });
+
+    renderWithQueryClient(
+      <ProviderList
+        providers={{ "remote-openclaw": provider }}
+        currentProviderId=""
+        appId="openclaw"
+        target={remoteTarget}
+        onSwitch={handleSwitch}
+        onEdit={vi.fn()}
+        onDelete={handleDelete}
+        onRemoveFromConfig={handleRemoveFromConfig}
+        onDuplicate={vi.fn()}
+        onOpenWebsite={vi.fn()}
+      />,
+    );
+
+    expect(providerCardRenderSpy.mock.calls[0][0].onRemoveFromConfig).toEqual(
+      expect.any(Function),
+    );
+    fireEvent.click(screen.getByTestId("remove-from-config-remote-openclaw"));
+    expect(handleDelete).not.toHaveBeenCalled();
+    expect(handleRemoveFromConfig).toHaveBeenCalledWith(provider);
   });
 
   it("should read remote OpenClaw default model and mark the default provider", () => {

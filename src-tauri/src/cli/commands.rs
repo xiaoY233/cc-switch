@@ -265,6 +265,11 @@ pub fn get_hermes_memory_limits() -> Result<crate::hermes_config::HermesMemoryLi
     crate::hermes_config::read_memory_limits().map_err(|e| e.to_string())
 }
 
+pub fn get_hermes_model_config() -> Result<Option<crate::hermes_config::HermesModelConfig>, String>
+{
+    crate::hermes_config::get_model_config().map_err(|e| e.to_string())
+}
+
 pub fn set_hermes_memory_enabled(
     kind: &str,
     enabled: bool,
@@ -364,6 +369,65 @@ pub fn delete_provider(app: AppType, id: &str) -> Result<bool, String> {
     ProviderService::delete(&state, app, id)
         .map(|_| true)
         .map_err(|e| e.to_string())
+}
+
+pub fn remove_provider_from_live_config(app: AppType, id: &str) -> Result<bool, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    ProviderService::remove_from_live_config(&state, app, id)
+        .map(|_| true)
+        .map_err(|e| e.to_string())
+}
+
+pub fn live_provider_ids(app: AppType) -> Result<Vec<String>, String> {
+    match app {
+        AppType::OpenCode => crate::opencode_config::get_providers()
+            .map(|providers| providers.keys().cloned().collect())
+            .map_err(|e| e.to_string()),
+        AppType::OpenClaw => crate::openclaw_config::get_providers()
+            .map(|providers| providers.keys().cloned().collect())
+            .map_err(|e| e.to_string()),
+        AppType::Hermes => crate::hermes_config::get_providers()
+            .map(|providers| providers.keys().cloned().collect())
+            .map_err(|e| e.to_string()),
+        _ => Err(format!(
+            "App {} does not support live provider IDs",
+            app.as_str()
+        )),
+    }
+}
+
+pub fn stream_check_provider(
+    app: AppType,
+    provider_id: &str,
+) -> Result<crate::services::stream_check::StreamCheckResult, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let state = AppState::new(db);
+    let config = state
+        .db
+        .get_stream_check_config()
+        .map_err(|e| e.to_string())?;
+    let providers = state
+        .db
+        .get_all_providers(app.as_str())
+        .map_err(|e| e.to_string())?;
+    let provider = providers
+        .get(provider_id)
+        .ok_or_else(|| format!("供应商 {provider_id} 不存在"))?;
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+    let result = runtime
+        .block_on(
+            crate::services::stream_check::StreamCheckService::check_with_retry(
+                &app, provider, &config, None, None, None,
+            ),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let _ = state
+        .db
+        .save_stream_check_log(provider_id, &provider.name, app.as_str(), &result);
+
+    Ok(result)
 }
 
 pub fn sort_providers(app: AppType, updates_json: &str) -> Result<bool, String> {
@@ -511,6 +575,7 @@ pub fn set_routing_auto_failover_enabled(app_type: &str, enabled: bool) -> Resul
             .get_proxy_config_for_app(app_type)
             .await
             .map_err(|e| e.to_string())?;
+        let previous_config = config.clone();
 
         if enabled && !config.enabled {
             return Err("需要先启用该应用的远程路由，再开启故障转移".to_string());
@@ -541,23 +606,32 @@ pub fn set_routing_auto_failover_enabled(app_type: &str, enabled: bool) -> Resul
             String::new()
         };
 
+        #[cfg(not(feature = "proxy-runtime"))]
         if enabled {
-            #[cfg(not(feature = "proxy-runtime"))]
-            {
-                if let Some(provider_id) = auto_added_provider_id {
-                    let _ = db.remove_from_failover_queue(app_type, &provider_id);
-                }
-                return Err(
-                    "This helper build does not include remote routing runtime support".to_string(),
-                );
+            if let Some(provider_id) = auto_added_provider_id {
+                let _ = db.remove_from_failover_queue(app_type, &provider_id);
             }
+            return Err(
+                "This helper build does not include remote routing runtime support".to_string(),
+            );
+        }
 
+        config.auto_failover_enabled = enabled;
+        if let Err(error) = db.update_proxy_config_for_app(config).await {
+            if let Some(provider_id) = auto_added_provider_id {
+                let _ = db.remove_from_failover_queue(app_type, &provider_id);
+            }
+            return Err(error.to_string());
+        }
+
+        if enabled {
             #[cfg(feature = "proxy-runtime")]
             if let Err(error) = state
                 .proxy_service
                 .switch_proxy_target(app_type, &p1_provider_id)
                 .await
             {
+                let _ = db.update_proxy_config_for_app(previous_config).await;
                 if let Some(provider_id) = auto_added_provider_id {
                     let _ = db.remove_from_failover_queue(app_type, &provider_id);
                 }
@@ -565,10 +639,7 @@ pub fn set_routing_auto_failover_enabled(app_type: &str, enabled: bool) -> Resul
             }
         }
 
-        config.auto_failover_enabled = enabled;
-        db.update_proxy_config_for_app(config)
-            .await
-            .map_err(|e| e.to_string())
+        Ok(())
     })
 }
 
@@ -586,18 +657,26 @@ pub fn update_routing_app_config(config_json: &str) -> Result<(), String> {
                 .get_proxy_config_for_app(&config.app_type)
                 .await
                 .map_err(|e| e.to_string())?;
+            let app_type = config.app_type.clone();
+            let desired_enabled = config.enabled;
             let enabled_changed = previous.enabled != config.enabled;
 
-            if enabled_changed || config.enabled {
-                state
+            db.update_proxy_config_for_app(config.clone())
+                .await
+                .map_err(|e| e.to_string())?;
+
+            if enabled_changed || desired_enabled {
+                if let Err(error) = state
                     .proxy_service
-                    .set_takeover_for_app(&config.app_type, config.enabled)
-                    .await?;
+                    .set_takeover_for_app(&app_type, desired_enabled)
+                    .await
+                {
+                    let _ = db.update_proxy_config_for_app(previous).await;
+                    return Err(error);
+                }
             }
 
-            db.update_proxy_config_for_app(config)
-                .await
-                .map_err(|e| e.to_string())
+            Ok(())
         });
     }
 
@@ -614,6 +693,153 @@ pub fn update_routing_app_config(config_json: &str) -> Result<(), String> {
         return runtime
             .block_on(db.update_proxy_config_for_app(config))
             .map_err(|e| e.to_string());
+    }
+}
+
+pub fn get_routing_provider_health(
+    app_type: &str,
+    provider_id: &str,
+) -> Result<crate::proxy::types::ProviderHealth, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+    runtime
+        .block_on(db.get_provider_health(provider_id, app_type))
+        .map_err(|e| e.to_string())
+}
+
+pub fn reset_routing_circuit_breaker(app_type: &str, provider_id: &str) -> Result<(), String> {
+    #[cfg(feature = "proxy-runtime")]
+    let state = routing_state()?;
+    #[cfg(feature = "proxy-runtime")]
+    let db = state.db.clone();
+    #[cfg(feature = "proxy-runtime")]
+    let runtime = routing_runtime()?;
+
+    #[cfg(not(feature = "proxy-runtime"))]
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    #[cfg(not(feature = "proxy-runtime"))]
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+
+    runtime.block_on(async {
+        db.update_provider_health(provider_id, app_type, true, None)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        #[cfg(feature = "proxy-runtime")]
+        {
+            state
+                .proxy_service
+                .reset_provider_circuit_breaker(provider_id, app_type)
+                .await?;
+
+            let config = db
+                .get_proxy_config_for_app(app_type)
+                .await
+                .map_err(|e| e.to_string())?;
+
+            if config.enabled
+                && config.auto_failover_enabled
+                && state.proxy_service.is_running().await
+            {
+                let current_id = db
+                    .get_current_provider(app_type)
+                    .map_err(|e| e.to_string())?;
+                if let Some(current_id) = current_id {
+                    let queue = db.get_failover_queue(app_type).map_err(|e| e.to_string())?;
+                    let restored_order = queue
+                        .iter()
+                        .find(|item| item.provider_id == provider_id)
+                        .and_then(|item| item.sort_index);
+                    let current_order = queue
+                        .iter()
+                        .find(|item| item.provider_id == current_id)
+                        .and_then(|item| item.sort_index);
+
+                    if let (Some(restored), Some(current)) = (restored_order, current_order) {
+                        if restored < current {
+                            let provider_name = db
+                                .get_all_providers(app_type)
+                                .ok()
+                                .and_then(|providers| {
+                                    providers.get(provider_id).map(|p| p.name.clone())
+                                })
+                                .unwrap_or_else(|| provider_id.to_string());
+                            let switch_manager =
+                                crate::proxy::failover_switch::FailoverSwitchManager::new(
+                                    db.clone(),
+                                );
+                            if let Err(error) = switch_manager
+                                .try_switch(None, app_type, provider_id, &provider_name)
+                                .await
+                            {
+                                log::error!("[Recovery] 远程熔断器重置后自动切换失败: {error}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    })
+}
+
+pub fn get_routing_circuit_breaker_config() -> Result<crate::proxy::CircuitBreakerConfig, String> {
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+    runtime
+        .block_on(db.get_circuit_breaker_config())
+        .map_err(|e| e.to_string())
+}
+
+pub fn update_routing_circuit_breaker_config(config_json: &str) -> Result<(), String> {
+    let config: crate::proxy::CircuitBreakerConfig =
+        serde_json::from_str(config_json).map_err(|e| e.to_string())?;
+
+    #[cfg(feature = "proxy-runtime")]
+    let state = routing_state()?;
+    #[cfg(feature = "proxy-runtime")]
+    let db = state.db.clone();
+    #[cfg(feature = "proxy-runtime")]
+    let runtime = routing_runtime()?;
+
+    #[cfg(not(feature = "proxy-runtime"))]
+    let db = Arc::new(Database::init().map_err(|e| e.to_string())?);
+    #[cfg(not(feature = "proxy-runtime"))]
+    let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
+
+    runtime.block_on(async {
+        db.update_circuit_breaker_config(&config)
+            .await
+            .map_err(|e| e.to_string())?;
+        #[cfg(feature = "proxy-runtime")]
+        state
+            .proxy_service
+            .update_circuit_breaker_configs(config)
+            .await?;
+        Ok(())
+    })
+}
+
+pub fn get_routing_circuit_breaker_stats(
+    app_type: &str,
+    provider_id: &str,
+) -> Result<Option<crate::proxy::CircuitBreakerStats>, String> {
+    #[cfg(feature = "proxy-runtime")]
+    {
+        let state = routing_state()?;
+        let runtime = routing_runtime()?;
+        return runtime.block_on(
+            state
+                .proxy_service
+                .get_circuit_breaker_stats(provider_id, app_type),
+        );
+    }
+
+    #[cfg(not(feature = "proxy-runtime"))]
+    {
+        let _ = (app_type, provider_id);
+        Ok(None)
     }
 }
 

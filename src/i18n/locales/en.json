@@ -2855,8 +2855,8 @@
         "loadTools": "Reading remote tool versions and update information...",
         "installHelper": "Installing remote helper: connecting over SSH, downloading the binary, and verifying capabilities...",
         "runToolAction": "Running remote {{action}} for {{tool}}...",
-        "loadSettings": "Reading remote general settings...",
-        "saveSettings": "Saving remote general settings..."
+        "loadSettings": "Reading remote settings...",
+        "saveSettings": "Saving remote settings..."
       },
       "environment": {
         "host": "Remote Host",
@@ -2867,20 +2867,21 @@
         "loadToolsFailed": "Remote environment check failed"
       },
       "general": {
-        "title": "Remote General Settings",
-        "description": "These settings are saved to the selected remote host's own config directory.",
-        "loading": "Loading remote general settings...",
+        "loading": "Loading remote settings...",
         "unsupported": "The current remote helper does not support general settings management. Update to a helper with the settings capability.",
-        "loadFailed": "Failed to load remote general settings",
-        "saveFailed": "Failed to save remote general settings",
-        "skillsUnsupported": "The current remote helper does not support Skills storage migration.",
-        "pluginUnsupportedBadge": "New helper required"
+        "loadFailed": "Failed to load remote settings",
+        "saveFailed": "Failed to save remote settings",
+        "skillsUnsupported": "The current remote helper does not support Skills storage migration."
       },
       "data": {
         "description": "Import or export the selected remote server's own CC Switch data"
       },
       "routing": {
-        "failoverRequired": "Start remote routing and enable {{app}} remote routing before configuring failover."
+        "failoverRequired": "Start remote routing and enable {{app}} remote routing before configuring failover.",
+        "showRemoteRoutingToggle": "Show Remote Routing Toggle on Main Page",
+        "showRemoteRoutingToggleDescription": "When enabled, the main page shows the active app's remote routing toggle. Enabling app routing starts the remote routing service automatically.",
+        "showRemoteFailoverToggle": "Show Remote Failover Toggle on Main Page",
+        "showRemoteFailoverToggleDescription": "When enabled, the main page shows the active app's remote failover toggle. The active app must have remote routing enabled."
       }
     },
     "errors": {
@@ -2929,6 +2930,8 @@
       "app": {
         "tooltip": {
           "runtimeRequired": "Start the remote routing service before enabling {{app}} routing",
+          "inactiveWithStart": "Enable {{app}} remote routing; the remote routing service will start automatically",
+          "broken": "{{app}} remote routing is enabled, but the remote routing service is not running",
           "active": "{{app}} requests will be forwarded through remote routing",
           "inactive": "Enable {{app}} remote routing"
         }

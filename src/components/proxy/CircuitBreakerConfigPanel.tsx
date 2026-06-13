@@ -8,15 +8,23 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import type { ManagementTarget } from "@/lib/api/remote";
+import { LOCAL_MANAGEMENT_TARGET } from "@/lib/managementTarget";
 
 /**
  * 熔断器配置面板
  * 允许用户调整熔断器参数
  */
-export function CircuitBreakerConfigPanel() {
+interface CircuitBreakerConfigPanelProps {
+  target?: ManagementTarget;
+}
+
+export function CircuitBreakerConfigPanel({
+  target = LOCAL_MANAGEMENT_TARGET,
+}: CircuitBreakerConfigPanelProps) {
   const { t } = useTranslation();
-  const { data: config, isLoading } = useCircuitBreakerConfig();
-  const updateConfig = useUpdateCircuitBreakerConfig();
+  const { data: config, isLoading } = useCircuitBreakerConfig(target);
+  const updateConfig = useUpdateCircuitBreakerConfig(target);
 
   // 使用字符串状态以支持完全清空输入框
   const [formData, setFormData] = useState({

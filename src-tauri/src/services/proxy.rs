@@ -2671,6 +2671,22 @@ impl ProxyService {
         }
         Ok(())
     }
+
+    /// 获取指定 Provider 的熔断器统计。
+    ///
+    /// 未启动代理服务或该 Provider 尚未创建运行时熔断器时返回 None。
+    pub async fn get_circuit_breaker_stats(
+        &self,
+        provider_id: &str,
+        app_type: &str,
+    ) -> Result<Option<crate::proxy::CircuitBreakerStats>, String> {
+        if let Some(server) = self.server.read().await.as_ref() {
+            return Ok(server
+                .get_circuit_breaker_stats(provider_id, app_type)
+                .await);
+        }
+        Ok(None)
+    }
 }
 
 #[cfg(test)]

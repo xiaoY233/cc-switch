@@ -37,16 +37,19 @@ import {
 interface FailoverQueueManagerProps {
   appType: AppId;
   disabled?: boolean;
+  autoSwitchDisabled?: boolean;
   target?: ManagementTarget;
 }
 
 export function FailoverQueueManager({
   appType,
   disabled = false,
+  autoSwitchDisabled,
   target = LOCAL_MANAGEMENT_TARGET,
 }: FailoverQueueManagerProps) {
   const { t } = useTranslation();
   const [selectedProviderId, setSelectedProviderId] = useState<string>("");
+  const isAutoSwitchDisabled = autoSwitchDisabled ?? disabled;
 
   // 故障转移开关状态（每个应用独立）
   const { data: isFailoverEnabled = false } = useAutoFailoverEnabled(
@@ -155,7 +158,10 @@ export function FailoverQueueManager({
         <Switch
           checked={isFailoverEnabled}
           onCheckedChange={handleToggleFailover}
-          disabled={disabled || setFailoverEnabled.isPending}
+          disabled={isAutoSwitchDisabled || setFailoverEnabled.isPending}
+          aria-label={t("proxy.failover.autoSwitch", {
+            defaultValue: "自动故障转移",
+          })}
         />
       </div>
 
@@ -211,6 +217,9 @@ export function FailoverQueueManager({
           disabled={disabled || !selectedProviderId || addToQueue.isPending}
           size="icon"
           variant="outline"
+          aria-label={t("proxy.failoverQueue.addProvider", {
+            defaultValue: "添加到故障转移队列",
+          })}
         >
           {addToQueue.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />

@@ -2855,8 +2855,8 @@
         "loadTools": "正在读取远程工具版本和更新信息...",
         "installHelper": "正在安装远程 Helper：连接 SSH、下载二进制并验证能力...",
         "runToolAction": "正在远程{{action}}{{tool}}...",
-        "loadSettings": "正在读取远程通用设置...",
-        "saveSettings": "正在保存远程通用设置..."
+        "loadSettings": "正在读取远程设置...",
+        "saveSettings": "正在保存远程设置..."
       },
       "environment": {
         "host": "远程主机",
@@ -2867,20 +2867,21 @@
         "loadToolsFailed": "远程环境检查失败"
       },
       "general": {
-        "title": "远程通用设置",
-        "description": "这些设置保存到当前远程主机自己的配置目录。",
-        "loading": "正在加载远程通用设置...",
+        "loading": "正在加载远程设置...",
         "unsupported": "当前远程 Helper 不支持通用设置管理。请更新到包含 settings capability 的新版 Helper。",
-        "loadFailed": "远程通用设置加载失败",
-        "saveFailed": "远程通用设置保存失败",
-        "skillsUnsupported": "当前远程 Helper 不支持 Skills 存储位置迁移。",
-        "pluginUnsupportedBadge": "需要新版 Helper"
+        "loadFailed": "远程设置加载失败",
+        "saveFailed": "远程设置保存失败",
+        "skillsUnsupported": "当前远程 Helper 不支持 Skills 存储位置迁移。"
       },
       "data": {
         "description": "导入或导出当前远程服务器自己的 CC Switch 数据"
       },
       "routing": {
-        "failoverRequired": "需要先启动远程路由，并启用 {{app}} 的远程路由后才能配置故障转移。"
+        "failoverRequired": "需要先启动远程路由，并启用 {{app}} 的远程路由后才能配置故障转移。",
+        "showRemoteRoutingToggle": "在主页面显示远程路由开关",
+        "showRemoteRoutingToggleDescription": "开启后，主页面顶部显示当前应用的远程路由开关；开启应用路由时远程路由服务会自动启动。",
+        "showRemoteFailoverToggle": "在主页面显示远程故障转移开关",
+        "showRemoteFailoverToggleDescription": "开启后，主页面顶部显示当前应用的远程故障转移开关；需要当前应用已启用远程路由。"
       }
     },
     "errors": {
@@ -2929,6 +2930,8 @@
       "app": {
         "tooltip": {
           "runtimeRequired": "请先启动远程路由服务，再启用 {{app}} 路由",
+          "inactiveWithStart": "启用 {{app}} 远程路由；远程路由服务会自动启动",
+          "broken": "{{app}} 已启用远程路由，但远程路由服务未运行",
           "active": "{{app}} 请求将通过远程路由转发",
           "inactive": "启用 {{app}} 远程路由"
         }

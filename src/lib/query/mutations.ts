@@ -297,7 +297,7 @@ export const useSwitchProviderMutation = (
       // OpenCode/OpenClaw: also invalidate live provider IDs cache to update button state
       if (appId === "opencode") {
         await queryClient.invalidateQueries({
-          queryKey: ["opencodeLiveProviderIds"],
+          queryKey: ["opencodeLiveProviderIds", targetKey(target)],
         });
         await queryClient.invalidateQueries({
           queryKey: ["omo", "current-provider-id"],
@@ -308,7 +308,7 @@ export const useSwitchProviderMutation = (
       }
       if (appId === "openclaw") {
         await queryClient.invalidateQueries({
-          queryKey: openclawKeys.liveProviderIds,
+          queryKey: openclawKeys.liveProviderIds(targetKey(target)),
         });
         await queryClient.invalidateQueries({
           queryKey: [...openclawKeys.defaultModel, targetKey(target)],
@@ -318,7 +318,7 @@ export const useSwitchProviderMutation = (
         });
       }
       if (appId === "hermes") {
-        await invalidateHermesProviderCaches(queryClient);
+        await invalidateHermesProviderCaches(queryClient, target);
       }
 
       if (target.type === "local") {

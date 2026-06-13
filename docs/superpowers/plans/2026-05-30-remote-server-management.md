@@ -10,6 +10,23 @@
 
 ---
 
+## Next Phase: Remote Routing Parity Hardening
+
+Audit date: 2026-06-12.
+
+The current remote routing implementation has real frontend, Tauri, helper CLI, and shared Rust proxy-service wiring for routing runtime, app routing, failover queue operations, rectifier/optimizer settings, and global outbound proxy settings. The next phase must focus on closing the remaining parity and robustness gaps rather than adding more surface area.
+
+- [x] Make failover health state target-aware. `useProviderHealth`, `useResetCircuitBreaker`, `useCircuitBreakerConfig`, and `useCircuitBreakerStats` now accept a management target, use target-keyed query caches, and call remote helper commands for remote hosts. Remote routing queue health badges no longer read local provider health.
+- [x] Fix remote failover query invalidation. Remote failover mutations now invalidate target-keyed `providers`, `proxyStatus`, `failoverQueue`, `availableProvidersForFailover`, `providerHealth`, and `circuitBreakerStats` queries. Local-only query keys are refreshed only for local mutations.
+- [x] Make remote runtime mutations failure-preserving. Remote app routing config writes now roll back database state if runtime takeover application fails. Remote auto failover rolls back the config and any automatically-added queue item if switching to the P1 provider fails. Command-level failures do not stop the long-lived helper session.
+- [x] Collapse the remote routing settings shell toward the local routing page structure. Remote routing uses the same accordion grouping, icons, default-collapsed behavior, and local title translation keys for proxy, failover, rectifier, and global outbound proxy. Remote-specific differences are kept inside the existing sections as targeted hints or capability gates.
+- [x] Add explicit remote homepage display settings. Per-remote-host settings now control whether the main page shows the active-app remote routing toggle and the remote failover toggle. These settings live in the remote routing settings page, not the remote general page.
+- [x] Reconcile homepage switch count and semantics. The remote homepage no longer shows a separate routing runtime master switch. It mirrors local homepage semantics with an app-specific routing entry plus optional failover entry, both hidden by default and controlled by remote-host settings.
+- [ ] Add routing helper command round-trip tests. Circuit breaker config/health/reset/stats now have a temp-home JSON CLI round-trip test. Still expand coverage for `routing-config global`, `set-global`, `app`, `set-app`, failover queue add/remove/list, `set-auto-failover`, rectifier/optimizer get/set, global outbound proxy get/set, and `routing-runtime status/start/stop`.
+- [ ] Mark unsupported or remote-adapted routing subfeatures explicitly. If local-only actions such as local proxy scanning/testing or desktop-specific takeover state cannot apply remotely, hide or label them using the existing UI pattern instead of leaving controls that imply local behavior.
+
+---
+
 ## File Structure
 
 - Create `src-tauri/src/remote/mod.rs`: remote module entry point and shared exports.
@@ -36,6 +53,7 @@
 ## Task 1: Remote Data Contract
 
 **Files:**
+
 - Create: `src-tauri/src/remote/mod.rs`
 - Create: `src-tauri/src/remote/types.rs`
 
@@ -155,6 +173,7 @@ git commit -m "feat(remote): add remote management data contracts"
 ## Task 2: Local Remote Profile Store
 
 **Files:**
+
 - Create: `src-tauri/src/remote/store.rs`
 - Modify: `src-tauri/src/remote/mod.rs`
 - Test: `src-tauri/tests/remote_store.rs`
@@ -263,6 +282,7 @@ git commit -m "feat(remote): add remote profile validation"
 ## Task 3: Rust CLI Helper Skeleton
 
 **Files:**
+
 - Create: `src-tauri/src/bin/cc-switch-cli.rs`
 - Create: `src-tauri/src/cli/mod.rs`
 - Create: `src-tauri/src/cli/types.rs`
@@ -417,6 +437,7 @@ git commit -m "feat(remote): add Rust CLI helper skeleton"
 ## Task 4: SSH Remote Adapter
 
 **Files:**
+
 - Create: `src-tauri/src/remote/ssh.rs`
 - Modify: `src-tauri/src/remote/mod.rs`
 - Test: `src-tauri/tests/remote_ssh.rs`
@@ -532,6 +553,7 @@ git commit -m "feat(remote): add SSH command adapter"
 ## Task 5: Tauri Remote Commands
 
 **Files:**
+
 - Create: `src-tauri/src/commands/remote.rs`
 - Modify: `src-tauri/src/commands/mod.rs`
 - Modify: `src-tauri/src/lib.rs`
@@ -598,6 +620,7 @@ git commit -m "feat(remote): expose remote management commands"
 ## Task 6: Frontend Remote API and Query Layer
 
 **Files:**
+
 - Create: `src/lib/api/remote.ts`
 - Modify: `src/lib/api/index.ts`
 - Create: `src/lib/query/remote.ts`
@@ -658,7 +681,8 @@ export const remoteQueryKeys = {
 
 export function useValidateRemoteProfile() {
   return useMutation({
-    mutationFn: (profile: RemoteHostProfile) => remoteApi.validateProfile(profile),
+    mutationFn: (profile: RemoteHostProfile) =>
+      remoteApi.validateProfile(profile),
   });
 }
 ```
@@ -679,6 +703,7 @@ git commit -m "feat(remote): add frontend remote API layer"
 ## Task 7: Remote UI Shell
 
 **Files:**
+
 - Create: `src/components/remote/RemoteServersPage.tsx`
 - Create: `src/components/remote/RemoteHostDialog.tsx`
 - Create: `src/components/remote/RemoteHealthPanel.tsx`
@@ -690,7 +715,13 @@ Create `src/components/remote/RemoteHostDialog.tsx`:
 
 ```tsx
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
 export function RemoteHostDialog({
@@ -810,20 +841,22 @@ Add a `renderContent` branch before the default provider view:
 Add a header title branch near the other `currentView` title checks:
 
 ```tsx
-                  {currentView === "remoteServers" && "Remote Servers"}
+{
+  currentView === "remoteServers" && "Remote Servers";
+}
 ```
 
 Add one action button in the header action area next to other global tools:
 
 ```tsx
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setCurrentView("remoteServers")}
-                    title="Remote Servers"
-                  >
-                    <Server className="h-4 w-4" />
-                  </Button>
+<Button
+  variant="ghost"
+  size="sm"
+  onClick={() => setCurrentView("remoteServers")}
+  title="Remote Servers"
+>
+  <Server className="h-4 w-4" />
+</Button>
 ```
 
 - [ ] **Step 5: Run typecheck**
@@ -842,6 +875,7 @@ git commit -m "feat(remote): add remote server UI shell"
 ## Task 8: Provider Parity MVP
 
 **Files:**
+
 - Modify: `src-tauri/src/cli/commands.rs`
 - Modify: `src-tauri/src/cli/mod.rs`
 - Modify: `src-tauri/src/remote/ssh.rs`
@@ -904,7 +938,8 @@ export function RemoteProvidersPanel() {
         </Button>
       </div>
       <div className="rounded-md border p-3 text-sm text-muted-foreground">
-        Provider list is loaded from the selected remote server, not local state.
+        Provider list is loaded from the selected remote server, not local
+        state.
       </div>
     </section>
   );
@@ -945,6 +980,7 @@ git commit -m "feat(remote): add remote provider parity foundation"
 ## Task 9: Distribution Strategy
 
 **Files:**
+
 - Modify: `.github/workflows/release.yml`
 - Create: `scripts/install-remote-helper.sh`
 - Create: `docs/guides/remote-server-management-zh.md`
@@ -954,40 +990,40 @@ git commit -m "feat(remote): add remote provider parity foundation"
 Modify `.github/workflows/release.yml` after the platform-specific `Prepare macOS Assets`, `Prepare Windows Assets`, and `Prepare Linux Assets` steps and before `List prepared assets`:
 
 ```yaml
-      - name: Prepare Remote Helper CLI Asset
-        shell: bash
-        run: |
-          set -euxo pipefail
-          mkdir -p release-assets
-          VERSION="${GITHUB_REF_NAME}"
-          case "${{ runner.os }}" in
-            macOS)
-              HELPER_PATH="src-tauri/target/universal-apple-darwin/release/cc-switch-cli"
-              HELPER_OS="macOS"
-              HELPER_ARCH="universal"
-              ;;
-            Linux)
-              HELPER_PATH="src-tauri/target/release/cc-switch-cli"
-              HELPER_OS="Linux"
-              HELPER_ARCH="${{ matrix.arch || 'x86_64' }}"
-              ;;
-            Windows)
-              HELPER_PATH="src-tauri/target/release/cc-switch-cli.exe"
-              HELPER_OS="Windows"
-              HELPER_ARCH="x86_64"
-              ;;
-          esac
-          if [ ! -f "$HELPER_PATH" ]; then
-            echo "Remote helper CLI not found at $HELPER_PATH" >&2
-            exit 1
-          fi
-          ASSET="cc-switch-cli-${VERSION}-${HELPER_OS}-${HELPER_ARCH}"
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            cp "$HELPER_PATH" "release-assets/${ASSET}.exe"
-          else
-            cp "$HELPER_PATH" "release-assets/${ASSET}"
-            chmod +x "release-assets/${ASSET}"
-          fi
+- name: Prepare Remote Helper CLI Asset
+  shell: bash
+  run: |
+    set -euxo pipefail
+    mkdir -p release-assets
+    VERSION="${GITHUB_REF_NAME}"
+    case "${{ runner.os }}" in
+      macOS)
+        HELPER_PATH="src-tauri/target/universal-apple-darwin/release/cc-switch-cli"
+        HELPER_OS="macOS"
+        HELPER_ARCH="universal"
+        ;;
+      Linux)
+        HELPER_PATH="src-tauri/target/release/cc-switch-cli"
+        HELPER_OS="Linux"
+        HELPER_ARCH="${{ matrix.arch || 'x86_64' }}"
+        ;;
+      Windows)
+        HELPER_PATH="src-tauri/target/release/cc-switch-cli.exe"
+        HELPER_OS="Windows"
+        HELPER_ARCH="x86_64"
+        ;;
+    esac
+    if [ ! -f "$HELPER_PATH" ]; then
+      echo "Remote helper CLI not found at $HELPER_PATH" >&2
+      exit 1
+    fi
+    ASSET="cc-switch-cli-${VERSION}-${HELPER_OS}-${HELPER_ARCH}"
+    if [ "${{ runner.os }}" = "Windows" ]; then
+      cp "$HELPER_PATH" "release-assets/${ASSET}.exe"
+    else
+      cp "$HELPER_PATH" "release-assets/${ASSET}"
+      chmod +x "release-assets/${ASSET}"
+    fi
 ```
 
 - [ ] **Step 2: Add helper installer script**

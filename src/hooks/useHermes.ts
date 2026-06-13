@@ -30,8 +30,10 @@ export const HERMES_WEB_OFFLINE_ERROR = "hermes_web_offline";
  */
 export const hermesKeys = {
   all: ["hermes"] as const,
-  liveProviderIds: ["hermes", "liveProviderIds"] as const,
-  modelConfig: ["hermes", "modelConfig"] as const,
+  liveProviderIds: (targetKey = "local") =>
+    ["hermes", "liveProviderIds", targetKey] as const,
+  modelConfig: (targetKey = "local") =>
+    ["hermes", "modelConfig", targetKey] as const,
   memory: (kind: HermesMemoryKind, targetKey = "local") =>
     ["hermes", "memory", targetKey, kind] as const,
   memoryLimits: (targetKey = "local") =>
@@ -43,10 +45,16 @@ export const hermesKeys = {
  * added/updated/deleted/switched. Runs invalidations in parallel so the
  * caller doesn't await three sequential refetches.
  */
-export function invalidateHermesProviderCaches(queryClient: QueryClient) {
+export function invalidateHermesProviderCaches(
+  queryClient: QueryClient,
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
+  const targetKey = getManagementTargetKey(target);
   return Promise.all([
-    queryClient.invalidateQueries({ queryKey: hermesKeys.liveProviderIds }),
-    queryClient.invalidateQueries({ queryKey: hermesKeys.modelConfig }),
+    queryClient.invalidateQueries({
+      queryKey: hermesKeys.liveProviderIds(targetKey),
+    }),
+    queryClient.invalidateQueries({ queryKey: hermesKeys.modelConfig(targetKey) }),
   ]);
 }
 
@@ -54,18 +62,26 @@ export function invalidateHermesProviderCaches(queryClient: QueryClient) {
 // Query hooks
 // ============================================================
 
-export function useHermesLiveProviderIds(enabled: boolean) {
+export function useHermesLiveProviderIds(
+  enabled: boolean,
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
+  const targetKey = getManagementTargetKey(target);
   return useQuery({
-    queryKey: hermesKeys.liveProviderIds,
-    queryFn: () => providersApi.getHermesLiveProviderIds(),
+    queryKey: hermesKeys.liveProviderIds(targetKey),
+    queryFn: () => providersApi.getHermesLiveProviderIds(target),
     enabled,
   });
 }
 
-export function useHermesModelConfig(enabled: boolean) {
+export function useHermesModelConfig(
+  enabled: boolean,
+  target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+) {
+  const targetKey = getManagementTargetKey(target);
   return useQuery({
-    queryKey: hermesKeys.modelConfig,
-    queryFn: () => hermesApi.getModelConfig(),
+    queryKey: hermesKeys.modelConfig(targetKey),
+    queryFn: () => hermesApi.getModelConfig(target),
     enabled,
   });
 }

@@ -81,11 +81,20 @@ export function canReportRemoteCapabilities(health: RemoteHealth | null) {
 
 export function formatRemoteHelperVersion(health: RemoteHealth | null) {
   if (!health?.helperVersion) return "-";
-  return health.helperVersion;
+  return formatHelperVersionWithBuild(health.helperVersion, health.helperBuild);
 }
 
 export function formatRemoteHelperLatest(health: RemoteHealth | null) {
-  return health?.helperLatestVersion ?? "-";
+  if (!health?.helperLatestVersion) return "-";
+  return formatHelperVersionWithBuild(
+    health.helperLatestVersion,
+    health.helperLatestBuild,
+  );
+}
+
+function formatHelperVersionWithBuild(version: string, build?: string | null) {
+  const shortBuild = build?.trim().slice(0, 8);
+  return shortBuild ? `${version} (${shortBuild})` : version;
 }
 
 export function formatRemotePlatform(health: RemoteHealth | null) {

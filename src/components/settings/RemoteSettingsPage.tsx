@@ -9,7 +9,6 @@ import {
   Download,
   Globe,
   Loader2,
-  MonitorUp,
   RefreshCw,
   Server,
   ShieldAlert,
@@ -32,6 +31,7 @@ import { CodexAuthSettings } from "@/components/settings/CodexAuthSettings";
 import { ImportExportSection } from "@/components/settings/ImportExportSection";
 import { SkillStorageLocationSettings } from "@/components/settings/SkillStorageLocationSettings";
 import { SkillSyncMethodSettings } from "@/components/settings/SkillSyncMethodSettings";
+import { WindowSettings } from "@/components/settings/WindowSettings";
 import { AutoFailoverConfigPanel } from "@/components/proxy/AutoFailoverConfigPanel";
 import { FailoverQueueManager } from "@/components/proxy/FailoverQueueManager";
 import { ProxyPanel } from "@/components/proxy/ProxyPanel";
@@ -567,9 +567,6 @@ export function RemoteSettingsPage({
                 installedSkillCount={remoteInstalledSkillCount}
                 isLoading={isLoadingRemoteSettings}
                 isSaving={isSavingRemoteSettings}
-                onRefresh={() => {
-                  void loadRemoteSettings(skillsCapability);
-                }}
                 onSave={(updates) => {
                   void saveRemoteSettings(updates);
                 }}
@@ -583,6 +580,11 @@ export function RemoteSettingsPage({
               helperReady={helperReady}
               routingCapability={routingCapability}
               routingRuntimeCapability={routingRuntimeCapability}
+              settings={remoteSettings}
+              isSavingSettings={isSavingRemoteSettings}
+              onSaveSettings={(updates) => {
+                void saveRemoteSettings(updates);
+              }}
               target={target}
             />
           </TabsContent>
@@ -645,11 +647,17 @@ export function RemoteSettingsPage({
 interface RemoteRoutingRuntimePanelProps {
   target: Extract<ManagementTarget, { type: "remote" }>;
   enabled: boolean;
+  settings: Settings | null;
+  isSavingSettings: boolean;
+  onSaveSettings: (updates: Partial<Settings>) => void;
 }
 
 function RemoteRoutingRuntimePanel({
   target,
   enabled,
+  settings,
+  isSavingSettings,
+  onSaveSettings,
 }: RemoteRoutingRuntimePanelProps) {
   const { t } = useTranslation();
   const { startProxyServer, stopWithRestore, isStarting, isStopping } =
@@ -693,13 +701,35 @@ function RemoteRoutingRuntimePanel({
   }
 
   return (
-    <ProxyPanel
-      target={target}
-      enableLocalProxy={false}
-      onEnableLocalProxyChange={() => undefined}
-      onToggleProxy={handleToggleProxy}
-      isProxyPending={isStarting || isStopping}
-    />
+    <div className="space-y-4">
+      {settings ? (
+        <ToggleRow
+          icon={<Server className="h-4 w-4 text-green-500" />}
+          title={t("remote.settings.routing.showRemoteRoutingToggle", {
+            defaultValue: "在主页面显示远程路由开关",
+          })}
+          description={t(
+            "remote.settings.routing.showRemoteRoutingToggleDescription",
+            {
+              defaultValue:
+                "开启后，主页面顶部显示当前应用的远程路由开关；开启应用路由时远程路由服务会自动启动。",
+            },
+          )}
+          checked={!!settings.enableRemoteRoutingToggle}
+          disabled={isSavingSettings}
+          onCheckedChange={(value) =>
+            onSaveSettings({ enableRemoteRoutingToggle: value })
+          }
+        />
+      ) : null}
+      <ProxyPanel
+        target={target}
+        enableLocalProxy={false}
+        onEnableLocalProxyChange={() => undefined}
+        onToggleProxy={handleToggleProxy}
+        isProxyPending={isStarting || isStopping}
+      />
+    </div>
   );
 }
 
@@ -707,6 +737,9 @@ interface RemoteRoutingSettingsSectionProps {
   helperReady: boolean;
   routingCapability: boolean;
   routingRuntimeCapability: boolean;
+  settings: Settings | null;
+  isSavingSettings: boolean;
+  onSaveSettings: (updates: Partial<Settings>) => void;
   target: Extract<ManagementTarget, { type: "remote" }>;
 }
 
@@ -714,6 +747,9 @@ function RemoteRoutingSettingsSection({
   helperReady,
   routingCapability,
   routingRuntimeCapability,
+  settings,
+  isSavingSettings,
+  onSaveSettings,
   target,
 }: RemoteRoutingSettingsSectionProps) {
   const { t } = useTranslation();
@@ -750,11 +786,7 @@ function RemoteRoutingSettingsSection({
       transition={{ duration: 0.3 }}
       className="space-y-4"
     >
-      <Accordion
-        type="multiple"
-        defaultValue={["proxy"]}
-        className="w-full space-y-4"
-      >
+      <Accordion type="multiple" defaultValue={[]} className="w-full space-y-4">
         <AccordionItem
           value="proxy"
           className="rounded-xl glass-card overflow-hidden"
@@ -764,9 +796,7 @@ function RemoteRoutingSettingsSection({
               <Server className="h-5 w-5 text-green-500" />
               <div className="text-left">
                 <h3 className="text-base font-semibold">
-                  {t("remote.settings.routing.proxyTitle", {
-                    defaultValue: "远程路由",
-                  })}
+                  {t("settings.advanced.proxy.title")}
                 </h3>
                 <p className="text-sm text-muted-foreground font-normal">
                   {t("settings.advanced.proxy.description")}
@@ -789,6 +819,9 @@ function RemoteRoutingSettingsSection({
             <RemoteRoutingRuntimePanel
               target={target}
               enabled={routingRuntimeCapability}
+              settings={settings}
+              isSavingSettings={isSavingSettings}
+              onSaveSettings={onSaveSettings}
             />
           </AccordionContent>
         </AccordionItem>
@@ -802,9 +835,7 @@ function RemoteRoutingSettingsSection({
               <Activity className="h-5 w-5 text-orange-500" />
               <div className="text-left">
                 <h3 className="text-base font-semibold">
-                  {t("remote.settings.routing.failoverTitle", {
-                    defaultValue: "远程自动故障转移",
-                  })}
+                  {t("settings.advanced.failover.title")}
                 </h3>
                 <p className="text-sm text-muted-foreground font-normal">
                   {t("settings.advanced.failover.description")}
@@ -814,6 +845,26 @@ function RemoteRoutingSettingsSection({
           </AccordionTrigger>
           <AccordionContent className="px-6 pb-6 pt-4 border-t border-border/50">
             <div className="space-y-5">
+              {settings ? (
+                <ToggleRow
+                  icon={<ShieldAlert className="h-4 w-4 text-orange-500" />}
+                  title={t("remote.settings.routing.showRemoteFailoverToggle", {
+                    defaultValue: "在主页面显示远程故障转移开关",
+                  })}
+                  description={t(
+                    "remote.settings.routing.showRemoteFailoverToggleDescription",
+                    {
+                      defaultValue:
+                        "开启后，主页面顶部显示当前应用的远程故障转移开关；需要当前应用已启用远程路由。",
+                    },
+                  )}
+                  checked={!!settings.enableRemoteFailoverToggle}
+                  disabled={isSavingSettings}
+                  onCheckedChange={(value) =>
+                    onSaveSettings({ enableRemoteFailoverToggle: value })
+                  }
+                />
+              ) : null}
               <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 text-sm text-muted-foreground">
                 <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
                 <span>
@@ -849,7 +900,7 @@ function RemoteRoutingSettingsSection({
                         <FailoverQueueManager
                           appType={appType}
                           target={target}
-                          disabled={failoverDisabled}
+                          autoSwitchDisabled={failoverDisabled}
                         />
                         <AutoFailoverConfigPanel
                           appType={appType}
@@ -874,9 +925,7 @@ function RemoteRoutingSettingsSection({
               <Zap className="h-5 w-5 text-purple-500" />
               <div className="text-left">
                 <h3 className="text-base font-semibold">
-                  {t("remote.settings.routing.rectifierTitle", {
-                    defaultValue: "远程整流器与优化",
-                  })}
+                  {t("settings.advanced.rectifier.title")}
                 </h3>
                 <p className="text-sm text-muted-foreground font-normal">
                   {t("settings.advanced.rectifier.description")}
@@ -898,9 +947,7 @@ function RemoteRoutingSettingsSection({
               <Globe className="h-5 w-5 text-cyan-500" />
               <div className="text-left">
                 <h3 className="text-base font-semibold">
-                  {t("remote.settings.routing.globalProxyTitle", {
-                    defaultValue: "远程全局出站代理",
-                  })}
+                  {t("settings.advanced.globalProxy.title")}
                 </h3>
                 <p className="text-sm text-muted-foreground font-normal">
                   {t("settings.advanced.globalProxy.description")}
@@ -935,7 +982,6 @@ interface RemoteGeneralSettingsSectionProps {
   installedSkillCount: number;
   isLoading: boolean;
   isSaving: boolean;
-  onRefresh: () => void | Promise<void>;
   onSave: (updates: Partial<Settings>) => void | Promise<void>;
   onMigrateSkillStorage: (
     target: SkillStorageLocation,
@@ -951,7 +997,6 @@ function RemoteGeneralSettingsSection({
   installedSkillCount,
   isLoading,
   isSaving,
-  onRefresh,
   onSave,
   onMigrateSkillStorage,
 }: RemoteGeneralSettingsSectionProps) {
@@ -978,7 +1023,7 @@ function RemoteGeneralSettingsSection({
       <div className="flex items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-3 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
         {t("remote.settings.general.loading", {
-          defaultValue: "正在加载远程通用设置...",
+          defaultValue: "正在加载远程设置...",
         })}
       </div>
     );
@@ -986,35 +1031,6 @@ function RemoteGeneralSettingsSection({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="truncate text-sm font-medium">
-            {t("remote.settings.general.title", {
-              defaultValue: "远程通用设置",
-            })}
-          </h3>
-          <p className="truncate text-xs text-muted-foreground">
-            {t("remote.settings.general.description", {
-              defaultValue: "这些设置保存到当前远程主机自己的配置目录。",
-            })}
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={isLoading || isSaving}
-          onClick={() => void onRefresh()}
-        >
-          {isLoading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="mr-2 h-4 w-4" />
-          )}
-          {t("common.refresh")}
-        </Button>
-      </div>
-
       <AppVisibilitySettings
         settings={settings}
         onChange={(updates) => void onSave(updates)}
@@ -1050,44 +1066,12 @@ function RemoteGeneralSettingsSection({
         onChange={(updates) => void onSave(updates)}
       />
 
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 border-b border-border/40 pb-2">
-          <MonitorUp className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-medium">
-            {t("settings.windowBehavior")}
-          </h3>
-          {!pluginCapability ? (
-            <Badge variant="outline">
-              {t("remote.settings.general.pluginUnsupportedBadge", {
-                defaultValue: "需要新版 Helper",
-              })}
-            </Badge>
-          ) : null}
-        </div>
-
-        <div className="space-y-3">
-          <ToggleRow
-            icon={<MonitorUp className="h-4 w-4 text-purple-500" />}
-            title={t("settings.enableClaudePluginIntegration")}
-            description={t("settings.enableClaudePluginIntegrationDescription")}
-            checked={!!settings.enableClaudePluginIntegration}
-            disabled={!pluginCapability || isSaving}
-            onCheckedChange={(value) =>
-              void onSave({ enableClaudePluginIntegration: value })
-            }
-          />
-          <ToggleRow
-            icon={<MonitorUp className="h-4 w-4 text-cyan-500" />}
-            title={t("settings.skipClaudeOnboarding")}
-            description={t("settings.skipClaudeOnboardingDescription")}
-            checked={!!settings.skipClaudeOnboarding}
-            disabled={!pluginCapability || isSaving}
-            onCheckedChange={(value) =>
-              void onSave({ skipClaudeOnboarding: value })
-            }
-          />
-        </div>
-      </section>
+      <WindowSettings
+        settings={settings}
+        mode="remote"
+        disabled={!pluginCapability || isSaving}
+        onChange={(updates) => void onSave(updates)}
+      />
     </div>
   );
 }
@@ -1105,9 +1089,13 @@ function RemoteHealthSection({
   const capabilitySummary = formatRemoteCapabilitySummary(health, t);
   const helperActionLabel = health?.helperUpdateAvailable
     ? t("remote.health.updateHelper", { defaultValue: "更新 Helper" })
-    : t("remote.health.installHelper", {
-        defaultValue: "安装 Helper",
-      });
+    : health?.helperInstalled
+      ? t("remote.health.reinstallHelper", {
+          defaultValue: "重新安装 Helper",
+        })
+      : t("remote.health.installHelper", {
+          defaultValue: "安装 Helper",
+        });
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">

@@ -353,6 +353,12 @@ pub struct AppSettings {
     /// Whether to show the failover toggle independently on the main page
     #[serde(default)]
     pub enable_failover_toggle: bool,
+    /// Whether to show the remote app routing toggle on the main page for this target
+    #[serde(default)]
+    pub enable_remote_routing_toggle: bool,
+    /// Whether to show the remote failover toggle on the main page for this target
+    #[serde(default)]
+    pub enable_remote_failover_toggle: bool,
     /// Keep Codex ChatGPT login material in auth.json when switching to third-party providers.
     /// Opt-in: defaults to false so third-party switches cleanly overwrite auth.json.
     #[serde(default)]
@@ -474,6 +480,8 @@ impl Default for AppSettings {
             usage_confirmed: None,
             stream_check_confirmed: None,
             enable_failover_toggle: false,
+            enable_remote_routing_toggle: false,
+            enable_remote_failover_toggle: false,
             preserve_codex_official_auth_on_switch: false,
             failover_confirmed: None,
             first_run_notice_confirmed: None,

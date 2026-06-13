@@ -2855,8 +2855,8 @@
         "loadTools": "リモートツールのバージョンと更新情報を読み込んでいます...",
         "installHelper": "リモート Helper をインストールしています: SSH 接続、バイナリ取得、能力確認を実行中...",
         "runToolAction": "リモートで {{tool}} の {{action}} を実行しています...",
-        "loadSettings": "リモート一般設定を読み込んでいます...",
-        "saveSettings": "リモート一般設定を保存しています..."
+        "loadSettings": "リモート設定を読み込んでいます...",
+        "saveSettings": "リモート設定を保存しています..."
       },
       "environment": {
         "host": "リモートホスト",
@@ -2867,20 +2867,21 @@
         "loadToolsFailed": "リモート環境チェックに失敗しました"
       },
       "general": {
-        "title": "リモート一般設定",
-        "description": "これらの設定は選択中のリモートホスト自身の設定ディレクトリに保存されます。",
-        "loading": "リモート一般設定を読み込んでいます...",
+        "loading": "リモート設定を読み込んでいます...",
         "unsupported": "現在のリモート Helper は一般設定管理をサポートしていません。settings capability を含む Helper に更新してください。",
-        "loadFailed": "リモート一般設定の読み込みに失敗しました",
-        "saveFailed": "リモート一般設定の保存に失敗しました",
-        "skillsUnsupported": "現在のリモート Helper は Skills 保存先の移行をサポートしていません。",
-        "pluginUnsupportedBadge": "新しい Helper が必要"
+        "loadFailed": "リモート設定の読み込みに失敗しました",
+        "saveFailed": "リモート設定の保存に失敗しました",
+        "skillsUnsupported": "現在のリモート Helper は Skills 保存先の移行をサポートしていません。"
       },
       "data": {
         "description": "選択中のリモートサーバー自身の CC Switch データをインポートまたはエクスポートします"
       },
       "routing": {
-        "failoverRequired": "フェイルオーバーを設定する前に、リモートルーティングを開始し、{{app}} のリモートルーティングを有効にしてください。"
+        "failoverRequired": "フェイルオーバーを設定する前に、リモートルーティングを開始し、{{app}} のリモートルーティングを有効にしてください。",
+        "showRemoteRoutingToggle": "メインページにリモートルーティング切り替えを表示",
+        "showRemoteRoutingToggleDescription": "有効にすると、メインページ上部に現在のアプリのリモートルーティング切り替えが表示されます。アプリルーティングを有効にすると、リモートルーティングサービスは自動で起動します。",
+        "showRemoteFailoverToggle": "メインページにリモートフェイルオーバー切り替えを表示",
+        "showRemoteFailoverToggleDescription": "有効にすると、メインページ上部に現在のアプリのリモートフェイルオーバー切り替えが表示されます。現在のアプリでリモートルーティングが有効になっている必要があります。"
       }
     },
     "errors": {
@@ -2929,6 +2930,8 @@
       "app": {
         "tooltip": {
           "runtimeRequired": "{{app}} のルーティングを有効にする前に、リモートルーティングサービスを開始してください",
+          "inactiveWithStart": "{{app}} のリモートルーティングを有効にします。リモートルーティングサービスは自動で起動します",
+          "broken": "{{app}} のリモートルーティングは有効ですが、リモートルーティングサービスが実行されていません",
           "active": "{{app}} のリクエストはリモートルーティング経由で転送されます",
           "inactive": "{{app}} のリモートルーティングを有効にします"
         }

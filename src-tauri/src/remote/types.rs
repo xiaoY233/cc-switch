@@ -90,6 +90,7 @@ pub enum RemoteCapability {
     HermesMemory,
     ImportExport,
     Tools,
+    StreamCheck,
     Settings,
     Plugin,
     Session,

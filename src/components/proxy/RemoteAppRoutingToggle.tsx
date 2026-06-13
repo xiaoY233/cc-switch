@@ -32,24 +32,32 @@ export function RemoteAppRoutingToggle({
   const isPending = isLoading || updateConfig.isPending;
 
   const handleToggle = async (checked: boolean) => {
-    if (!config || !isRunning) return;
+    if (!config) return;
     await updateConfig.mutateAsync({ ...config, enabled: checked });
   };
 
-  const tooltipText = !isRunning
-    ? t("remote.routing.app.tooltip.runtimeRequired", {
-        app: label,
-        defaultValue: `请先启动远程路由服务，再启用 ${label} 路由`,
-      })
-    : enabled
-      ? t("remote.routing.app.tooltip.active", {
-          app: label,
-          defaultValue: `${label} 请求将通过远程路由转发`,
-        })
-      : t("remote.routing.app.tooltip.inactive", {
-          app: label,
-          defaultValue: `启用 ${label} 远程路由`,
-        });
+  let tooltipText: string;
+  if (enabled && !isRunning) {
+    tooltipText = t("remote.routing.app.tooltip.broken", {
+      app: label,
+      defaultValue: `${label} 已启用远程路由，但远程路由服务未运行`,
+    });
+  } else if (enabled) {
+    tooltipText = t("remote.routing.app.tooltip.active", {
+      app: label,
+      defaultValue: `${label} 请求将通过远程路由转发`,
+    });
+  } else if (!isRunning) {
+    tooltipText = t("remote.routing.app.tooltip.inactiveWithStart", {
+      app: label,
+      defaultValue: `启用 ${label} 远程路由；远程路由服务会自动启动`,
+    });
+  } else {
+    tooltipText = t("remote.routing.app.tooltip.inactive", {
+      app: label,
+      defaultValue: `启用 ${label} 远程路由`,
+    });
+  }
 
   return (
     <div
@@ -75,7 +83,7 @@ export function RemoteAppRoutingToggle({
       <Switch
         checked={enabled}
         onCheckedChange={handleToggle}
-        disabled={isPending || !isRunning || !config}
+        disabled={isPending || !config}
       />
     </div>
   );

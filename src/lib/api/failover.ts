@@ -29,7 +29,16 @@ export const failoverApi = {
   async getProviderHealth(
     providerId: string,
     appType: string,
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
   ): Promise<ProviderHealth> {
+    if (target.type === "remote") {
+      return remoteApi.getRoutingProviderHealth(
+        target.profile,
+        providerId,
+        appType,
+        target.secret,
+      );
+    }
     return invoke("get_provider_health", { providerId, appType });
   },
 
@@ -37,19 +46,44 @@ export const failoverApi = {
   async resetCircuitBreaker(
     providerId: string,
     appType: string,
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
   ): Promise<void> {
+    if (target.type === "remote") {
+      return remoteApi.resetRoutingCircuitBreaker(
+        target.profile,
+        providerId,
+        appType,
+        target.secret,
+      );
+    }
     return invoke("reset_circuit_breaker", { providerId, appType });
   },
 
   // 获取熔断器配置
-  async getCircuitBreakerConfig(): Promise<CircuitBreakerConfig> {
+  async getCircuitBreakerConfig(
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
+  ): Promise<CircuitBreakerConfig> {
+    if (target.type === "remote") {
+      return remoteApi.getRoutingCircuitBreakerConfig(
+        target.profile,
+        target.secret,
+      );
+    }
     return invoke("get_circuit_breaker_config");
   },
 
   // 更新熔断器配置
   async updateCircuitBreakerConfig(
     config: CircuitBreakerConfig,
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
   ): Promise<void> {
+    if (target.type === "remote") {
+      return remoteApi.updateRoutingCircuitBreakerConfig(
+        target.profile,
+        config,
+        target.secret,
+      );
+    }
     return invoke("update_circuit_breaker_config", { config });
   },
 
@@ -57,7 +91,16 @@ export const failoverApi = {
   async getCircuitBreakerStats(
     providerId: string,
     appType: string,
+    target: ManagementTarget = LOCAL_MANAGEMENT_TARGET,
   ): Promise<CircuitBreakerStats | null> {
+    if (target.type === "remote") {
+      return remoteApi.getRoutingCircuitBreakerStats(
+        target.profile,
+        providerId,
+        appType,
+        target.secret,
+      );
+    }
     return invoke("get_circuit_breaker_stats", { providerId, appType });
   },
 
