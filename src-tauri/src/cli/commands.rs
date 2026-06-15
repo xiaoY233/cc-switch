@@ -418,7 +418,7 @@ pub fn stream_check_provider(
     let result = runtime
         .block_on(
             crate::services::stream_check::StreamCheckService::check_with_retry(
-                &app, provider, &config, None, None, None,
+                &app, provider, &config, None,
             ),
         )
         .map_err(|e| e.to_string())?;
