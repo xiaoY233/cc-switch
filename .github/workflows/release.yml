@@ -665,6 +665,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout release notes
+        uses: actions/checkout@v6
+
       - name: Download built release artifacts
         uses: actions/download-artifact@v8
         with:
@@ -678,31 +681,52 @@ jobs:
           set -euo pipefail
           ls -la release-assets
 
+      - name: Prepare Release Notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          BODY_PATH="release-body.md"
+
+          if [ -f "docs/release-notes/${TAG}.md" ]; then
+            cp "docs/release-notes/${TAG}.md" "$BODY_PATH"
+            echo "Using docs/release-notes/${TAG}.md"
+          elif [ -f "docs/release-notes/${TAG}-zh.md" ]; then
+            cp "docs/release-notes/${TAG}-zh.md" "$BODY_PATH"
+            echo "Using docs/release-notes/${TAG}-zh.md"
+          else
+            cat > "$BODY_PATH" <<EOF
+          ## CC Switch Remote ${TAG}
+
+          Remote-management fork of CC Switch.
+
+          Claude Code / Codex / Gemini provider management with local and remote targets.
+
+          ### 下载
+
+          - **macOS**: \`CC-Switch-Remote-${TAG}-macOS.dmg\` 或 \`CC-Switch-Remote-${TAG}-macOS.zip\`（未签名/未公证）
+          - **Windows**: \`CC-Switch-Remote-${TAG}-Windows.msi\`（安装版）或 \`CC-Switch-Remote-${TAG}-Windows-Portable.zip\`（绿色版）
+          - **Linux (x86_64)**: \`CC-Switch-Remote-${TAG}-Linux-x86_64.AppImage\` / \`.deb\` / \`.rpm\`
+          - **Linux (ARM64)**: \`CC-Switch-Remote-${TAG}-Linux-arm64.AppImage\` / \`.deb\` / \`.rpm\`
+          - **Remote Helper**: published separately by the \`Remote Helper Artifacts\` workflow on \`remote-helper-latest\`
+
+          > \`.tar.gz\` 为 Tauri updater 自动更新专用，无需手动下载。
+
+          ---
+          macOS 版本未进行 Apple Developer ID 签名和公证，首次打开可能需要在系统设置中手动允许。
+          EOF
+          fi
+
+          echo "Prepared release body:"
+          sed -n '1,120p' "$BODY_PATH"
+
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: CC Switch Remote ${{ github.ref_name }}
           prerelease: false
-          body: |
-            ## CC Switch Remote ${{ github.ref_name }}
-
-            Remote-management fork of CC Switch.
-
-            Claude Code / Codex / Gemini provider management with local and remote targets.
-
-            ### 下载
-
-            - **macOS**: `CC-Switch-Remote-${{ github.ref_name }}-macOS.dmg` 或 `CC-Switch-Remote-${{ github.ref_name }}-macOS.zip`（未签名/未公证）
-            - **Windows**: `CC-Switch-Remote-${{ github.ref_name }}-Windows.msi`（安装版）或 `CC-Switch-Remote-${{ github.ref_name }}-Windows-Portable.zip`（绿色版）
-            - **Linux (x86_64)**: `CC-Switch-Remote-${{ github.ref_name }}-Linux-x86_64.AppImage` / `.deb` / `.rpm`
-            - **Linux (ARM64)**: `CC-Switch-Remote-${{ github.ref_name }}-Linux-arm64.AppImage` / `.deb` / `.rpm`
-            - **Remote Helper**: published separately by the `Remote Helper Artifacts` workflow on `remote-helper-latest`
-
-            > `.tar.gz` 为 Tauri updater 自动更新专用，无需手动下载。
-
-            ---
-            macOS 版本未进行 Apple Developer ID 签名和公证，首次打开可能需要在系统设置中手动允许。
+          body_path: release-body.md
           files: release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
